@@ -44,7 +44,14 @@ export class AnapathRequest {
   episodeId: string;
 
   @Column({ nullable: true })
+  @Index()
   prescriptionId: string;
+
+  // ID de la demande individuelle côté service Prescription externe — nécessaire
+  // pour propager un changement de statut local vers PATCH /prescriptions/anapath/{prescriptionId}/demandes/{demandeId}/statut.
+  @Column({ nullable: true, unique: true })
+  @Index()
+  demandeId: string;
 
   @Column({ type: 'enum', enum: ExamenType })
   typeExamen: ExamenType;

@@ -9,7 +9,12 @@ import { UpdateAnapathDto } from './dto/update-anapath.dto';
 import { ValidateAnapathDto } from './dto/validate-anapath.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
+import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
+import { NotificationService } from '../notification/notification.service';
 import * as crypto from 'crypto';
+
+const ANAPATH_SERVICE_ID =
+  process.env.ANAPATH_SERVICE_ID ?? '14a94274-db57-49e3-9375-1e642729b92b';
 
 export type AnapathRequestResponse = AnapathRequest & {
   resultat: { details: string | null; conclusion: string | null };
@@ -23,7 +28,40 @@ export class AnapathService {
     private anapathRepository: Repository<AnapathRequest>,
     @InjectRepository(ReportSettings)
     private reportSettingsRepository: Repository<ReportSettings>,
+    private readonly prescriptionClient: PrescriptionClient,
+    private readonly notificationService: NotificationService,
   ) {}
+
+  /**
+   * Propage un changement de statut local vers le service Prescription externe.
+   * Jamais bloquant : appelée après un save() réussi, ignore silencieusement
+   * (avec un warning) si les IDs externes ou le token sont absents, ou si l'appel échoue.
+   * Hypothèse non vérifiée : le service externe accepte les mêmes libellés que l'enum Statut local.
+   */
+  private async propagerStatutVersPrescription(
+    request: AnapathRequest,
+    token?: string,
+  ): Promise<void> {
+    if (!token) {
+      console.warn(
+        `Propagation statut ignorée pour ${request.anapathId} : pas de token utilisateur disponible`,
+      );
+      return;
+    }
+    if (!request.prescriptionId || !request.demandeId) {
+      console.warn(
+        `Propagation statut ignorée pour ${request.anapathId} : prescriptionId/demandeId externe manquant`,
+      );
+      return;
+    }
+    await this.prescriptionClient.updateDemandeStatut(
+      token,
+      request.prescriptionId,
+      request.demandeId,
+      request.statut,
+      request.statut === Statut.ANNULEE ? request.motifAnnulation : undefined,
+    );
+  }
 
   private generateAnapathId(): string {
     const year = new Date().getFullYear();
@@ -109,8 +147,13 @@ export class AnapathService {
     return this.anapathRepository.save(entity);
   }
 
-  async update(id: string, updateDto: UpdateAnapathDto): Promise<AnapathRequestResponse> {
+  async update(
+    id: string,
+    updateDto: UpdateAnapathDto,
+    token?: string,
+  ): Promise<AnapathRequestResponse> {
     const request = await this.findOneEntity(id);
+    const statutAvant = request.statut;
 
     if (
       updateDto.resultatDetails !== undefined ||
@@ -157,6 +200,9 @@ export class AnapathService {
     this.syncResultatFields(request);
 
     const saved = await this.anapathRepository.save(request);
+    if (updateDto.statut !== undefined && updateDto.statut !== statutAvant) {
+      await this.propagerStatutVersPrescription(saved, token);
+    }
     return this.toResponse(saved);
   }
 
@@ -167,8 +213,13 @@ export class AnapathService {
    * signature, ni à l'annulation : ces actions restent derrière anapath:update
    * / anapath:validate.
    */
-  async updateResultat(id: string, dto: UpdateResultatDto): Promise<AnapathRequestResponse> {
+  async updateResultat(
+    id: string,
+    dto: UpdateResultatDto,
+    token?: string,
+  ): Promise<AnapathRequestResponse> {
     const request = await this.findOneEntity(id);
+    const statutAvant = request.statut;
 
     if (dto.resultatDetails !== undefined) request.resultatDetails = dto.resultatDetails;
     if (dto.resultatConclusion !== undefined) request.resultatConclusion = dto.resultatConclusion;
@@ -182,6 +233,9 @@ export class AnapathService {
     this.syncResultatFields(request);
 
     const saved = await this.anapathRepository.save(request);
+    if (saved.statut !== statutAvant) {
+      await this.propagerStatutVersPrescription(saved, token);
+    }
     return this.toResponse(saved);
   }
 
@@ -197,7 +251,11 @@ export class AnapathService {
     return this.toResponse(saved);
   }
 
-  async validate(id: string, dto: ValidateAnapathDto): Promise<AnapathRequestResponse> {
+  async validate(
+    id: string,
+    dto: ValidateAnapathDto,
+    token?: string,
+  ): Promise<AnapathRequestResponse> {
     const request = await this.findOneEntity(id);
     if (request.statut === Statut.VALIDE)
       throw new BadRequestException('Déjà validée');
@@ -229,7 +287,95 @@ export class AnapathService {
     this.syncResultatFields(request);
 
     const saved = await this.anapathRepository.save(request);
+    await this.propagerStatutVersPrescription(saved, token);
     return this.toResponse(saved);
+  }
+
+  /** Construit les champs AnapathRequest depuis une demande + sa prescription parente (pull externe). */
+  private buildRequestFromPrescription(
+    prescription: AnapathPrescription,
+    demande: PrescriptionDemande,
+  ): Partial<AnapathRequest> {
+    const data = (demande.data ?? {}) as Record<string, unknown>;
+    return {
+      anapathId: this.generateAnapathId(),
+      patientId: prescription.patientId,
+      prescriptionId: prescription.id,
+      demandeId: demande.id,
+      typeExamen: demande.typeExamen as AnapathRequest['typeExamen'],
+      isExtemporane: demande.typeExamen === 'EXTEMPORANE_STAT',
+      prelevement: {
+        site: (data.organe as string) ?? (data.localisation as string) ?? '',
+        description: (data.nature as string) ?? JSON.stringify(data),
+      },
+      metadata: {
+        sourceService: 'prescription-pull',
+        chuId: prescription.chuId,
+        serviceIdSource: prescription.serviceIdSource,
+        serviceIdDest: prescription.serviceIdDest,
+        prescripteurId: prescription.prescripteurId,
+        urgence: prescription.urgence,
+        alertes: prescription.alertes,
+        rawData: data,
+      },
+      statut: Statut.CREEE,
+    };
+  }
+
+  /**
+   * Upsert une prescription+ses demandes récupérées depuis le service externe.
+   * Ne crée QUE les demandes inconnues localement (nouveau demandeId) — les demandes déjà
+   * connues sont ignorées pour ne jamais écraser un statut local plus à jour (celui-ci est
+   * poussé vers l'externe via propagerStatutVersPrescription, jamais l'inverse).
+   */
+  private async upsertDepuisPrescription(prescription: AnapathPrescription): Promise<number> {
+    let created = 0;
+    for (const demande of prescription.demandes ?? []) {
+      if (!demande.id) continue;
+      const existing = await this.anapathRepository.findOne({ where: { demandeId: demande.id } });
+      if (existing) continue;
+
+      const entity = this.anapathRepository.create(
+        this.buildRequestFromPrescription(prescription, demande),
+      );
+      await this.anapathRepository.save(entity);
+      created++;
+    }
+    return created;
+  }
+
+  /** Pull manuel (ou déclenché par le cron) des prescriptions anapath externes. */
+  async synchroniserPrescriptions(token: string): Promise<{ prescriptions: number; demandesCreees: number }> {
+    const prescriptions = await this.prescriptionClient.getAnapathPrescriptions(token, {
+      serviceIdDest: ANAPATH_SERVICE_ID,
+    });
+    let demandesCreees = 0;
+    for (const prescription of prescriptions) {
+      demandesCreees += await this.upsertDepuisPrescription(prescription);
+    }
+    return { prescriptions: prescriptions.length, demandesCreees };
+  }
+
+  @Cron(process.env.PRESCRIPTION_SYNC_CRON ?? '*/15 * * * *')
+  async synchroniserPrescriptionsExternesCron(): Promise<void> {
+    if ((process.env.PRESCRIPTION_SYNC_ENABLED ?? 'true') !== 'true') return;
+    const token = process.env.PRESCRIPTION_CRON_JWT;
+    if (!token) {
+      console.warn(
+        'Pull des prescriptions ignoré : PRESCRIPTION_CRON_JWT non configuré',
+      );
+      return;
+    }
+    try {
+      const result = await this.synchroniserPrescriptions(token);
+      if (result.demandesCreees > 0) {
+        console.log(
+          `✅ Pull prescriptions : ${result.demandesCreees} nouvelle(s) demande(s) créée(s) sur ${result.prescriptions} prescription(s)`,
+        );
+      }
+    } catch (e) {
+      console.warn('Pull des prescriptions échoué:', e);
+    }
   }
 
   /** Récupère (et crée si absente) la ligne unique de préférences des rapports. */
@@ -257,29 +403,16 @@ export class AnapathService {
     const settings = await this.getReportSettings();
     if (!settings.autoWeeklyReportEnabled) return;
 
-    const base =
-      process.env.NOTIF_SERVICE_URL ??
-      'https://prescription-back-7m7a.onrender.com';
-    const svcId =
-      process.env.ANAPATH_SERVICE_ID ??
-      '14a94274-db57-49e3-9375-1e642729b92b';
-
     try {
-      await fetch(`${base}/notifications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destinataire: svcId,
-          service: svcId,
-          titre: 'Rapport hebdomadaire disponible',
-          message:
-            "Le rapport hebdomadaire d'activité du service est prêt — ouvrez la page Rapports pour le consulter et l'exporter en PDF.",
-          type: 'RAPPORT_HEBDOMADAIRE',
-          urgence: 'NORMALE',
-        }),
-        signal: AbortSignal.timeout(5000),
+      await this.notificationService.createNotification({
+        type: 'RAPPORT_HEBDOMADAIRE',
+        title: 'Rapport hebdomadaire disponible',
+        message:
+          "Le rapport hebdomadaire d'activité du service est prêt — ouvrez la page Rapports pour le consulter et l'exporter en PDF.",
+        priority: 'medium',
+        source: 'Anapath',
       });
-      console.log('✅ Notification rapport hebdomadaire envoyée');
+      console.log('✅ Notification rapport hebdomadaire créée');
     } catch (e) {
       console.warn('Notification rapport hebdomadaire échouée:', e);
     }
@@ -290,13 +423,6 @@ export class AnapathService {
     const examens = await this.anapathRepository.find({
       where: { statut: Statut.RESULTAT_DISPONIBLE },
     });
-
-    const base =
-      process.env.NOTIF_SERVICE_URL ??
-      'https://prescription-back-7m7a.onrender.com';
-    const svcId =
-      process.env.ANAPATH_SERVICE_ID ??
-      '14a94274-db57-49e3-9375-1e642729b92b';
 
     for (const examen of examens) {
       const maintenant = new Date();
@@ -317,30 +443,24 @@ export class AnapathService {
         `. Le temps passe !`;
 
       try {
-        await fetch(`${base}/notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            destinataire: svcId,
-            service: svcId,
-            titre: `Rappel validation — ${examen.anapathId}`,
-            message,
-            type: 'RAPPEL_VALIDATION',
-            urgence: 'NORMALE',
-            metadata: {
-              anapathId: examen.anapathId,
-              typeExamen: examen.typeExamen,
-              patientId: examen.patientId,
-              serviceNom: metadata?.serviceNom,
-              isRelance: true,
-            },
-          }),
-          signal: AbortSignal.timeout(5000),
+        await this.notificationService.createNotification({
+          type: 'RAPPEL_VALIDATION',
+          title: `Rappel validation — ${examen.anapathId}`,
+          message,
+          priority: 'medium',
+          source: 'Anapath',
+          metadata: {
+            anapathId: examen.anapathId,
+            typeExamen: examen.typeExamen,
+            patientId: examen.patientId,
+            serviceNom: metadata?.serviceNom,
+            isRelance: true,
+          },
         });
 
         examen.derniereRelanceAt = maintenant;
         await this.anapathRepository.save(examen);
-        console.log(`✅ Relance envoyée : ${examen.anapathId}`);
+        console.log(`✅ Relance créée : ${examen.anapathId}`);
       } catch (e) {
         console.warn(`Relance échouée ${examen.anapathId}:`, e);
       }

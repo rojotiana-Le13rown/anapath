@@ -7,11 +7,13 @@ import { ReportSettings } from './entities/report-settings.entity';
 import { ChuClient } from '../common/clients/chu.client';
 import { NotificationClient } from '../common/clients/notification.client';
 import { AccueilClient } from '../common/clients/accueil.client';
+import { PrescriptionClient } from '../common/clients/prescription.client';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AnapathRequest, ReportSettings])],
+  imports: [TypeOrmModule.forFeature([AnapathRequest, ReportSettings]), NotificationModule],
   controllers: [AnapathController],
-  providers: [AnapathService, NotificationClient, ChuClient, AccueilClient],
+  providers: [AnapathService, NotificationClient, ChuClient, AccueilClient, PrescriptionClient],
   exports: [AnapathService],
 })
 export class AnapathModule {}

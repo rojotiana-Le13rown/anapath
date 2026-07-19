@@ -11,6 +11,7 @@ import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationClient } from '../common/clients/notification.client';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CurrentToken } from '../auth/decorators/current-token.decorator';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 
 function sortNotifications(notifs: any[]): any[] {
@@ -40,6 +41,16 @@ export class AnapathController {
   @Header('Content-Type', 'application/json; charset=utf-8')
   findAll(@Query('patientId') patientId?: string) {
     return this.anapathService.findAll(patientId);
+  }
+
+  @Permissions('anapath:update')
+  @Post('prescriptions/sync')
+  @ApiOperation({
+    summary: 'Déclencher manuellement le pull des prescriptions anapath depuis le service Prescription externe',
+  })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  synchroniserPrescriptions(@CurrentToken() token: string) {
+    return this.anapathService.synchroniserPrescriptions(token);
   }
 
   @Permissions('anapath:read')
@@ -87,89 +98,67 @@ export class AnapathController {
   @Get('notifications')
   @ApiOperation({ summary: 'Notifications du service Anapath' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async getNotifications() {
-    const base =
-      process.env.NOTIF_SERVICE_URL ??
-      'https://prescription-back-7m7a.onrender.com';
-    const svcId =
-      process.env.ANAPATH_SERVICE_ID ??
-      '14a94274-db57-49e3-9375-1e642729b92b';
-    try {
-      const res = await fetch(`${base}/notifications/service/${svcId}`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!res.ok) return [];
-      const notifs = await res.json();
-      if (!Array.isArray(notifs)) return [];
+  async getNotifications(@CurrentUser() user: AuthenticatedUser) {
+    const notifs = await this.notificationClient.getNotificationsForUser(
+      user.userId,
+      user.roleName,
+      this.notificationClient.getAnapathServiceId(),
+    );
 
-      const enriched = await Promise.all(
-        notifs.map(async (n: any) => {
-          const anapathId =
-            n.metadata?.anapathId ?? n.referenceId ?? n.examId;
-          if (!anapathId) return n;
+    const enriched = await Promise.all(
+      notifs.map(async (n: any) => {
+        const anapathId = n.metadata?.anapathId ?? n.referenceId ?? n.examId;
+        if (!anapathId) return n;
 
-          try {
-            const examen = await this.anapathService.findByAnapathId(anapathId);
-            if (!examen) return n;
+        try {
+          const examen = await this.anapathService.findByAnapathId(anapathId);
+          if (!examen) return n;
 
-            const metadata = examen.metadata as Record<string, unknown> | null;
-            return {
-              ...n,
-              enriched: {
-                id: examen.id,
-                anapathId: examen.anapathId,
-                typeExamen: examen.typeExamen,
-                statut: examen.statut,
-                urgence:
-                  (metadata?.urgence as string) ??
-                  (examen.isExtemporane ? 'STAT' : 'NORMALE'),
-                serviceNom:
-                  (metadata?.serviceNom as string) ??
-                  (metadata?.serviceId as string) ??
-                  '—',
-                patientId: examen.patientId,
-                createdAt: examen.createdAt,
-                lu:
-                  examen.notificationLue &&
-                  ['RESULTAT_DISPONIBLE', 'VALIDE', 'ARCHIVE'].includes(
-                    examen.statut,
-                  ),
-              },
-            };
-          } catch {
-            return n;
-          }
-        }),
-      );
+          const metadata = examen.metadata as Record<string, unknown> | null;
+          return {
+            ...n,
+            enriched: {
+              id: examen.id,
+              anapathId: examen.anapathId,
+              typeExamen: examen.typeExamen,
+              statut: examen.statut,
+              urgence:
+                (metadata?.urgence as string) ??
+                (examen.isExtemporane ? 'STAT' : 'NORMALE'),
+              serviceNom:
+                (metadata?.serviceNom as string) ??
+                (metadata?.serviceId as string) ??
+                '—',
+              patientId: examen.patientId,
+              createdAt: examen.createdAt,
+              lu:
+                examen.notificationLue &&
+                ['RESULTAT_DISPONIBLE', 'VALIDE', 'ARCHIVE'].includes(
+                  examen.statut,
+                ),
+            },
+          };
+        } catch {
+          return n;
+        }
+      }),
+    );
 
-      return enriched;
-    } catch (e) {
-      console.warn('Notifications indisponibles:', e);
-      return [];
-    }
+    return enriched;
   }
 
   @Permissions('anapath:read')
   @Get('notifications/non-lues')
   @ApiOperation({ summary: 'Notifications non lues' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async getUnread() {
-    const base = process.env.NOTIF_SERVICE_URL
-      ?? 'https://prescription-back-7m7a.onrender.com';
-    const svcId = process.env.ANAPATH_SERVICE_ID
-      ?? '14a94274-db57-49e3-9375-1e642729b92b';
-    try {
-      const res = await fetch(
-        `${base}/notifications/non-lues/${svcId}`,
-        { signal: AbortSignal.timeout(5000) },
-      );
-      if (!res.ok) return [];
-      const data = await res.json();
-      return sortNotifications(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.warn('Non-lues indisponibles:', e);
-      return [];
-    }
+  async getUnread(@CurrentUser() user: AuthenticatedUser) {
+    const notifs = await this.notificationClient.getNotificationsForUser(
+      user.userId,
+      user.roleName,
+      this.notificationClient.getAnapathServiceId(),
+    );
+    const unread = notifs.filter((n) => !this.notificationClient.isRead(n));
+    return sortNotifications(unread);
   }
 
   @Permissions('anapath:update')
@@ -178,17 +167,8 @@ export class AnapathController {
   @ApiParam({ name: 'id', description: 'UUID de la notification' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   async markAsRead(@Param('id') id: string) {
-    const base = process.env.NOTIF_SERVICE_URL
-      ?? 'https://prescription-back-7m7a.onrender.com';
-    try {
-      const res = await fetch(
-        `${base}/notifications/${id}/lire`,
-        { method: 'PUT', signal: AbortSignal.timeout(5000) },
-      );
-      return res.ok ? res.json() : { success: false };
-    } catch {
-      return { success: false };
-    }
+    const success = await this.notificationClient.markAsRead(id);
+    return { success };
   }
 
   @Permissions('anapath:read')
@@ -262,7 +242,7 @@ export class AnapathController {
   @Patch(':id/notification-lue')
   @ApiOperation({ summary: 'Marquer notif comme lue pour cet examen' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async marquerNotifLue(@Param('id') id: string) {
+  async marquerNotifLue(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     let examen = await this.anapathService.findByAnapathId(id);
     if (!examen) {
       try {
@@ -275,38 +255,20 @@ export class AnapathController {
     examen.notificationLueAt = new Date();
     await this.anapathService.save(examen);
 
-    const base =
-      process.env.NOTIF_SERVICE_URL ??
-      'https://prescription-back-7m7a.onrender.com';
-    const svcId =
-      process.env.ANAPATH_SERVICE_ID ??
-      '14a94274-db57-49e3-9375-1e642729b92b';
-    try {
-      const res = await fetch(`${base}/notifications/service/${svcId}`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        const notifs = await res.json();
-        const matching = Array.isArray(notifs)
-          ? notifs.filter(
-              (n: any) =>
-                n.metadata?.anapathId === examen.anapathId ||
-                n.referenceId === examen.anapathId ||
-                n.examId === examen.anapathId,
-            )
-          : [];
-        await Promise.all(
-          matching.map((n: any) =>
-            fetch(`${base}/notifications/${n.id ?? n._id}/lire`, {
-              method: 'PUT',
-              signal: AbortSignal.timeout(3000),
-            }).catch(() => {}),
-          ),
-        );
-      }
-    } catch (e) {
-      console.warn('Marquage notif externe échoué:', e);
-    }
+    const notifs = await this.notificationClient.getNotificationsForUser(
+      user.userId,
+      user.roleName,
+      this.notificationClient.getAnapathServiceId(),
+    );
+    const matching = notifs.filter(
+      (n: any) =>
+        n.metadata?.anapathId === examen.anapathId ||
+        n.referenceId === examen.anapathId ||
+        n.examId === examen.anapathId,
+    );
+    await Promise.all(
+      matching.map((n: any) => this.notificationClient.markAsRead(n.id ?? n._id)),
+    );
 
     return { success: true };
   }
@@ -322,11 +284,12 @@ export class AnapathController {
     @Param('id') id: string,
     @Body() dto: UpdateAnapathDto,
     @CurrentUser() user: AuthenticatedUser,
+    @CurrentToken() token: string,
   ) {
     if (dto.statut === Statut.ANNULEE && !user.permissions.includes('anapath:cancel')) {
       throw new ForbiddenException('Permission refusée');
     }
-    return this.anapathService.update(id, dto);
+    return this.anapathService.update(id, dto, token);
   }
 
   @Permissions('anapath:observation:write')
@@ -337,8 +300,12 @@ export class AnapathController {
   @ApiResponse({ status: 200, description: 'Résultat mis à jour', type: AnapathRequest })
   @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  updateResultat(@Param('id') id: string, @Body() dto: UpdateResultatDto) {
-    return this.anapathService.updateResultat(id, dto);
+  updateResultat(
+    @Param('id') id: string,
+    @Body() dto: UpdateResultatDto,
+    @CurrentToken() token: string,
+  ) {
+    return this.anapathService.updateResultat(id, dto, token);
   }
 
   @Permissions('anapath:update')
@@ -363,7 +330,11 @@ export class AnapathController {
   @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   @HttpCode(200)
   @Header('Content-Type', 'application/json; charset=utf-8')
-  validate(@Param('id') id: string, @Body() dto: ValidateAnapathDto) {
-    return this.anapathService.validate(id, dto);
+  validate(
+    @Param('id') id: string,
+    @Body() dto: ValidateAnapathDto,
+    @CurrentToken() token: string,
+  ) {
+    return this.anapathService.validate(id, dto, token);
   }
 }

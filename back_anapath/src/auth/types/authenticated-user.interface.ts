@@ -10,5 +10,6 @@ export interface AuthenticatedUser {
 declare module 'express' {
   interface Request {
     user?: AuthenticatedUser;
+    token?: string;
   }
 }
