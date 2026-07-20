@@ -104,6 +104,31 @@ export async function marquerNotifLue(examId: string): Promise<void> {
   } catch {}
 }
 
+/** Accepte une prescription en attente — la fait entrer dans le fil de travail. Retourne la demande créée. */
+export async function accepterPrescriptionNotif(notificationId: string): Promise<any> {
+  const res = await fetch(`${API_BASE}/anapath/notifications/${notificationId}/accepter`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || 'Échec de l\'acceptation');
+  }
+  return res.json();
+}
+
+/** Refuse une prescription en attente — motif obligatoire, informe le service Prescription. */
+export async function refuserPrescriptionNotif(notificationId: string, motif: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/anapath/notifications/${notificationId}/refuser`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motif }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || 'Échec du refus');
+  }
+}
+
 export async function getExamenStatut(
   examId: string,
 ): Promise<string | null> {

@@ -7,6 +7,8 @@ import {
   getNotificationsAnapath,
   markNotificationAsRead,
   marquerNotifLue,
+  accepterPrescriptionNotif,
+  refuserPrescriptionNotif,
 } from '@/lib/api';
 
 function sortNotifs(notifs: any[]): any[] {
@@ -132,7 +134,11 @@ function playAlerteExtemporane() {
 }
 
 function isLue(n: any): boolean {
-  return n.enriched?.lu === true;
+  return n.enriched?.lu === true || n.read === true;
+}
+
+function isPrescriptionEnAttente(n: any): boolean {
+  return n.type === 'NOUVELLE_PRESCRIPTION' && !isLue(n);
 }
 
 function getUrgence(n: any): string {
@@ -194,6 +200,11 @@ function isRelance(n: any): boolean {
 export default function NotificationBell() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  const [detailNotif, setDetailNotif] = useState<any>(null);
+  const [refuserMode, setRefuserMode] = useState(false);
+  const [motif, setMotif] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const known = useRef<Set<string>>(new Set());
   const extemporaneTimers =
     useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -293,6 +304,15 @@ export default function NotificationBell() {
     : 'bg-blue-600';
 
   const handleClick = async (n: any) => {
+    if (isPrescriptionEnAttente(n)) {
+      setOpen(false);
+      setActionError(null);
+      setRefuserMode(false);
+      setMotif('');
+      setDetailNotif(n);
+      return;
+    }
+
     const uuid = getRequestUuid(n);
     const aid = getAnapathId(n);
     setOpen(false);
@@ -304,6 +324,45 @@ export default function NotificationBell() {
       router.push(`/validation?id=${aid}`);
     } else {
       router.push('/validation');
+    }
+  };
+
+  const closeDetail = () => {
+    if (submitting) return;
+    setDetailNotif(null);
+    setRefuserMode(false);
+    setMotif('');
+    setActionError(null);
+  };
+
+  const handleAccepter = async () => {
+    if (!detailNotif) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      const created = await accepterPrescriptionNotif(detailNotif.id ?? detailNotif._id);
+      closeDetail();
+      await fetchNotifs();
+      if (created?.id) router.push(`/worklist/${created.id}`);
+    } catch (e: any) {
+      setActionError(e?.message || "Échec de l'acceptation");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRefuser = async () => {
+    if (!detailNotif || !motif.trim()) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await refuserPrescriptionNotif(detailNotif.id ?? detailNotif._id, motif.trim());
+      closeDetail();
+      await fetchNotifs();
+    } catch (e: any) {
+      setActionError(e?.message || 'Échec du refus');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -535,6 +594,178 @@ export default function NotificationBell() {
             </div>
           </div>
         </>
+      )}
+
+      {detailNotif && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center
+            justify-center bg-black/40 p-4"
+          onClick={closeDetail}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl
+              max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between
+              px-5 py-4 border-b">
+              <h3 className="font-semibold text-gray-800">
+                Nouvelle prescription
+              </h3>
+              <button
+                onClick={closeDetail}
+                disabled={submitting}
+                className="text-gray-400 hover:text-gray-600
+                  disabled:opacity-40"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <p className="text-xs text-gray-500">
+                  Type d'examen
+                </p>
+                <p className="text-sm font-semibold
+                  text-gray-800">
+                  {getTypeExamen(detailNotif)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">
+                  Patient
+                </p>
+                <p className="text-sm text-gray-800">
+                  {detailNotif.metadata?.patientId ?? '—'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">
+                  Urgence
+                </p>
+                <p className="text-sm text-gray-800">
+                  {detailNotif.metadata?.urgence ?? 'NORMALE'}
+                </p>
+              </div>
+
+              {detailNotif.metadata?.alertes && (
+                <div>
+                  <p className="text-xs text-gray-500">
+                    Alertes
+                  </p>
+                  <p className="text-sm text-gray-800">
+                    {detailNotif.metadata.alertes}
+                  </p>
+                </div>
+              )}
+
+              {detailNotif.metadata?.data
+                && Object.keys(detailNotif.metadata.data).length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">
+                    Détails cliniques
+                  </p>
+                  <div className="text-sm text-gray-700
+                    bg-gray-50 rounded-lg p-3 space-y-1">
+                    {Object.entries(detailNotif.metadata.data).map(
+                      ([k, v]) => (
+                        <p key={k}>
+                          <span className="text-gray-500">
+                            {k} :
+                          </span>{' '}
+                          {String(v)}
+                        </p>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {actionError && (
+                <p className="text-sm text-red-600
+                  bg-red-50 rounded-lg px-3 py-2">
+                  {actionError}
+                </p>
+              )}
+
+              {refuserMode && (
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Motif de refus *
+                  </label>
+                  <textarea
+                    value={motif}
+                    onChange={(e) => setMotif(e.target.value)}
+                    rows={3}
+                    autoFocus
+                    className="mt-1 w-full border
+                      border-gray-300 rounded-lg px-3 py-2
+                      text-sm focus:outline-none
+                      focus:ring-2 focus:ring-blue-500"
+                    placeholder="Expliquez pourquoi cette
+                      demande est refusée..."
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end
+              gap-2 px-5 py-4 border-t bg-gray-50
+              rounded-b-xl">
+              {refuserMode ? (
+                <>
+                  <button
+                    onClick={() => { setRefuserMode(false); setMotif(''); }}
+                    disabled={submitting}
+                    className="px-4 py-2 text-sm
+                      font-medium text-gray-600
+                      hover:text-gray-800
+                      disabled:opacity-40"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleRefuser}
+                    disabled={submitting || !motif.trim()}
+                    className="px-4 py-2 text-sm
+                      font-medium text-white bg-red-600
+                      hover:bg-red-700 rounded-lg
+                      disabled:opacity-40"
+                  >
+                    {submitting ? 'Envoi...' : 'Confirmer le refus'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setRefuserMode(true)}
+                    disabled={submitting}
+                    className="px-4 py-2 text-sm
+                      font-medium text-red-600
+                      hover:bg-red-50 rounded-lg
+                      disabled:opacity-40"
+                  >
+                    Refuser
+                  </button>
+                  <button
+                    onClick={handleAccepter}
+                    disabled={submitting}
+                    className="px-4 py-2 text-sm
+                      font-medium text-white
+                      bg-gradient-to-r from-[#00478d]
+                      to-[#005eb8] rounded-lg
+                      disabled:opacity-40"
+                  >
+                    {submitting ? 'Envoi...' : 'Accepter'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

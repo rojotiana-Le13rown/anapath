@@ -9,6 +9,7 @@ import PrescriptionDetails from '@/components/PrescriptionDetails';
 import PatientHistoriqueButton from '@/components/PatientHistoriqueButton';
 import { PatientInfo } from '@/components/PatientIdentitySection';
 import { useSearch } from '@/components/SearchContext';
+import { useAuth } from '@/components/AuthProvider';
 import axios from 'axios';
 import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests } from '@/lib/searchAnapath';
@@ -56,6 +57,9 @@ export default function DashboardPage() {
   const [selectedRequest, setSelectedRequest] = useState<AnapathRequest | null>(null);
   const [modalPatient, setModalPatient] = useState<PatientInfo | null>(null);
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
+  const { hasPermission } = useAuth();
+
+  const canClickWorklist = hasPermission('anapath:update');
 
   useEffect(() => {
     fetchData();
@@ -201,9 +205,11 @@ export default function DashboardPage() {
                   <span className="material-symbols-outlined text-primary bg-primary/10 rounded-full p-1.5 text-lg">history</span>
                   <h3 className="font-bold text-lg">Dernières demandes</h3>
                 </div>
-                <Link href="/worklist" className="text-xs font-bold text-primary hover:underline">
-                  Voir le fil de travail
-                </Link>
+                {canClickWorklist && (
+                  <Link href="/worklist" className="text-xs font-bold text-primary hover:underline">
+                    Voir le fil de travail
+                  </Link>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -214,8 +220,14 @@ export default function DashboardPage() {
                     {filteredRequests.slice(0, 10).map((req) => (
                       <tr
                         key={req.id}
-                        onClick={() => setSelectedRequest(req)}
-                        className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${req.isExtemporane && !isTerminee(req.statut) ? 'bg-red-50' : ''}`}
+                        className={`transition-colors ${
+                          canClickWorklist
+                            ? 'hover:bg-slate-50/80 cursor-pointer'
+                            : 'cursor-default'
+                        } ${req.isExtemporane && !isTerminee(req.statut) ? 'bg-red-50' : ''}`}
+                        onClick={() => {
+                          if (canClickWorklist) setSelectedRequest(req);
+                        }}
                       >
                         <td className="p-4 font-medium">{patientDisplayName(req)}</td>
                         <td className="p-4">
@@ -356,15 +368,23 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-center mt-6">
-                  <button
-                    onClick={() => handleSaisirResultat(selectedRequest.id)}
-                    className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                  >
-                    <span className="material-symbols-outlined">edit_note</span>
-                    Saisir le résultat d'examen
-                  </button>
-                </div>
+                canClickWorklist ? (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={() => handleSaisirResultat(selectedRequest.id)}
+                      className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">edit_note</span>
+                      Saisir le résultat d&apos;examen
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex justify-center mt-6">
+                    <p className="text-xs text-slate-400">
+                      Consultation en lecture seule
+                    </p>
+                  </div>
+                )
               )}
             </div>
           </div>

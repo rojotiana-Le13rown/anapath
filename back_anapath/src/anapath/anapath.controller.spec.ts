@@ -4,6 +4,7 @@ import { AnapathService } from './anapath.service';
 import { ChuClient } from '../common/clients/chu.client';
 import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationClient } from '../common/clients/notification.client';
+import { NotificationService } from '../notification/notification.service';
 
 describe('AnapathController', () => {
   let controller: AnapathController;
@@ -16,6 +17,7 @@ describe('AnapathController', () => {
         { provide: ChuClient, useValue: {} },
         { provide: AccueilClient, useValue: {} },
         { provide: NotificationClient, useValue: {} },
+        { provide: NotificationService, useValue: {} },
       ],
     }).compile();
 

@@ -45,18 +45,10 @@ export default function ExtemporaneTimer({
   // Fonction pour envoyer la notification au backend (pour qu'elle apparaisse dans la cloche)
   const sendNotification = async () => {
     try {
-      const response = await axios.post(`${API_BASE}/notifications`, {
-        type: 'STAT_ALERT',
-        title: '🚨 ALERTE STAT',
-        message: `Il reste 5 minutes pour l'examen ${anapathId || ''} - Patient ${patientId || ''}`,
-        priority: 'high',
-        source: 'Anapath',
-        metadata: { 
-          anapathId, 
-          patientId, 
-          requestId,
-          timestamp: new Date().toISOString()
-        }
+      await axios.post(`${API_BASE}/anapath/notifications/stat-alert`, {
+        anapathId,
+        patientId,
+        requestId,
       });
       console.log('✅ Notification STAT envoyée avec succès');
       

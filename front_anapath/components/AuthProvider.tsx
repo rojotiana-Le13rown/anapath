@@ -1,6 +1,13 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+import { isMajorService } from '@/lib/permissions';
 
 interface SessionUser {
   name: string;
@@ -8,39 +15,57 @@ interface SessionUser {
   email: string;
   roleName: string;
   permissions: string[];
+  isMajor: boolean;
 }
 
 interface AuthContextValue {
   user: SessionUser | null;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
+  isMajor: boolean;
   logout: () => Promise<void>;
 }
 
 const LOGIN_URL =
-  process.env.NEXT_PUBLIC_AUTH_LOGIN_URL || 'https://auth-client-dun.vercel.app/login';
+  process.env.NEXT_PUBLIC_AUTH_LOGIN_URL ||
+  'https://auth-client-dun.vercel.app/login';
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   hasPermission: () => false,
+  isMajor: false,
   logout: async () => {},
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/session')
       .then((res) => (res.ok ? res.json() : null))
-      .then(setUser)
+      .then((data) => {
+        if (data) {
+          setUser({
+            ...data,
+            isMajor: isMajorService(data.permissions ?? []),
+          });
+        } else {
+          setUser(null);
+        }
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
   const hasPermission = useCallback(
-    (permission: string) => user?.permissions.includes(permission) ?? false,
+    (permission: string) =>
+      user?.permissions.includes(permission) ?? false,
     [user],
   );
 
@@ -50,7 +75,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, hasPermission, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        hasPermission,
+        isMajor: user?.isMajor ?? false,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
 import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
 import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/dto/receive-notification.dto';
 import * as crypto from 'crypto';
 
 const ANAPATH_SERVICE_ID =
@@ -291,31 +292,48 @@ export class AnapathService {
     return this.toResponse(saved);
   }
 
-  /** Construit les champs AnapathRequest depuis une demande + sa prescription parente (pull externe). */
-  private buildRequestFromPrescription(
+  /** Métadonnées stockées sur la notification "nouvelle prescription" — assez pour l'afficher ET la matérialiser à l'acceptation. */
+  private buildPendingMetadata(
     prescription: AnapathPrescription,
     demande: PrescriptionDemande,
-  ): Partial<AnapathRequest> {
-    const data = (demande.data ?? {}) as Record<string, unknown>;
+  ): Record<string, unknown> {
     return {
-      anapathId: this.generateAnapathId(),
-      patientId: prescription.patientId,
       prescriptionId: prescription.id,
       demandeId: demande.id,
-      typeExamen: demande.typeExamen as AnapathRequest['typeExamen'],
-      isExtemporane: demande.typeExamen === 'EXTEMPORANE_STAT',
+      patientId: prescription.patientId,
+      typeExamen: demande.typeExamen,
+      data: demande.data ?? {},
+      chuId: prescription.chuId,
+      serviceIdSource: prescription.serviceIdSource,
+      serviceIdDest: prescription.serviceIdDest,
+      prescripteurId: prescription.prescripteurId,
+      urgence: prescription.urgence,
+      alertes: prescription.alertes,
+    };
+  }
+
+  /** Construit les champs AnapathRequest depuis les métadonnées d'une notification "nouvelle prescription" (acceptation). */
+  private buildRequestFromPendingMetadata(metadata: Record<string, any>): Partial<AnapathRequest> {
+    const data = (metadata.data ?? {}) as Record<string, unknown>;
+    return {
+      anapathId: this.generateAnapathId(),
+      patientId: metadata.patientId,
+      prescriptionId: metadata.prescriptionId,
+      demandeId: metadata.demandeId,
+      typeExamen: metadata.typeExamen as AnapathRequest['typeExamen'],
+      isExtemporane: metadata.typeExamen === 'EXTEMPORANE_STAT',
       prelevement: {
         site: (data.organe as string) ?? (data.localisation as string) ?? '',
         description: (data.nature as string) ?? JSON.stringify(data),
       },
       metadata: {
         sourceService: 'prescription-pull',
-        chuId: prescription.chuId,
-        serviceIdSource: prescription.serviceIdSource,
-        serviceIdDest: prescription.serviceIdDest,
-        prescripteurId: prescription.prescripteurId,
-        urgence: prescription.urgence,
-        alertes: prescription.alertes,
+        chuId: metadata.chuId,
+        serviceIdSource: metadata.serviceIdSource,
+        serviceIdDest: metadata.serviceIdDest,
+        prescripteurId: metadata.prescripteurId,
+        urgence: metadata.urgence,
+        alertes: metadata.alertes,
         rawData: data,
       },
       statut: Statut.CREEE,
@@ -323,37 +341,103 @@ export class AnapathService {
   }
 
   /**
-   * Upsert une prescription+ses demandes récupérées depuis le service externe.
-   * Ne crée QUE les demandes inconnues localement (nouveau demandeId) — les demandes déjà
-   * connues sont ignorées pour ne jamais écraser un statut local plus à jour (celui-ci est
-   * poussé vers l'externe via propagerStatutVersPrescription, jamais l'inverse).
+   * Crée une notification locale "nouvelle prescription en attente" pour chaque demande
+   * découverte via le pull externe et encore inconnue (ni AnapathRequest locale, ni notification
+   * déjà en attente pour ce demandeId). Ne matérialise PAS de AnapathRequest directement —
+   * c'est le rôle d'accepterPrescription(), déclenché par l'utilisateur depuis la cloche.
    */
-  private async upsertDepuisPrescription(prescription: AnapathPrescription): Promise<number> {
+  private async creerNotificationsPourNouvellesDemandes(prescription: AnapathPrescription): Promise<number> {
     let created = 0;
     for (const demande of prescription.demandes ?? []) {
       if (!demande.id) continue;
-      const existing = await this.anapathRepository.findOne({ where: { demandeId: demande.id } });
-      if (existing) continue;
+      const existingRequest = await this.anapathRepository.findOne({ where: { demandeId: demande.id } });
+      if (existingRequest) continue;
+      const existingNotif = await this.notificationService.findPendingByDemandeId(demande.id);
+      if (existingNotif) continue;
 
-      const entity = this.anapathRepository.create(
-        this.buildRequestFromPrescription(prescription, demande),
-      );
-      await this.anapathRepository.save(entity);
+      await this.notificationService.createNotification({
+        type: NotificationType.NOUVELLE_PRESCRIPTION,
+        title: `Nouvelle prescription — ${demande.typeExamen}`,
+        message: `Patient ${prescription.patientId} — ${prescription.urgence ?? 'NORMALE'}`,
+        priority: prescription.urgence === 'TRES_URGENT' ? 'high' : 'medium',
+        source: 'prescription-pull',
+        metadata: this.buildPendingMetadata(prescription, demande),
+      });
       created++;
     }
     return created;
   }
 
   /** Pull manuel (ou déclenché par le cron) des prescriptions anapath externes. */
-  async synchroniserPrescriptions(token: string): Promise<{ prescriptions: number; demandesCreees: number }> {
+  async synchroniserPrescriptions(token: string): Promise<{ prescriptions: number; notificationsCreees: number }> {
     const prescriptions = await this.prescriptionClient.getAnapathPrescriptions(token, {
       serviceIdDest: ANAPATH_SERVICE_ID,
     });
-    let demandesCreees = 0;
+    let notificationsCreees = 0;
     for (const prescription of prescriptions) {
-      demandesCreees += await this.upsertDepuisPrescription(prescription);
+      notificationsCreees += await this.creerNotificationsPourNouvellesDemandes(prescription);
     }
-    return { prescriptions: prescriptions.length, demandesCreees };
+    return { prescriptions: prescriptions.length, notificationsCreees };
+  }
+
+  /**
+   * Accepte une prescription en attente : matérialise la demande en AnapathRequest locale
+   * (elle entre dans le fil de travail), informe le service Prescription (statut EN_COURS),
+   * puis marque la notification comme traitée.
+   */
+  async accepterPrescription(notificationId: string, token: string): Promise<AnapathRequestResponse> {
+    const notification = await this.notificationService.findOne(notificationId);
+    if (!notification || notification.type !== NotificationType.NOUVELLE_PRESCRIPTION) {
+      throw new NotFoundException('Notification de prescription introuvable');
+    }
+    if (notification.read) {
+      throw new BadRequestException('Cette prescription a déjà été traitée');
+    }
+
+    const entity = this.anapathRepository.create(
+      this.buildRequestFromPendingMetadata(notification.metadata ?? {}),
+    );
+    const saved = await this.anapathRepository.save(entity);
+
+    await this.prescriptionClient.updateDemandeStatut(
+      token,
+      notification.metadata?.prescriptionId,
+      notification.metadata?.demandeId,
+      'EN_COURS',
+    );
+
+    await this.notificationService.markResolved(notificationId, 'ACCEPTEE', {
+      anapathRequestId: saved.id,
+    });
+
+    return this.toResponse(saved);
+  }
+
+  /**
+   * Refuse une prescription en attente : n'entre JAMAIS dans le fil de travail, informe
+   * le service Prescription (statut ANNULEE + motif obligatoire), marque la notification traitée.
+   */
+  async refuserPrescription(notificationId: string, motif: string, token: string): Promise<void> {
+    const notification = await this.notificationService.findOne(notificationId);
+    if (!notification || notification.type !== NotificationType.NOUVELLE_PRESCRIPTION) {
+      throw new NotFoundException('Notification de prescription introuvable');
+    }
+    if (notification.read) {
+      throw new BadRequestException('Cette prescription a déjà été traitée');
+    }
+    if (!motif?.trim()) {
+      throw new BadRequestException('Motif de refus requis');
+    }
+
+    await this.prescriptionClient.updateDemandeStatut(
+      token,
+      notification.metadata?.prescriptionId,
+      notification.metadata?.demandeId,
+      'ANNULEE',
+      motif,
+    );
+
+    await this.notificationService.markResolved(notificationId, 'REFUSEE', { motif });
   }
 
   @Cron(process.env.PRESCRIPTION_SYNC_CRON ?? '*/15 * * * *')
@@ -368,9 +452,9 @@ export class AnapathService {
     }
     try {
       const result = await this.synchroniserPrescriptions(token);
-      if (result.demandesCreees > 0) {
+      if (result.notificationsCreees > 0) {
         console.log(
-          `✅ Pull prescriptions : ${result.demandesCreees} nouvelle(s) demande(s) créée(s) sur ${result.prescriptions} prescription(s)`,
+          `✅ Pull prescriptions : ${result.notificationsCreees} nouvelle(s) notification(s) créée(s) sur ${result.prescriptions} prescription(s)`,
         );
       }
     } catch (e) {

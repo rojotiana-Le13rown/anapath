@@ -31,7 +31,7 @@ export class AuthClient {
   private readonly userServicesUrl: string;
   private readonly anapathServiceId: string;
   private readonly cacheTtlMs: number;
-  private readonly timeout = 5000;
+  private readonly timeout: number;
   private readonly cache = new Map<string, CacheEntry>();
 
   constructor(
@@ -51,6 +51,14 @@ export class AuthClient {
       configService?.get<string>('AUTH_TOKEN_CACHE_TTL_MS') ??
         process.env.AUTH_TOKEN_CACHE_TTL_MS ??
         60000,
+    );
+    // user-services (Render free tier) peut mettre plusieurs secondes à répondre après
+    // une période d'inactivité (cold start) — un timeout trop court ici rejette à tort
+    // des tokens valides en 401. 5s d'origine était trop court, cause de 401 intermittents.
+    this.timeout = Number(
+      configService?.get<string>('AUTH_VALIDATE_TIMEOUT_MS') ??
+        process.env.AUTH_VALIDATE_TIMEOUT_MS ??
+        20000,
     );
   }
 
@@ -86,7 +94,10 @@ export class AuthClient {
         },
       );
       userRecord = data;
-    } catch {
+    } catch (e) {
+      console.warn(
+        `AuthClient.validateToken: échec de vérification live auprès de user-services (${(e as Error)?.message ?? e})`,
+      );
       return null;
     }
 

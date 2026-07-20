@@ -97,8 +97,8 @@ function getDailyVolumeForMonth(data: AnapathRequest[], year: number, month: num
 
 export default function ReportsPage() {
   const { searchQuery } = useSearch();
-  const { hasPermission } = useAuth();
-  const canManageAutoReport = hasPermission('anapath:update');
+  const { isMajor } = useAuth();
+  const canManageAutoReport = isMajor;
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
   const [stats, setStats] = useState<Statistics>({

@@ -55,7 +55,8 @@ function ValidationPageContent() {
 
   const { searchQuery } = useSearch();
   const { hasPermission } = useAuth();
-  const canValidate = hasPermission('anapath:update');
+  const canWrite = hasPermission('anapath:update');
+  const canSign  = hasPermission('anapath:validate');
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<AnapathRequest | null>(null);
@@ -547,7 +548,7 @@ function ValidationPageContent() {
                         <p className="text-sm text-amber-700 mt-1">
                           Pour un FCV / Pap test, l&apos;examen au spéculum doit être soumis avant de pouvoir saisir le résultat.
                         </p>
-                        {canValidate ? (
+                        {canWrite ? (
                           <button
                             type="button"
                             onClick={() => setShowSpeculumModal(true)}
@@ -603,10 +604,11 @@ function ValidationPageContent() {
                       <textarea
                         value={resultData.details}
                         onChange={(e) => setResultData({ ...resultData, details: e.target.value })}
-                        className="w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface"
+                        className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Saisir les résultats de l'examen ici..."
                         rows={12}
                         required
+                        disabled={!canWrite}
                       />
                     </section>
 
@@ -625,10 +627,11 @@ function ValidationPageContent() {
                       <textarea
                         value={resultData.conclusion}
                         onChange={(e) => setResultData({ ...resultData, conclusion: e.target.value })}
-                        className="w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface"
+                        className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Saisir la conclusion ici..."
                         rows={4}
                         required
+                        disabled={!canWrite}
                       />
                     </section>
 
@@ -663,7 +666,7 @@ function ValidationPageContent() {
                   </div>
                 </div>
 
-                {canValidate && (
+                {canSign && (
                   <section className="bg-white border border-outline-variant rounded-xl shadow-sm p-4 md:p-6 mt-4">
                     <div className="text-center">
                       <p className="text-xs text-on-surface-variant mb-4">
@@ -712,7 +715,7 @@ function ValidationPageContent() {
                   >
                     Exporter PDF
                   </button>
-                  {canValidate && (
+                  {canSign && (
                     <button
                       onClick={handleValidate}
                       disabled={!isFormValid() || updating}

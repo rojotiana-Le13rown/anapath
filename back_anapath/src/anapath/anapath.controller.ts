@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Post, Put, Body, Query, HttpCode, Header, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Post, Put, Body, Query, HttpCode, Header, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 import { AnapathService } from './anapath.service';
 import { UpdateAnapathDto } from './dto/update-anapath.dto';
@@ -9,6 +9,7 @@ import { AnapathRequest, Statut } from './entities/anapath-request.entity';
 import { ChuClient } from '../common/clients/chu.client';
 import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationClient } from '../common/clients/notification.client';
+import { NotificationService } from '../notification/notification.service';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentToken } from '../auth/decorators/current-token.decorator';
@@ -32,6 +33,7 @@ export class AnapathController {
     private readonly chuClient: ChuClient,
     private readonly accueilClient: AccueilClient,
     private readonly notificationClient: NotificationClient,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @Permissions('anapath:read')
@@ -99,14 +101,17 @@ export class AnapathController {
   @ApiOperation({ summary: 'Notifications du service Anapath' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   async getNotifications(@CurrentUser() user: AuthenticatedUser) {
-    const notifs = await this.notificationClient.getNotificationsForUser(
-      user.userId,
-      user.roleName,
-      this.notificationClient.getAnapathServiceId(),
-    );
+    const [notifs, locales] = await Promise.all([
+      this.notificationClient.getNotificationsForUser(
+        user.userId,
+        user.roleName,
+        this.notificationClient.getAnapathServiceId(),
+      ),
+      this.notificationService.findAll(),
+    ]);
 
     const enriched = await Promise.all(
-      notifs.map(async (n: any) => {
+      [...notifs, ...locales].map(async (n: any) => {
         const anapathId = n.metadata?.anapathId ?? n.referenceId ?? n.examId;
         if (!anapathId) return n;
 
@@ -144,7 +149,7 @@ export class AnapathController {
       }),
     );
 
-    return enriched;
+    return sortNotifications(enriched);
   }
 
   @Permissions('anapath:read')
@@ -152,23 +157,78 @@ export class AnapathController {
   @ApiOperation({ summary: 'Notifications non lues' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   async getUnread(@CurrentUser() user: AuthenticatedUser) {
-    const notifs = await this.notificationClient.getNotificationsForUser(
-      user.userId,
-      user.roleName,
-      this.notificationClient.getAnapathServiceId(),
-    );
+    const [notifs, locales] = await Promise.all([
+      this.notificationClient.getNotificationsForUser(
+        user.userId,
+        user.roleName,
+        this.notificationClient.getAnapathServiceId(),
+      ),
+      this.notificationService.findUnread(),
+    ]);
     const unread = notifs.filter((n) => !this.notificationClient.isRead(n));
-    return sortNotifications(unread);
+    return sortNotifications([...unread, ...locales]);
   }
 
-  @Permissions('anapath:update')
+  @Permissions('anapath:read')
+  @Post('notifications/stat-alert')
+  @ApiOperation({ summary: 'Créer une alerte STAT locale (examen extemporané, 5 minutes restantes)' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  async creerAlerteStat(
+    @Body() body: { anapathId?: string; patientId?: string; requestId?: string },
+  ) {
+    await this.notificationService.createNotification({
+      type: 'STAT_ALERT',
+      title: '🚨 ALERTE STAT',
+      message: `Il reste 5 minutes pour l'examen ${body.anapathId ?? ''} - Patient ${body.patientId ?? ''}`,
+      priority: 'high',
+      source: 'Anapath',
+      metadata: {
+        anapathId: body.anapathId,
+        patientId: body.patientId,
+        requestId: body.requestId,
+        timestamp: new Date().toISOString(),
+      },
+    });
+    return { success: true };
+  }
+
+  @Permissions('anapath:read')
   @Put('notifications/:id/lire')
   @ApiOperation({ summary: 'Marquer une notification comme lue' })
   @ApiParam({ name: 'id', description: 'UUID de la notification' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   async markAsRead(@Param('id') id: string) {
+    const markedLocally = await this.notificationService.markRead(id);
+    if (markedLocally) return { success: true };
     const success = await this.notificationClient.markAsRead(id);
     return { success };
+  }
+
+  @Permissions('anapath:update')
+  @Post('notifications/:id/accepter')
+  @ApiOperation({ summary: 'Accepter une prescription en attente — la fait entrer dans le fil de travail' })
+  @ApiParam({ name: 'id', description: 'UUID de la notification "nouvelle prescription"' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  accepterPrescription(@Param('id') id: string, @CurrentToken() token: string) {
+    return this.anapathService.accepterPrescription(id, token);
+  }
+
+  @Permissions('anapath:update')
+  @Post('notifications/:id/refuser')
+  @ApiOperation({ summary: 'Refuser une prescription en attente — motif obligatoire' })
+  @ApiParam({ name: 'id', description: 'UUID de la notification "nouvelle prescription"' })
+  @ApiBody({ schema: { type: 'object', properties: { motif: { type: 'string' } }, required: ['motif'] } })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  async refuserPrescription(
+    @Param('id') id: string,
+    @Body() body: { motif?: string },
+    @CurrentToken() token: string,
+  ) {
+    if (!body?.motif?.trim()) {
+      throw new BadRequestException('Motif de refus requis');
+    }
+    await this.anapathService.refuserPrescription(id, body.motif, token);
+    return { success: true };
   }
 
   @Permissions('anapath:read')
