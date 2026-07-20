@@ -72,7 +72,21 @@ export class NotificationService {
     const notification = await this.findOne(id);
     if (!notification) return;
     notification.read = true;
-    notification.metadata = { ...(notification.metadata ?? {}), outcome, ...extra };
+    notification.metadata = {
+      ...(notification.metadata ?? {}),
+      outcome,
+      resolvedAt: new Date().toISOString(),
+      ...extra,
+    };
     await this.notificationRepository.save(notification);
+  }
+
+  /** Prescriptions refusées (pour affichage dans les rapports) — traitées, outcome = REFUSEE. */
+  async findRefused(): Promise<NotificationEntity[]> {
+    const resolved = await this.notificationRepository.find({
+      where: { type: NotificationType.NOUVELLE_PRESCRIPTION, read: true },
+      order: { createdAt: 'DESC' },
+    });
+    return resolved.filter((n) => n.metadata?.outcome === 'REFUSEE');
   }
 }

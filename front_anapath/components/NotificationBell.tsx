@@ -141,11 +141,25 @@ function isPrescriptionEnAttente(n: any): boolean {
   return n.type === 'NOUVELLE_PRESCRIPTION' && !isLue(n);
 }
 
+// Le service Prescription externe utilise un vocabulaire différent
+// (NORMAL/URGENT/TRES_URGENT) de celui utilisé ici pour le son et les
+// badges (NORMALE/URGENTE/STAT) — sans cette table, une prescription
+// TRES_URGENT retombait silencieusement sur le son "normal".
+const URGENCE_MAP: Record<string, string> = {
+  TRES_URGENT: 'STAT',
+  URGENT: 'URGENTE',
+  NORMAL: 'NORMALE',
+  STAT: 'STAT',
+  URGENTE: 'URGENTE',
+  NORMALE: 'NORMALE',
+};
+
 function getUrgence(n: any): string {
-  return n.enriched?.urgence
+  const raw = n.enriched?.urgence
     ?? n.urgence
     ?? n.metadata?.urgence
     ?? 'NORMALE';
+  return URGENCE_MAP[raw] ?? raw;
 }
 
 function getTypeExamen(n: any): string {
@@ -168,6 +182,7 @@ function getServiceNom(n: any): string {
   return n.enriched?.serviceNom
     ?? n.metadata?.serviceNom
     ?? n.metadata?.serviceId
+    ?? n.metadata?.serviceIdSource
     ?? '—';
 }
 
@@ -192,6 +207,18 @@ function formatHeure(d: string): string {
   });
 }
 
+function formatRelativeTime(d: string): string {
+  if (!d) return '';
+  const diffMs = Date.now() - new Date(d).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "à l'instant";
+  if (diffMin < 60) return `il y a ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `il y a ${diffH}h`;
+  const diffJ = Math.floor(diffH / 24);
+  return `il y a ${diffJ}j`;
+}
+
 function isRelance(n: any): boolean {
   return n.metadata?.isRelance === true
     || n.type === 'RAPPEL_VALIDATION';
@@ -205,6 +232,12 @@ export default function NotificationBell() {
   const [motif, setMotif] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Refus inline directement dans la liste (sans passer par la fenêtre de détail)
+  const [inlineRefuseId, setInlineRefuseId] = useState<string | null>(null);
+  const [inlineMotif, setInlineMotif] = useState('');
+  const [inlineSubmittingId, setInlineSubmittingId] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [inlineErrorId, setInlineErrorId] = useState<string | null>(null);
   const known = useRef<Set<string>>(new Set());
   const extemporaneTimers =
     useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -366,6 +399,61 @@ export default function NotificationBell() {
     }
   };
 
+  // Accepter en un clic directement depuis la ligne de la liste (sans ouvrir la fenêtre de détail)
+  const handleAccepterInline = async (n: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = n.id ?? n._id;
+    setInlineSubmittingId(id);
+    setInlineError(null);
+    setInlineErrorId(null);
+    try {
+      const created = await accepterPrescriptionNotif(id);
+      await fetchNotifs();
+      if (created?.id) router.push(`/worklist/${created.id}`);
+    } catch (err: any) {
+      setInlineError(err?.message || "Échec de l'acceptation");
+      setInlineErrorId(id);
+    } finally {
+      setInlineSubmittingId(null);
+    }
+  };
+
+  const openInlineRefuse = (n: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setInlineRefuseId(n.id ?? n._id);
+    setInlineMotif('');
+    setInlineError(null);
+    setInlineErrorId(null);
+  };
+
+  const cancelInlineRefuse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setInlineRefuseId(null);
+    setInlineMotif('');
+    setInlineError(null);
+    setInlineErrorId(null);
+  };
+
+  const confirmInlineRefuse = async (n: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!inlineMotif.trim()) return;
+    const id = n.id ?? n._id;
+    setInlineSubmittingId(id);
+    setInlineError(null);
+    setInlineErrorId(null);
+    try {
+      await refuserPrescriptionNotif(id, inlineMotif.trim());
+      setInlineRefuseId(null);
+      setInlineMotif('');
+      await fetchNotifs();
+    } catch (err: any) {
+      setInlineError(err?.message || 'Échec du refus');
+      setInlineErrorId(id);
+    } finally {
+      setInlineSubmittingId(null);
+    }
+  };
+
   const markAll = async () => {
     const eligibles = notifs.filter(n => {
       const statut = n.enriched?.statut ?? '';
@@ -481,7 +569,12 @@ export default function NotificationBell() {
                 const svc  = getServiceNom(n);
                 const heure = formatHeure(
                   n.createdAt ?? n.date ?? '');
+                const relatif = formatRelativeTime(
+                  n.createdAt ?? n.date ?? '');
                 const alerte = n._alerteExtemporane;
+                const enAttente = isPrescriptionEnAttente(n);
+                const isRefusingThis = inlineRefuseId === id;
+                const isSubmittingThis = inlineSubmittingId === id;
 
                 const bg = lue
                   ? 'bg-gray-50 opacity-70'
@@ -568,11 +661,6 @@ export default function NotificationBell() {
                           📍 {svc}
                         </p>
 
-                        <p className="text-xs
-                          text-gray-400 mt-0.5">
-                          🕐 Arrivée : {heure}
-                        </p>
-
                         {lue && (
                           <p className="text-xs
                             text-green-600 mt-0.5
@@ -582,12 +670,98 @@ export default function NotificationBell() {
                         )}
                       </div>
 
-                      {!lue && (
-                        <div className="w-2.5 h-2.5
-                          bg-blue-600 rounded-full
-                          mt-1 flex-shrink-0"/>
-                      )}
+                      <div
+                        className="flex items-center
+                          gap-1.5 flex-shrink-0"
+                        title={heure}
+                      >
+                        <span className="text-[10px]
+                          text-gray-400 whitespace-nowrap">
+                          {relatif}
+                        </span>
+                        {!lue && !enAttente && (
+                          <div className="w-2.5 h-2.5
+                            bg-blue-600 rounded-full"/>
+                        )}
+                      </div>
                     </div>
+
+                    {enAttente && !isRefusingThis && (
+                      <div className="flex items-center
+                        gap-2 mt-2">
+                        <button
+                          onClick={(e) => handleAccepterInline(n, e)}
+                          disabled={isSubmittingThis}
+                          className="flex-1 px-3 py-1.5
+                            text-xs font-semibold text-white
+                            bg-gradient-to-r from-[#00478d]
+                            to-[#005eb8] rounded-lg
+                            disabled:opacity-40"
+                        >
+                          {isSubmittingThis ? '...' : 'Accepter'}
+                        </button>
+                        <button
+                          onClick={(e) => openInlineRefuse(n, e)}
+                          disabled={isSubmittingThis}
+                          className="flex-1 px-3 py-1.5
+                            text-xs font-semibold text-red-600
+                            bg-red-50 hover:bg-red-100
+                            rounded-lg disabled:opacity-40"
+                        >
+                          Refuser
+                        </button>
+                      </div>
+                    )}
+
+                    {enAttente && isRefusingThis && (
+                      <div
+                        className="mt-2 space-y-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <textarea
+                          value={inlineMotif}
+                          onChange={(e) => setInlineMotif(e.target.value)}
+                          rows={2}
+                          autoFocus
+                          placeholder="Motif de refus..."
+                          className="w-full border
+                            border-gray-300 rounded-lg
+                            px-2 py-1.5 text-xs
+                            focus:outline-none focus:ring-2
+                            focus:ring-blue-500"
+                        />
+                        <div className="flex items-center
+                          gap-2">
+                          <button
+                            onClick={(e) => cancelInlineRefuse(e)}
+                            disabled={isSubmittingThis}
+                            className="flex-1 px-3 py-1.5
+                              text-xs font-medium
+                              text-gray-600 bg-gray-100
+                              hover:bg-gray-200 rounded-lg
+                              disabled:opacity-40"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            onClick={(e) => confirmInlineRefuse(n, e)}
+                            disabled={isSubmittingThis || !inlineMotif.trim()}
+                            className="flex-1 px-3 py-1.5
+                              text-xs font-semibold text-white
+                              bg-red-600 hover:bg-red-700
+                              rounded-lg disabled:opacity-40"
+                          >
+                            {isSubmittingThis ? '...' : 'Confirmer'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {enAttente && inlineError && inlineErrorId === id && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {inlineError}
+                      </p>
+                    )}
                   </div>
                 );
               })}

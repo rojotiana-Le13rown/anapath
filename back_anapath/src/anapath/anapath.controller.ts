@@ -170,6 +170,14 @@ export class AnapathController {
   }
 
   @Permissions('anapath:read')
+  @Get('notifications/refusees')
+  @ApiOperation({ summary: 'Prescriptions refusées (pour affichage dans les rapports)' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getPrescriptionsRefusees() {
+    return this.notificationService.findRefused();
+  }
+
+  @Permissions('anapath:read')
   @Post('notifications/stat-alert')
   @ApiOperation({ summary: 'Créer une alerte STAT locale (examen extemporané, 5 minutes restantes)' })
   @Header('Content-Type', 'application/json; charset=utf-8')

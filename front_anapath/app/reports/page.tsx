@@ -18,6 +18,7 @@ import { statusLabels } from '@/lib/statusLabels';
 import { getServiceDisplayName } from '@/lib/serviceDisplay';
 import { generateReportPDF, type ReportPdfData } from '@/lib/reportPDF';
 import { getTypeLabel } from '@/lib/generatePDF';
+import { getPrescriptionsRefusees } from '@/lib/api';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -100,6 +101,7 @@ export default function ReportsPage() {
   const { isMajor } = useAuth();
   const canManageAutoReport = isMajor;
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
+  const [refusedCount, setRefusedCount] = useState(0);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
   const [stats, setStats] = useState<Statistics>({
     total: 0, byType: {}, byStatus: {}, monthlyData: [], tatMoyen: 0
@@ -121,6 +123,7 @@ export default function ReportsPage() {
     axios.get(`${API_BASE}/anapath/report-settings`)
       .then((res) => setAutoReportEnabled(Boolean(res.data?.autoWeeklyReportEnabled)))
       .catch(() => {});
+    getPrescriptionsRefusees().then((rows) => setRefusedCount(rows.length));
   }, []);
 
   useEffect(() => {
@@ -404,7 +407,7 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
             <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20">
               <div className="flex justify-between items-start mb-2"><span className="material-symbols-outlined text-primary text-2xl">analytics</span><span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+{Math.floor(Math.random() * 20)}%</span></div>
               <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total examens</p><p className="text-3xl font-extrabold text-primary">{stats.total}</p>
@@ -420,6 +423,10 @@ export default function ReportsPage() {
             <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20">
               <span className="material-symbols-outlined text-primary text-2xl mb-2">verified</span>
               <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Validés</p><p className="text-3xl font-extrabold text-primary">{stats.byStatus['VALIDE'] || 0}</p>
+            </div>
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20">
+              <span className="material-symbols-outlined text-red-600 text-2xl mb-2">block</span>
+              <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Demandes refusées</p><p className="text-3xl font-extrabold text-red-600">{refusedCount}</p>
             </div>
           </div>
 

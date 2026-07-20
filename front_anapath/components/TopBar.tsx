@@ -44,10 +44,6 @@ export default function TopBar() {
         <NotificationBell />
         
         <div className="flex items-center gap-2 pl-2">
-          <div className="text-right">
-            <p className="text-sm font-bold text-[#191c21]">{displayName}</p>
-            <p className="text-[10px] text-slate-500">{user?.roleName ?? ''}</p>
-          </div>
           <div className="w-8 h-8 rounded-full bg-[#00478d]/10 flex items-center justify-center">
             <span className="material-symbols-outlined text-[#00478d] text-sm">person</span>
           </div>

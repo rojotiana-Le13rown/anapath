@@ -129,6 +129,18 @@ export async function refuserPrescriptionNotif(notificationId: string, motif: st
   }
 }
 
+/** Liste des prescriptions refusées (pour affichage dans les rapports). */
+export async function getPrescriptionsRefusees(): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE}/anapath/notifications/refusees`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getExamenStatut(
   examId: string,
 ): Promise<string | null> {
