@@ -45,7 +45,7 @@ const ALL_NAVIGATION = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { hasPermission, isMajor, logout, user } = useAuth();
+  const { hasPermission, isMajor, logout } = useAuth();
 
   const handleLogout = () => {
     if (confirm('Voulez-vous vous déconnecter ?')) {
@@ -83,20 +83,6 @@ export default function Sidebar() {
           Service d&apos;Anatomie Pathologique
         </h1>
       </div>
-
-      {user && (
-        <div className="mx-4 mb-3 px-3 py-2 rounded-lg
-          bg-white/10 border border-white/20">
-          <p className="text-xs font-bold text-white truncate">
-            {user.firstname
-              ? `${user.firstname} ${user.name}`
-              : user.name}
-          </p>
-          <p className="text-xs text-white/70 truncate">
-            {user.roleName}
-          </p>
-        </div>
-      )}
 
       <nav className="flex-1 space-y-1 px-4">
         {visibleNavigation.map((item) => {

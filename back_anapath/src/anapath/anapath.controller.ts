@@ -88,7 +88,7 @@ export class AnapathController {
     return this.anapathService.getReportSettings();
   }
 
-  @Permissions('anapath:update')
+  @Permissions('anapath:update', 'anapath:report:export')
   @Patch('report-settings')
   @ApiOperation({ summary: 'Activer/désactiver le rapport hebdomadaire automatique' })
   @Header('Content-Type', 'application/json; charset=utf-8')
