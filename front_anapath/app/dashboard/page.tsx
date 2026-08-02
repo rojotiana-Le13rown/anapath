@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const [selectedRequest, setSelectedRequest] = useState<AnapathRequest | null>(null);
   const [modalPatient, setModalPatient] = useState<PatientInfo | null>(null);
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
-  const { hasPermission } = useAuth();
+  const { hasPermission, isMajor } = useAuth();
 
   const canClickWorklist = hasPermission('anapath:update');
 
@@ -162,12 +162,14 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">En attente</p>
                 <p className="text-3xl font-extrabold text-tertiary mt-1">{enAttenteSTAT}</p>
-                <Link
-                  href="/worklist"
-                  className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary text-[11px] font-bold hover:bg-tertiary/20 transition-colors"
-                >
-                  Traiter maintenant
-                </Link>
+                {!isMajor && (
+                  <Link
+                    href="/worklist"
+                    className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary text-[11px] font-bold hover:bg-tertiary/20 transition-colors"
+                  >
+                    Traiter maintenant
+                  </Link>
+                )}
               </div>
               <span className="material-symbols-outlined text-tertiary bg-tertiary/10 rounded-full p-2 text-xl">schedule</span>
             </div>
@@ -175,12 +177,14 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">En validation</p>
                 <p className="text-3xl font-extrabold text-primary mt-1">{enValidation}</p>
-                <Link
-                  href="/validation"
-                  className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
-                >
-                  Valider maintenant
-                </Link>
+                {!isMajor && (
+                  <Link
+                    href="/validation"
+                    className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
+                  >
+                    Valider maintenant
+                  </Link>
+                )}
               </div>
               <span className="material-symbols-outlined text-primary bg-primary/10 rounded-full p-2 text-xl">fact_check</span>
             </div>
@@ -188,12 +192,21 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Validés</p>
                 <p className="text-3xl font-extrabold text-primary mt-1">{valides}</p>
-                <Link
-                  href="/archives"
-                  className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
-                >
-                  Consulter
-                </Link>
+                {isMajor ? (
+                  <Link
+                    href="/reports"
+                    className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
+                  >
+                    Voir le rapport
+                  </Link>
+                ) : (
+                  <Link
+                    href="/archives"
+                    className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
+                  >
+                    Consulter
+                  </Link>
+                )}
               </div>
               <span className="material-symbols-outlined text-primary bg-primary/10 rounded-full p-2 text-xl">verified</span>
             </div>
