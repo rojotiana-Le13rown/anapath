@@ -8,6 +8,10 @@ const LOGIN_URL =
 
 const ANAPATH_SERVICE_ID = process.env.AUTH_ANAPATH_SERVICE_ID;
 
+// Sur Render, l'app écoute sur un port interne (3031) : request.url pointe vers
+// localhost. APP_BASE_URL (domaine public) force les redirections vers le bon hôte.
+const APP_BASE_URL = process.env.APP_BASE_URL;
+
 const PROTECTED_ROUTES: Array<{
   path: string;
   permission: string;
@@ -34,8 +38,8 @@ export function middleware(request: NextRequest) {
   // valide le jeton et pose le cookie de session. Sans ça : boucle de login.
   const incomingToken = request.nextUrl.searchParams.get('accessToken');
   if (incomingToken) {
-    const ssoUrl = request.nextUrl.clone();
-    ssoUrl.pathname = '/auth/sso';
+    const ssoUrl = new URL('/auth/sso', APP_BASE_URL || request.url);
+    ssoUrl.search = request.nextUrl.search;
     return NextResponse.redirect(ssoUrl);
   }
 
@@ -68,12 +72,12 @@ export function middleware(request: NextRequest) {
     if (pathname.startsWith(route.path)) {
       if (major && route.blockedForMajor) {
         return NextResponse.redirect(
-          new URL('/dashboard', request.url),
+          new URL('/dashboard', APP_BASE_URL || request.url),
         );
       }
       if (!userPermissions.includes(route.permission)) {
         return NextResponse.redirect(
-          new URL('/dashboard', request.url),
+          new URL('/dashboard', APP_BASE_URL || request.url),
         );
       }
       break;
