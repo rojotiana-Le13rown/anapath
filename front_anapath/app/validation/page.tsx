@@ -581,10 +581,11 @@ function ValidationPageContent() {
                         <button
                           type="button"
                           onClick={handleImportNoteToResultat}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+                          title="Copier le contenu de la note dans le champ Résultat"
+                          className="group inline-flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-semibold shadow-sm hover:bg-primary hover:text-white hover:border-primary hover:shadow-md active:scale-95 transition-all duration-150"
                         >
-                          <span className="material-symbols-outlined text-base">move_down</span>
-                          Importer la note au résultat
+                          <span className="material-symbols-outlined text-base transition-transform group-hover:translate-y-0.5">content_paste_go</span>
+                          Importer la note
                         </button>
                       )}
                     </div>
