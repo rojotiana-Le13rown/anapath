@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import NotificationBell from './NotificationBell';
 import { useSearch } from './SearchContext';
 import { useAuth } from './AuthProvider';
@@ -43,11 +44,15 @@ export default function TopBar() {
       <div className="flex items-center gap-3">
         <NotificationBell />
         
-        <div className="flex items-center gap-2 pl-2">
-          <div className="w-8 h-8 rounded-full bg-[#00478d]/10 flex items-center justify-center">
+        <Link
+          href="/profile"
+          title="Mon profil"
+          className="flex items-center gap-2 pl-2"
+        >
+          <div className="w-8 h-8 rounded-full bg-[#00478d]/10 flex items-center justify-center hover:bg-[#00478d]/20 transition-colors">
             <span className="material-symbols-outlined text-[#00478d] text-sm">person</span>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

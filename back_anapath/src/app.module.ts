@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AnapathModule } from './anapath/anapath.module';
 import { NotificationModule } from './notification/notification.module';
+import { ProfileModule } from './profile/profile.module';
 import { AnapathRequest } from './anapath/entities/anapath-request.entity';
 import { NotificationEntity } from './notification/notification.entity';
 import { AuthClient } from './auth/clients/auth.client';
@@ -43,6 +44,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     }),
     AnapathModule,
     NotificationModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [
