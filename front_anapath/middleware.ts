@@ -28,6 +28,17 @@ function isMajorService(permissions: string[]): boolean {
 }
 
 export function middleware(request: NextRequest) {
+  // Le portail d'authentification redirige vers la racine du front avec
+  // ?accessToken=...&serviceId=... (son baseUrl configuré = la racine, pas
+  // /auth/sso). On route ce token vers /auth/sso — exclu du middleware — qui
+  // valide le jeton et pose le cookie de session. Sans ça : boucle de login.
+  const incomingToken = request.nextUrl.searchParams.get('accessToken');
+  if (incomingToken) {
+    const ssoUrl = request.nextUrl.clone();
+    ssoUrl.pathname = '/auth/sso';
+    return NextResponse.redirect(ssoUrl);
+  }
+
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
 
   if (!token) {
