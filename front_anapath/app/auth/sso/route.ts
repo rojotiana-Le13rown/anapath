@@ -3,7 +3,7 @@ import { AUTH_COOKIE_NAME } from '@/lib/authCookie';
 import { decodeJwtPayload } from '@/lib/jwt';
 
 const LOGIN_URL =
-  process.env.NEXT_PUBLIC_AUTH_LOGIN_URL || 'https://auth-client-dun.vercel.app/login';
+  process.env.NEXT_PUBLIC_AUTH_LOGIN_URL || 'https://authentification-front.vercel.app/login';
 const ANAPATH_SERVICE_ID = process.env.AUTH_ANAPATH_SERVICE_ID;
 
 export async function GET(request: NextRequest) {

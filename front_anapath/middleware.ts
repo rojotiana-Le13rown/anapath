@@ -4,7 +4,7 @@ import { decodeJwtPayload } from '@/lib/jwt';
 
 const LOGIN_URL =
   process.env.NEXT_PUBLIC_AUTH_LOGIN_URL ||
-  'https://auth-client-dun.vercel.app/login';
+  'https://authentification-front.vercel.app/login';
 
 const ANAPATH_SERVICE_ID = process.env.AUTH_ANAPATH_SERVICE_ID;
 
