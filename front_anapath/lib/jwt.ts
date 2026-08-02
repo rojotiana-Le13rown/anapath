@@ -1,8 +1,18 @@
+export interface ChuInfo {
+  id?: string;
+  name?: string;
+  phone?: string;
+  address?: string;
+  email?: string;
+  logoUrl?: string;
+}
+
 export interface AnapathServiceClaim {
   serviceId: string;
   roleId: string;
   roleName: string;
   permissions: string[];
+  chu?: ChuInfo;
 }
 
 export interface JwtPayload {

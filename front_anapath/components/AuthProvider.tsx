@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { isMajorService } from '@/lib/permissions';
+import type { ChuInfo } from '@/lib/jwt';
 
 interface SessionUser {
   name: string;
@@ -16,6 +17,7 @@ interface SessionUser {
   roleName: string;
   permissions: string[];
   isMajor: boolean;
+  chu?: ChuInfo | null;
 }
 
 interface AuthContextValue {

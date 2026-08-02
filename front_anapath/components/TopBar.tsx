@@ -27,14 +27,14 @@ export default function TopBar() {
         
         <div className="h-6 w-[1px] bg-outline-variant/30"></div>
         
-        <div className="relative group flex-1 max-w-md" title="Rechercher">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+        <div className="relative group w-56 lg:w-72" title="Rechercher">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 bg-white rounded-full border border-slate-200 focus:ring-2 focus:ring-primary/20 w-full text-sm transition-all"
-            placeholder="Rechercher un patient, un ID, un type, une observation..."
+            className="pl-10 pr-4 py-2 bg-white rounded-full border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:w-full w-full text-sm transition-all"
+            placeholder="Rechercher (patient, ID, type…)"
             title="Rechercher"
           />
         </div>

@@ -10,6 +10,7 @@ import VoiceInputButton from '@/components/VoiceInputButton';
 import ExamenSpeculumForm from '@/components/ExamenSpeculumForm';
 import { useSearch } from '@/components/SearchContext';
 import { useAuth } from '@/components/AuthProvider';
+import { useToast } from '@/components/ToastContext';
 import axios from 'axios';
 import { formatDateLong } from '@/lib/dateFormat';
 import { getPatientForExamen, marquerNotifLue, API_BASE } from '@/lib/api';
@@ -55,6 +56,7 @@ function ValidationPageContent() {
 
   const { searchQuery } = useSearch();
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const canWrite = hasPermission('anapath:update');
   const canSign  = hasPermission('anapath:validate');
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
@@ -278,10 +280,10 @@ function ValidationPageContent() {
         setSelectedRequest(response.data);
         populateFields(response.data);
       }
-      alert('Résultat et données cliniques sauvegardés !');
+      toast.success('Enregistré avec succès');
     } catch (error) {
       console.error('Erreur:', error);
-      alert('Erreur lors de la sauvegarde');
+      toast.error('Erreur lors de la sauvegarde');
     } finally {
       setUpdating(false);
     }
@@ -351,7 +353,7 @@ function ValidationPageContent() {
 
       await marquerNotifLue(selectedRequest.id);
 
-      alert('Demande validée avec succès !');
+      toast.success('Validé avec succès');
       await fetchData();
       if (filteredRequests.length > 1) {
         setSelectedRequest(filteredRequests[1]);
@@ -364,7 +366,7 @@ function ValidationPageContent() {
       }
     } catch (error) {
       console.error('Erreur:', error);
-      alert('Erreur lors de la validation');
+      toast.error('Erreur lors de la validation');
     } finally {
       setUpdating(false);
     }

@@ -4,6 +4,7 @@ import "./globals.css";
 import ThemeProvider from '../components/ThemeProvider';
 import { SearchProvider } from '../components/SearchContext'; // ← ajout
 import { AuthProvider } from '../components/AuthProvider';
+import { ToastProvider } from '../components/ToastContext';
 
 const inter = Inter({ 
   subsets: ["latin"], 
@@ -49,8 +50,10 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <SearchProvider>  {/* ← ajout */}
-              <div className="grain-overlay"></div>
-              {children}
+              <ToastProvider>
+                <div className="grain-overlay"></div>
+                {children}
+              </ToastProvider>
             </SearchProvider>
           </AuthProvider>
         </ThemeProvider>

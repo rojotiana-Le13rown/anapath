@@ -210,3 +210,9 @@ label:has(input[type="checkbox"]) {
 label.text-xs {
   color: #6b7280 !important; /* Gris pour les petits labels (titres) */
 }
+/* Toast d'apparition (message de succès/erreur) */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.toast-in { animation: toastIn 0.2s ease-out; }

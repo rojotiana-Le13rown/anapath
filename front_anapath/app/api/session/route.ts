@@ -22,5 +22,6 @@ export async function GET(request: NextRequest) {
     email: payload.email,
     roleName: entry.roleName,
     permissions: entry.permissions,
+    chu: entry.chu ?? null,
   });
 }
