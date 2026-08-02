@@ -17,12 +17,12 @@ export class NotificationClient {
     this.baseUrl = (
       this.configService?.get<string>('NOTIFICATION_SERVICE_URL') ??
       process.env.NOTIFICATION_SERVICE_URL ??
-      'https://notification-back-xrl2.onrender.com'
+      'https://service-notification-nlqp.onrender.com'
     ).replace(/\/$/, '');
     this.serviceId =
       this.configService?.get<string>('ANAPATH_SERVICE_ID') ??
       process.env.ANAPATH_SERVICE_ID ??
-      '14a94274-db57-49e3-9375-1e642729b92b';
+      '9e73904c-71e5-4477-9280-513e4112a468';
   }
 
   /** Notifications d'un utilisateur donné (role/serviceId requis côté API externe). */

@@ -15,7 +15,7 @@ import { NotificationType } from '../notification/dto/receive-notification.dto';
 import * as crypto from 'crypto';
 
 const ANAPATH_SERVICE_ID =
-  process.env.ANAPATH_SERVICE_ID ?? '14a94274-db57-49e3-9375-1e642729b92b';
+  process.env.ANAPATH_SERVICE_ID ?? '9e73904c-71e5-4477-9280-513e4112a468';
 
 export type AnapathRequestResponse = AnapathRequest & {
   resultat: { details: string | null; conclusion: string | null };
