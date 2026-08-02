@@ -5,7 +5,7 @@ services:
     runtime: node
     plan: free
     rootDir: back_anapath
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: node dist/main
     envVars:
       - key: NODE_ENV
