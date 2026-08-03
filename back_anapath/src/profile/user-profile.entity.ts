@@ -10,7 +10,7 @@ export class UserProfile {
   bio: string | null;
 
   /** Nom du fichier de la photo dans le service d'upload (pas le binaire). */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   avatarFilename: string | null;
 
   @UpdateDateColumn()
