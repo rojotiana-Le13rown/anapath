@@ -5,6 +5,32 @@ import {
   loadImageAsBase64,
   renderHtmlToPdf,
 } from './pdfUtils';
+import { API_BASE } from './api';
+
+const FALLBACK_LOGO = '/assets/logo-chu.png';
+
+/**
+ * Logo du CHU de l'utilisateur connecté (dynamique, selon le CHU du token),
+ * chargé via le proxy authentifié. Repli sur l'asset statique si indisponible.
+ */
+async function loadChuLogo(): Promise<string> {
+  try {
+    const res = await fetch('/api/session', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      const logo: string | undefined = data?.chu?.logo;
+      if (logo) {
+        const b64 = await loadImageAsBase64(
+          `${API_BASE}/anapath/files/${encodeURIComponent(logo)}`,
+        );
+        if (b64.startsWith('data:image')) return b64;
+      }
+    }
+  } catch {
+    // ignore -> fallback
+  }
+  return loadImageAsBase64(FALLBACK_LOGO);
+}
 
 const PERSONNEL = [
   { f: 'Chef de service', n: 'P. ANDRIAMAMPIONONA T. Francine' },
@@ -55,7 +81,7 @@ export async function generatePDF(
     year: 'numeric',
   });
 
-  const logoBase64 = await loadImageAsBase64('/assets/logo-chu.png');
+  const logoBase64 = await loadChuLogo();
 
   const personnelHTML = PERSONNEL.map((p) => `
     <div style="margin-bottom:12px;">

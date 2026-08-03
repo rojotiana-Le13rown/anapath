@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/components/AuthProvider';
@@ -15,7 +16,14 @@ interface ProfileData {
 export default function ProfilePage() {
   const { user } = useAuth();
   const toast = useToast();
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleBack = () => {
+    // Retour à la dernière page visitée ; repli sur le dashboard si pas d'historique.
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.push('/dashboard');
+  };
 
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -115,6 +123,14 @@ export default function ProfilePage() {
       <main className="flex-1 ml-64 min-h-screen flex flex-col w-[calc(100%-256px)]">
         <TopBar />
         <div className="flex-1 p-6 w-full max-w-3xl mx-auto">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          >
+            <span className="material-symbols-outlined text-base">arrow_back</span>
+            Retour
+          </button>
           <h2 className="text-2xl font-extrabold text-[#191c21] tracking-tight mb-1">Mon profil</h2>
           <p className="text-slate-500 text-sm mb-6">Photo et présentation personnelle</p>
 

@@ -74,8 +74,9 @@ export default function Sidebar() {
     >
       <div className="flex flex-col items-center px-4 pt-6 pb-4">
         <img
-          src="/assets/logo-chu.png"
-          alt="Logo CHU Andrainjato"
+          src={user?.chu?.logo ? `/api/anapath/files/${encodeURIComponent(user.chu.logo)}` : '/assets/logo-chu.png'}
+          alt={user?.chu?.name ? `Logo ${user.chu.name}` : 'Logo CHU'}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/logo-chu.png'; }}
           className="w-20 h-20 object-contain drop-shadow-lg mb-3"
         />
         <h1 className="text-lg font-bold text-white text-center

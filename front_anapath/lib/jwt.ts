@@ -4,7 +4,8 @@ export interface ChuInfo {
   phone?: string;
   address?: string;
   email?: string;
-  logoUrl?: string;
+  logo?: string;       // nom du fichier logo (à lire via le proxy /api/anapath/files/)
+  logoUrl?: string;    // URL complète (service upload, protégée) — indicative
 }
 
 export interface AnapathServiceClaim {
