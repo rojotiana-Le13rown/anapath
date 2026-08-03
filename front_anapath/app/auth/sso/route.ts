@@ -4,7 +4,11 @@ import { decodeJwtPayload } from '@/lib/jwt';
 
 const LOGIN_URL =
   process.env.NEXT_PUBLIC_AUTH_LOGIN_URL || 'https://authentification-front.vercel.app/login';
-const ANAPATH_SERVICE_ID = process.env.AUTH_ANAPATH_SERVICE_ID;
+// Fallback en dur si AUTH_ANAPATH_SERVICE_ID n'est pas configuré sur l'environnement de déploiement
+// (Render) : sans repli, un oubli de variable d'env bloque TOUTE connexion (payload.services.some
+// ne matche jamais undefined) — même symptôme que "toujours expulsé après connexion".
+const ANAPATH_SERVICE_ID =
+  process.env.AUTH_ANAPATH_SERVICE_ID || '9e73904c-71e5-4477-9280-513e4112a468';
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('accessToken');

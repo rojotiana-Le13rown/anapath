@@ -6,7 +6,11 @@ const LOGIN_URL =
   process.env.NEXT_PUBLIC_AUTH_LOGIN_URL ||
   'https://authentification-front.vercel.app/login';
 
-const ANAPATH_SERVICE_ID = process.env.AUTH_ANAPATH_SERVICE_ID;
+// Fallback en dur si AUTH_ANAPATH_SERVICE_ID n'est pas configuré sur l'environnement de déploiement
+// (Render) : sans repli, aucune permission n'est jamais trouvée et toutes les pages protégées
+// redirigent (même symptôme que "toujours expulsé après connexion").
+const ANAPATH_SERVICE_ID =
+  process.env.AUTH_ANAPATH_SERVICE_ID || '9e73904c-71e5-4477-9280-513e4112a468';
 
 // Sur Render, l'app écoute sur un port interne (3031) : request.url pointe vers
 // localhost. APP_BASE_URL (domaine public) force les redirections vers le bon hôte.
