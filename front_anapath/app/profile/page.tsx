@@ -104,13 +104,19 @@ export default function ProfilePage() {
           data: base64,
         }),
       });
-      const d = await res.json();
-      if (!res.ok || d?.error) throw new Error(d?.error);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d?.error) {
+        throw new Error(d?.error || `Erreur ${res.status}`);
+      }
       // cache-buster pour rafraîchir l'aperçu
       setAvatarUrl(d.avatarUrl ? `${d.avatarUrl}?t=${Date.now()}` : null);
       toast.success('Photo mise à jour');
-    } catch {
-      toast.error("Échec de l'envoi de la photo");
+    } catch (e) {
+      toast.error(
+        e instanceof Error && e.message
+          ? `Échec : ${e.message}`
+          : "Échec de l'envoi de la photo",
+      );
     } finally {
       setUploading(false);
     }
