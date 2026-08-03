@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import LocalSearchBox from '@/components/LocalSearchBox';
+import FilterButton from '@/components/FilterButton';
 import { useSearch } from '@/components/SearchContext';
 import { useToast } from '@/components/ToastContext';
 import {
@@ -13,6 +15,7 @@ import {
   API_BASE,
 } from '@/lib/api';
 import { formatDate } from '@/lib/dateFormat';
+import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
 
 /* ---- Helpers (mêmes règles que la cloche de notification) ---- */
 const isLue = (n: any) => n?.enriched?.lu === true || n?.read === true;
@@ -53,18 +56,27 @@ function StatCard({
   value,
   icon,
   color,
+  badge,
 }: {
   label: string;
   value: number;
   icon: string;
   color: string;
+  badge?: string;
 }) {
   return (
     <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20 flex justify-between items-center">
       <div>
-        <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-          {label}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+            {label}
+          </p>
+          {badge && (
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+              {badge}
+            </span>
+          )}
+        </div>
         <p className={`text-3xl font-extrabold mt-1 ${color}`}>{value}</p>
       </div>
       <span className={`material-symbols-outlined text-2xl rounded-full p-2 ${color} bg-current/10`}>
@@ -72,6 +84,26 @@ function StatCard({
       </span>
     </div>
   );
+}
+
+const TYPE_OPTIONS: Record<string, string> = {
+  BIOPSIE: 'Biopsie',
+  FCV_PAP: 'FCV / Pap test',
+  CYT0PONCTION: 'Cytoponction',
+  LIQUIDE: 'Liquide',
+  POS: 'POS',
+  POC: 'POC',
+  EXTEMPORANE_STAT: 'Extemporané STAT',
+};
+
+const URGENCE_OPTIONS: Record<UrgenceLevel, string> = {
+  STAT: 'Très urgent',
+  URGENTE: 'Urgent',
+  NORMALE: 'Normal',
+};
+
+function toggleValue<T>(arr: T[], v: T): T[] {
+  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
 
 export default function DemandesPage() {
@@ -83,6 +115,9 @@ export default function DemandesPage() {
   const [refusedToday, setRefusedToday] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [localQuery, setLocalQuery] = useState('');
+  const [filterUrgences, setFilterUrgences] = useState<UrgenceLevel[]>([]);
+  const [filterTypes, setFilterTypes] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -110,7 +145,8 @@ export default function DemandesPage() {
       const refusedArr: any[] = Array.isArray(refusees) ? refusees : [];
       setRefusedToday(
         refusedArr.filter((r) =>
-          isToday(r?.createdAt ?? r?.updatedAt ?? r?.refusedAt),
+          // resolvedAt = date du refus, pas createdAt (date d'arrivée de la prescription)
+          isToday(r?.metadata?.resolvedAt ?? r?.createdAt),
         ).length,
       );
     } finally {
@@ -122,22 +158,33 @@ export default function DemandesPage() {
     fetchData();
   }, [fetchData]);
 
+  const matchesQuery = (n: any, q: string) =>
+    [getPatientId(n), getTypeExamen(n), getServiceNom(n), n?.title ?? '', n?.message ?? '']
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+
+  const hasActiveFilters = filterUrgences.length > 0 || filterTypes.length > 0;
+  const resetFilters = () => {
+    setFilterUrgences([]);
+    setFilterTypes([]);
+  };
+
   const filtered = useMemo(() => {
+    let result = pending;
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return pending;
-    return pending.filter((n) =>
-      [
-        getPatientId(n),
-        getTypeExamen(n),
-        getServiceNom(n),
-        n?.title ?? '',
-        n?.message ?? '',
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [pending, searchQuery]);
+    if (q) result = result.filter((n) => matchesQuery(n, q));
+    const lq = localQuery.trim().toLowerCase();
+    if (lq) result = result.filter((n) => matchesQuery(n, lq));
+    if (filterUrgences.length > 0) {
+      result = result.filter((n) => filterUrgences.includes(getUrgenceLevel(n)));
+    }
+    if (filterTypes.length > 0) {
+      result = result.filter((n) => filterTypes.includes(getTypeExamen(n)));
+    }
+    // Une demande très urgente (TRES_URGENT/STAT) doit toujours apparaître en premier.
+    return sortByUrgencyThenArrival(result);
+  }, [pending, searchQuery, localQuery, filterUrgences, filterTypes]);
 
   const nouvellesJour = useMemo(
     () => pending.filter((n) => isToday(getCreatedAt(n))).length,
@@ -192,9 +239,70 @@ export default function DemandesPage() {
 
           {/* Statistiques du jour */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-            <StatCard label="Nouvelles (aujourd'hui)" value={nouvellesJour} icon="inbox" color="text-primary" />
+            <StatCard
+              label="Nouvelles (aujourd'hui)"
+              value={nouvellesJour}
+              icon="inbox"
+              color="text-primary"
+              badge={nouvellesJour > 0 ? `+${nouvellesJour} aujourd'hui` : undefined}
+            />
             <StatCard label="Acceptées (aujourd'hui)" value={acceptedToday} icon="check_circle" color="text-emerald-600" />
             <StatCard label="Refusées (aujourd'hui)" value={refusedToday} icon="cancel" color="text-red-600" />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <LocalSearchBox
+              value={localQuery}
+              onChange={setLocalQuery}
+              placeholder="Rechercher dans les nouvelles demandes..."
+            />
+            <FilterButton active={hasActiveFilters}>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">Urgence</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(URGENCE_OPTIONS) as UrgenceLevel[]).map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setFilterUrgences(toggleValue(filterUrgences, lvl))}
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                          filterUrgences.includes(lvl)
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-slate-50 text-slate-600 border-outline-variant/30 hover:bg-slate-100'
+                        }`}
+                      >
+                        {URGENCE_OPTIONS[lvl]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">Type d&apos;examen</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(TYPE_OPTIONS).map(([code, label]) => (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => setFilterTypes(toggleValue(filterTypes, code))}
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                          filterTypes.includes(code)
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-slate-50 text-slate-600 border-outline-variant/30 hover:bg-slate-100'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {hasActiveFilters && (
+                  <button type="button" onClick={resetFilters} className="text-xs text-primary font-semibold hover:underline">
+                    Réinitialiser les filtres
+                  </button>
+                )}
+              </div>
+            </FilterButton>
           </div>
 
           {/* Liste des demandes en attente */}
