@@ -12,6 +12,7 @@ import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
 import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/receive-notification.dto';
+import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
 import * as crypto from 'crypto';
 
 const ANAPATH_SERVICE_ID =
@@ -31,6 +32,7 @@ export class AnapathService {
     private reportSettingsRepository: Repository<ReportSettings>,
     private readonly prescriptionClient: PrescriptionClient,
     private readonly notificationService: NotificationService,
+    private readonly authServiceToken: AuthServiceTokenService,
   ) {}
 
   /**
@@ -443,10 +445,10 @@ export class AnapathService {
   @Cron(process.env.PRESCRIPTION_SYNC_CRON ?? '*/15 * * * *')
   async synchroniserPrescriptionsExternesCron(): Promise<void> {
     if ((process.env.PRESCRIPTION_SYNC_ENABLED ?? 'true') !== 'true') return;
-    const token = process.env.PRESCRIPTION_CRON_JWT;
+    const token = await this.authServiceToken.getToken();
     if (!token) {
       console.warn(
-        'Pull des prescriptions ignoré : PRESCRIPTION_CRON_JWT non configuré',
+        'Pull des prescriptions ignoré : ni compte de service (AUTH_SERVICE_URL + PRESCRIPTION_SERVICE_ACCOUNT_*) ni PRESCRIPTION_CRON_JWT configurés',
       );
       return;
     }

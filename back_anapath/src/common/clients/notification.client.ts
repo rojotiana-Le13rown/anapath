@@ -48,11 +48,19 @@ export class NotificationClient {
     }
   }
 
-  async markAsRead(notificationId: string): Promise<boolean> {
+  /**
+   * userId requis pour un accusé de lecture PERSONNEL — sans lui, une notification
+   * diffusée à tout le service (via /notifications/service) risque d'être marquée lue
+   * globalement plutôt que juste pour l'utilisateur courant (cf. doc de l'API réelle :
+   * "une notification diffusée reste non lue pour les collègues qui ne l'ont pas ouverte").
+   */
+  async markAsRead(notificationId: string, userId?: string): Promise<boolean> {
     try {
-      await axios.post(`${this.baseUrl}/notifications/${notificationId}/read`, null, {
-        timeout: this.timeout,
-      });
+      await axios.post(
+        `${this.baseUrl}/notifications/${notificationId}/read`,
+        { userId },
+        { timeout: this.timeout },
+      );
       return true;
     } catch {
       return false;

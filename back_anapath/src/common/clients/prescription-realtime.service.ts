@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { io, Socket } from 'socket.io-client';
 import { AnapathService } from '../../anapath/anapath.service';
+import { AuthServiceTokenService } from './auth-service-token.service';
 
 /**
  * Client WebSocket (Socket.IO) vers le service Prescription — §4 du prompt
@@ -14,9 +15,11 @@ import { AnapathService } from '../../anapath/anapath.service';
  * re-pull en REST (source de vérité) via AnapathService.synchroniserPrescriptions,
  * puis on acquitte la notification.
  *
- * Nécessite un token de service durable (PRESCRIPTION_CRON_JWT), le même que le
- * cron de rattrapage. Si absent, le WebSocket ne démarre pas (mode dégradé : le
- * cron 15 min prend le relais).
+ * Le token provient d'AuthServiceTokenService : renouvelé automatiquement via un
+ * compte de service dédié si configuré (AUTH_SERVICE_URL + PRESCRIPTION_SERVICE_ACCOUNT_*),
+ * sinon replié sur PRESCRIPTION_CRON_JWT statique. `auth` est fourni en fonction (pas en
+ * objet figé) pour que chaque tentative de reconnexion Socket.IO récupère un token frais
+ * plutôt que de rejouer indéfiniment celui capturé au premier appel.
  */
 @Injectable()
 export class PrescriptionRealtimeService
@@ -27,12 +30,12 @@ export class PrescriptionRealtimeService
   private repullTimer?: ReturnType<typeof setTimeout>;
 
   private readonly baseUrl: string;
-  private readonly token?: string;
   private readonly enabled: boolean;
   private readonly serviceId?: string;
 
   constructor(
     private readonly anapathService: AnapathService,
+    private readonly authServiceToken: AuthServiceTokenService,
     configService?: ConfigService,
   ) {
     this.baseUrl = (
@@ -40,9 +43,6 @@ export class PrescriptionRealtimeService
       process.env.PRESCRIPTION_SERVICE_URL ??
       'https://prescriptionback-production.up.railway.app'
     ).replace(/\/$/, '');
-    this.token =
-      configService?.get<string>('PRESCRIPTION_CRON_JWT') ??
-      process.env.PRESCRIPTION_CRON_JWT;
     this.enabled =
       (configService?.get<string>('PRESCRIPTION_WS_ENABLED') ??
         process.env.PRESCRIPTION_WS_ENABLED ??
@@ -52,14 +52,15 @@ export class PrescriptionRealtimeService
       process.env.ANAPATH_SERVICE_ID;
   }
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     if (!this.enabled) {
       this.logger.log('Temps réel désactivé (PRESCRIPTION_WS_ENABLED=false)');
       return;
     }
-    if (!this.token) {
+    const token = await this.authServiceToken.getToken();
+    if (!token) {
       this.logger.warn(
-        'Temps réel non démarré : PRESCRIPTION_CRON_JWT non configuré (le cron 15 min prend le relais)',
+        'Temps réel non démarré : aucun token disponible (ni compte de service, ni PRESCRIPTION_CRON_JWT) — le cron 15 min prend le relais',
       );
       return;
     }
@@ -75,8 +76,14 @@ export class PrescriptionRealtimeService
     const url = `${this.baseUrl}/notifications`;
     this.socket = io(url, {
       transports: ['websocket'],
-      auth: { token: this.token },
-      extraHeaders: { Authorization: `Bearer ${this.token}` },
+      // Fonction (pas objet figé) : appelée à chaque tentative de connexion/reconnexion,
+      // garantit un token toujours frais sans avoir à recréer le socket.
+      auth: (cb: (data: { token?: string }) => void) => {
+        this.authServiceToken
+          .getToken()
+          .then((token) => cb({ token }))
+          .catch(() => cb({}));
+      },
       query: this.serviceId ? { service: this.serviceId } : undefined,
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -120,13 +127,16 @@ export class PrescriptionRealtimeService
    * seul pull REST (débounce 500 ms). Le pull dédoublonne déjà par demandeId.
    */
   private scheduleRepull(reason: string): void {
-    if (!this.token) return;
     if (this.repullTimer) clearTimeout(this.repullTimer);
     this.repullTimer = setTimeout(() => {
-      void this.anapathService
-        .synchroniserPrescriptions(this.token as string)
+      void this.authServiceToken
+        .getToken()
+        .then((token) => {
+          if (!token) return null;
+          return this.anapathService.synchroniserPrescriptions(token);
+        })
         .then((r) => {
-          if (r.notificationsCreees > 0) {
+          if (r && r.notificationsCreees > 0) {
             this.logger.log(
               `Re-pull (${reason}) : ${r.notificationsCreees} nouvelle(s) notification(s)`,
             );

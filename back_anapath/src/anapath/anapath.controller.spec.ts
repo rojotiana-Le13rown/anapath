@@ -5,6 +5,7 @@ import { ChuClient } from '../common/clients/chu.client';
 import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationClient } from '../common/clients/notification.client';
 import { NotificationService } from '../notification/notification.service';
+import { PrescriptionTokenMonitorService } from '../common/clients/prescription-token-monitor.service';
 
 describe('AnapathController', () => {
   let controller: AnapathController;
@@ -18,6 +19,7 @@ describe('AnapathController', () => {
         { provide: AccueilClient, useValue: {} },
         { provide: NotificationClient, useValue: {} },
         { provide: NotificationService, useValue: {} },
+        { provide: PrescriptionTokenMonitorService, useValue: {} },
       ],
     }).compile();
 

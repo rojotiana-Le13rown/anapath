@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AUTH_COOKIE_NAME } from '@/lib/authCookie';
 
-const BACKEND_URL = (process.env.API_PROXY_TARGET || 'https://anapath-backend-ar7u.onrender.com').replace(/\/$/, '');
+// Fallback : le service back_anapath a été recréé sous un nouveau nom Render
+// (anapath-backend-ar7u seul n'est plus joignable) — l'ancien défaut menait dans le mur.
+const BACKEND_URL = (process.env.API_PROXY_TARGET || 'https://anapath-backend-ar7u-uj8n.onrender.com').replace(/\/$/, '');
 
 async function handler(
   request: NextRequest,

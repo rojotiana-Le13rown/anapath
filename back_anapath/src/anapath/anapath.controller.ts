@@ -9,6 +9,7 @@ import { AnapathRequest, Statut } from './entities/anapath-request.entity';
 import { ChuClient } from '../common/clients/chu.client';
 import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationClient } from '../common/clients/notification.client';
+import { PrescriptionTokenMonitorService } from '../common/clients/prescription-token-monitor.service';
 import { NotificationService } from '../notification/notification.service';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -34,6 +35,7 @@ export class AnapathController {
     private readonly accueilClient: AccueilClient,
     private readonly notificationClient: NotificationClient,
     private readonly notificationService: NotificationService,
+    private readonly prescriptionTokenMonitor: PrescriptionTokenMonitorService,
   ) {}
 
   @Permissions('anapath:read')
@@ -53,6 +55,16 @@ export class AnapathController {
   @Header('Content-Type', 'application/json; charset=utf-8')
   synchroniserPrescriptions(@CurrentToken() token: string) {
     return this.anapathService.synchroniserPrescriptions(token);
+  }
+
+  @Permissions('anapath:read')
+  @Get('prescriptions/sync-status')
+  @ApiOperation({
+    summary: "Statut du token utilisé par le cron/WebSocket Prescription (expiration, etc.) — PRESCRIPTION_CRON_JWT n'est pas un token de service durable",
+  })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getPrescriptionSyncStatus() {
+    return this.prescriptionTokenMonitor.getStatus();
   }
 
   @Permissions('anapath:read')
@@ -205,10 +217,10 @@ export class AnapathController {
   @ApiOperation({ summary: 'Marquer une notification comme lue' })
   @ApiParam({ name: 'id', description: 'UUID de la notification' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async markAsRead(@Param('id') id: string) {
+  async markAsRead(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     const markedLocally = await this.notificationService.markRead(id);
     if (markedLocally) return { success: true };
-    const success = await this.notificationClient.markAsRead(id);
+    const success = await this.notificationClient.markAsRead(id, user.userId);
     return { success };
   }
 
@@ -335,7 +347,7 @@ export class AnapathController {
         n.examId === examen.anapathId,
     );
     await Promise.all(
-      matching.map((n: any) => this.notificationClient.markAsRead(n.id ?? n._id)),
+      matching.map((n: any) => this.notificationClient.markAsRead(n.id ?? n._id, user.userId)),
     );
 
     return { success: true };
