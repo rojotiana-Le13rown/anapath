@@ -14,6 +14,13 @@ const ALL_NAVIGATION = [
     allowedForMajor: true,
   },
   {
+    name: 'Nouvelles demandes',
+    href: '/demandes',
+    icon: 'inbox',
+    requiredPermission: PERMISSIONS.UPDATE,
+    allowedForMajor: false,
+  },
+  {
     name: 'Fil de travail',
     href: '/worklist',
     icon: 'clinical_notes',

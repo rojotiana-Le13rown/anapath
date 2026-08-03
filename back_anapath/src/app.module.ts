@@ -36,6 +36,9 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
                 database: config.get<string>('DB_NAME'),
               }),
           entities: [AnapathRequest, NotificationEntity],
+          // Inclut aussi les entités enregistrées via forFeature (ReportSettings,
+          // UserProfile…) — sinon « No metadata » / table non créée → 500.
+          autoLoadEntities: true,
           synchronize: true,
           ssl: { rejectUnauthorized: false },
         };

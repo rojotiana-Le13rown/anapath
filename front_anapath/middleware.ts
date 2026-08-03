@@ -18,6 +18,7 @@ const PROTECTED_ROUTES: Array<{
   blockedForMajor?: boolean;
 }> = [
   { path: '/dashboard',  permission: 'anapath:read',         blockedForMajor: false },
+  { path: '/demandes',   permission: 'anapath:update',       blockedForMajor: true },
   { path: '/worklist',   permission: 'anapath:update',       blockedForMajor: true },
   { path: '/validation', permission: 'anapath:update',       blockedForMajor: true },
   { path: '/archives',   permission: 'anapath:archive:view', blockedForMajor: true },

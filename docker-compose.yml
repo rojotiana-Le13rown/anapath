@@ -1,0 +1,30 @@
+# Orchestration locale des deux services Anapath.
+# La base de données est externe (Render Postgres via DATABASE_URL dans back_anapath/.env),
+# aucun service `db` n'est donc défini ici.
+services:
+  backend:
+    build: ./back_anapath
+    container_name: anapath-backend
+    env_file:
+      - ./back_anapath/.env
+    ports:
+      - "3334:3334"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./front_anapath
+      args:
+        # NEXT_PUBLIC_* figées au build (décommente/renseigne si besoin) :
+        NEXT_PUBLIC_AUTH_LOGIN_URL: "https://authentification-front.vercel.app/login"
+    container_name: anapath-frontend
+    env_file:
+      - ./front_anapath/.env.local
+    environment:
+      # Depuis un conteneur, "localhost" ne pointe pas vers l'hôte : on cible le service backend.
+      - API_PROXY_TARGET=http://backend:3334
+    ports:
+      - "3031:3031"
+    depends_on:
+      - backend
+    restart: unless-stopped
