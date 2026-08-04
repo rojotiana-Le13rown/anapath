@@ -190,6 +190,14 @@ export class AnapathController {
   }
 
   @Permissions('anapath:read')
+  @Get('notifications/acceptees')
+  @ApiOperation({ summary: 'Prescriptions acceptées (pour les statistiques de la page Nouvelles demandes)' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getPrescriptionsAcceptees() {
+    return this.notificationService.findAccepted();
+  }
+
+  @Permissions('anapath:read')
   @Post('notifications/stat-alert')
   @ApiOperation({ summary: 'Créer une alerte STAT locale (examen extemporané, 5 minutes restantes)' })
   @Header('Content-Type', 'application/json; charset=utf-8')

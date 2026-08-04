@@ -47,18 +47,18 @@ export default function PatientHistoriqueButton({ entries, className = '' }: Pat
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col"
+            className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary">history</span>
-                <h3 className="font-bold text-lg">Historique des examens</h3>
+                <span className="material-symbols-outlined text-white">history</span>
+                <h3 className="font-bold text-lg text-white">Historique des examens</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-white/70 hover:text-white transition-colors"
                 aria-label="Fermer"
               >
                 <span className="material-symbols-outlined">close</span>

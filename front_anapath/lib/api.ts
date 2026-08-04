@@ -141,6 +141,18 @@ export async function getPrescriptionsRefusees(): Promise<any[]> {
   }
 }
 
+/** Liste des prescriptions acceptées (pour les statistiques de la page Nouvelles demandes). */
+export async function getPrescriptionsAcceptees(): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE}/anapath/notifications/acceptees`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getExamenStatut(
   examId: string,
 ): Promise<string | null> {

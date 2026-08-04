@@ -744,15 +744,15 @@ function ValidationPageContent() {
             onClick={() => setShowNoteModal(false)}
           >
             <div
-              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col"
+              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
-                <h3 className="font-bold text-lg">Note (brouillon)</h3>
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
+                <h3 className="font-bold text-lg text-white">Note (brouillon)</h3>
                 <button
                   type="button"
                   onClick={() => setShowNoteModal(false)}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-white/70 hover:text-white transition-colors"
                   aria-label="Fermer"
                 >
                   <span className="material-symbols-outlined">close</span>

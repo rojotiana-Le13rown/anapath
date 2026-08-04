@@ -778,18 +778,18 @@ export default function NotificationBell() {
         >
           <div
             className="bg-white rounded-xl shadow-xl
-              max-w-md w-full"
+              max-w-md w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between
-              px-5 py-4 border-b">
-              <h3 className="font-semibold text-gray-800">
+              px-5 py-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
+              <h3 className="font-semibold text-white">
                 Nouvelle prescription
               </h3>
               <button
                 onClick={closeDetail}
                 disabled={submitting}
-                className="text-gray-400 hover:text-gray-600
+                className="text-white/70 hover:text-white transition-colors
                   disabled:opacity-40"
               >
                 ✕

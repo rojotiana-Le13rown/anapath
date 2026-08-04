@@ -216,3 +216,22 @@ label.text-xs {
   to   { opacity: 1; transform: translateY(0); }
 }
 .toast-in { animation: toastIn 0.2s ease-out; }
+
+/* Fenêtres modales (thème bleu marine/blanc) : fondu + léger zoom à l'ouverture */
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-in { animation: modalIn 0.18s ease-out; }
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.overlay-in { animation: overlayIn 0.15s ease-out; }
+
+@keyframes cardRise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-rise { animation: cardRise 0.3s ease-out both; }

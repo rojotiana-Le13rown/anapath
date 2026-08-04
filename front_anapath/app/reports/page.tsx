@@ -622,13 +622,13 @@ export default function ReportsPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setShowCustomReportModal(false)}
         >
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
-              <h3 className="font-bold text-lg">Créer un rapport</h3>
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
+              <h3 className="font-bold text-lg text-white">Créer un rapport</h3>
               <button
                 type="button"
                 onClick={() => setShowCustomReportModal(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-white/70 hover:text-white transition-colors"
                 aria-label="Fermer"
               >
                 <span className="material-symbols-outlined">close</span>

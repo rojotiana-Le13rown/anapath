@@ -83,10 +83,19 @@ export class NotificationService {
 
   /** Prescriptions refusées (pour affichage dans les rapports) — traitées, outcome = REFUSEE. */
   async findRefused(): Promise<NotificationEntity[]> {
+    return this.findByOutcome('REFUSEE');
+  }
+
+  /** Prescriptions acceptées — traitées, outcome = ACCEPTEE. */
+  async findAccepted(): Promise<NotificationEntity[]> {
+    return this.findByOutcome('ACCEPTEE');
+  }
+
+  private async findByOutcome(outcome: 'ACCEPTEE' | 'REFUSEE'): Promise<NotificationEntity[]> {
     const resolved = await this.notificationRepository.find({
       where: { type: NotificationType.NOUVELLE_PRESCRIPTION, read: true },
       order: { createdAt: 'DESC' },
     });
-    return resolved.filter((n) => n.metadata?.outcome === 'REFUSEE');
+    return resolved.filter((n) => n.metadata?.outcome === outcome);
   }
 }

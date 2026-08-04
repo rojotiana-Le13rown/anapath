@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
+import ConfirmDialog from './ConfirmDialog';
 
 const ALL_NAVIGATION = [
   {
@@ -53,12 +55,7 @@ const ALL_NAVIGATION = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { hasPermission, isMajor, logout, user } = useAuth();
-
-  const handleLogout = () => {
-    if (confirm('Voulez-vous vous déconnecter ?')) {
-      logout();
-    }
-  };
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
 
   const visibleNavigation = ALL_NAVIGATION.filter((item) => {
     if (isMajor && !item.allowedForMajor) return false;
@@ -133,7 +130,7 @@ export default function Sidebar() {
           </a>
         )}
         <button
-          onClick={handleLogout}
+          onClick={() => setConfirmLogoutOpen(true)}
           className="w-full flex items-center gap-3 px-3 py-2.5
             rounded-lg text-white/90 hover:bg-white/10
             hover:text-white transition-colors text-sm font-medium"
@@ -144,6 +141,19 @@ export default function Sidebar() {
           Déconnexion
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmLogoutOpen}
+        title="Déconnexion"
+        message="Voulez-vous vraiment vous déconnecter ?"
+        confirmLabel="Se déconnecter"
+        danger
+        onConfirm={() => {
+          setConfirmLogoutOpen(false);
+          logout();
+        }}
+        onCancel={() => setConfirmLogoutOpen(false)}
+      />
     </aside>
   );
 }

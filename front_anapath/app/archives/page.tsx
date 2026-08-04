@@ -299,12 +299,12 @@ export default function ArchivesPage() {
             className="bg-white rounded-xl shadow-xl max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-outline-variant/20 sticky top-0 bg-white z-10">
-              <h3 className="font-bold text-lg">Détails de l'examen</h3>
+            <div className="flex items-center justify-between p-4 sticky top-0 bg-gradient-to-r from-[#00284d] to-[#00478d] z-10">
+              <h3 className="font-bold text-lg text-white">Détails de l'examen</h3>
               <button
                 type="button"
                 onClick={() => setSelectedRequest(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-white/70 hover:text-white transition-colors"
                 aria-label="Fermer"
               >
                 <span className="material-symbols-outlined">close</span>
