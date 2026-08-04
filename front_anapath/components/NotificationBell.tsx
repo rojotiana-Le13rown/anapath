@@ -10,6 +10,8 @@ import {
   accepterPrescriptionNotif,
   refuserPrescriptionNotif,
 } from '@/lib/api';
+import { useAuth } from './AuthProvider';
+import { PERMISSIONS } from '@/lib/permissions';
 
 function sortNotifs(notifs: any[]): any[] {
   const p: Record<string, number> =
@@ -225,6 +227,11 @@ function isRelance(n: any): boolean {
 }
 
 export default function NotificationBell() {
+  const { hasPermission } = useAuth();
+  // Voir une notification de prescription est ouvert à tous (anapath:read) mais
+  // accepter/refuser une demande reste réservé à anapath:update (le major et la
+  // secrétaire, par exemple, n'ont pas ce droit et ne doivent voir aucun bouton d'action).
+  const canActOnPrescriptions = hasPermission(PERMISSIONS.UPDATE);
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [detailNotif, setDetailNotif] = useState<any>(null);
@@ -686,7 +693,14 @@ export default function NotificationBell() {
                       </div>
                     </div>
 
-                    {enAttente && !isRefusingThis && (
+                    {enAttente && !canActOnPrescriptions && (
+                      <p className="mt-2 text-[11px] text-slate-400 italic">
+                        En attente de traitement (accepter/refuser réservé au
+                        service technique)
+                      </p>
+                    )}
+
+                    {enAttente && canActOnPrescriptions && !isRefusingThis && (
                       <div className="flex items-center
                         gap-2 mt-2">
                         <button
@@ -713,7 +727,7 @@ export default function NotificationBell() {
                       </div>
                     )}
 
-                    {enAttente && isRefusingThis && (
+                    {enAttente && canActOnPrescriptions && isRefusingThis && (
                       <div
                         className="mt-2 space-y-2"
                         onClick={(e) => e.stopPropagation()}
@@ -889,7 +903,21 @@ export default function NotificationBell() {
             <div className="flex items-center justify-end
               gap-2 px-5 py-4 border-t bg-gray-50
               rounded-b-xl">
-              {refuserMode ? (
+              {!canActOnPrescriptions ? (
+                <>
+                  <p className="flex-1 text-xs text-slate-400 italic">
+                    Accepter/refuser réservé au service technique.
+                  </p>
+                  <button
+                    onClick={closeDetail}
+                    className="px-4 py-2 text-sm
+                      font-medium text-gray-600
+                      hover:text-gray-800"
+                  >
+                    Fermer
+                  </button>
+                </>
+              ) : refuserMode ? (
                 <>
                   <button
                     onClick={() => { setRefuserMode(false); setMotif(''); }}
