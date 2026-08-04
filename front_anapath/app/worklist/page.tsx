@@ -11,6 +11,7 @@ import PrescriptionDetails from '@/components/PrescriptionDetails';
 import PatientHistoriqueButton from '@/components/PatientHistoriqueButton';
 import { PatientInfo } from '@/components/PatientIdentitySection';
 import { useSearch } from '@/components/SearchContext';
+import { useAuth } from '@/components/AuthProvider';
 import axios from 'axios';
 import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { matchesAnapathSearch } from '@/lib/searchAnapath';
@@ -67,6 +68,10 @@ function patientDisplayName(req: { patientInfo?: { nomComplet?: string | null; n
 
 export default function WorklistPage() {
   const router = useRouter();
+  const { hasPermission } = useAuth();
+  // Fil de travail accessible en lecture seule (Histotechnicien, Secrétaire) :
+  // seuls UPDATE / OBSERVATION_WRITE peuvent réellement saisir un résultat.
+  const canWrite = hasPermission('anapath:update') || hasPermission('anapath:observation:write');
   const { searchQuery } = useSearch();
   const [localQuery, setLocalQuery] = useState('');
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
@@ -288,17 +293,19 @@ export default function WorklistPage() {
                           <div className="text-[10px] text-slate-400">{formatRelativeTime(req.createdAt)}</div>
                         </td>
                         <td className="p-4 text-center">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSaisirResultat(req.id);
-                            }}
-                            title="Saisir le résultat d'examen"
-                            className="p-2 text-primary hover:text-primary/70 transition-colors inline-block"
-                          >
-                            <span className="material-symbols-outlined text-base">edit_note</span>
-                          </button>
+                          {canWrite && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaisirResultat(req.id);
+                              }}
+                              title="Saisir le résultat d'examen"
+                              className="p-2 text-primary hover:text-primary/70 transition-colors inline-block"
+                            >
+                              <span className="material-symbols-outlined text-base">edit_note</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -344,13 +351,17 @@ export default function WorklistPage() {
                 }
               />
               <div className="flex justify-center mt-6">
-                <button
-                  onClick={() => handleSaisirResultat(selectedRequest.id)}
-                  className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined">edit_note</span>
-                  Saisir le résultat d'examen
-                </button>
+                {canWrite ? (
+                  <button
+                    onClick={() => handleSaisirResultat(selectedRequest.id)}
+                    className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined">edit_note</span>
+                    Saisir le résultat d'examen
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-400">Consultation en lecture seule</p>
+                )}
               </div>
             </div>
           </div>

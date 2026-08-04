@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import PatientAvatar from '@/components/PatientAvatar';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
 import { PatientInfo } from '@/components/PatientIdentitySection';
+import { useAuth } from '@/components/AuthProvider';
 import axios from 'axios';
 import { getPatientForExamen, API_BASE } from '@/lib/api';
 import { statusLabels, statusColors } from '@/lib/statusLabels';
@@ -32,6 +33,10 @@ export default function WorklistDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { hasPermission } = useAuth();
+  // Lecture seule pour Histotechnicien/Secrétaire : seuls UPDATE /
+  // OBSERVATION_WRITE peuvent réellement saisir un résultat.
+  const canWrite = hasPermission('anapath:update') || hasPermission('anapath:observation:write');
 
   const [request, setRequest] = useState<AnapathRequest | null>(null);
   const [patient, setPatient] = useState<PatientInfo | null>(null);
@@ -125,13 +130,17 @@ export default function WorklistDetailPage() {
 
           {isWorkflowVisible && (
             <div className="flex justify-center mt-8">
-              <button
-                onClick={handleSaisirResultat}
-                className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined">edit_note</span>
-                Saisir le résultat d'examen
-              </button>
+              {canWrite ? (
+                <button
+                  onClick={handleSaisirResultat}
+                  className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined">edit_note</span>
+                  Saisir le résultat d'examen
+                </button>
+              ) : (
+                <p className="text-xs text-slate-400">Consultation en lecture seule</p>
+              )}
             </div>
           )}
         </div>

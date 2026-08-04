@@ -59,7 +59,7 @@ export default function DashboardPage() {
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
   const { hasPermission, isMajor } = useAuth();
 
-  const canClickWorklist = hasPermission('anapath:update');
+  const canClickWorklist = hasPermission('anapath:update') || hasPermission('anapath:observation:write');
 
   useEffect(() => {
     fetchData();

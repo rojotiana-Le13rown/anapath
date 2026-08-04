@@ -210,11 +210,12 @@ export class AnapathService {
   }
 
   /**
-   * Sauvegarde (auto-save) du résultat/conclusion uniquement — utilisé pour la
-   * transcription en direct (ex: Secrétaire qui tape ce que dicte le
-   * pathologiste). Ne touche ni au statut de validation finale, ni à la
-   * signature, ni à l'annulation : ces actions restent derrière anapath:update
-   * / anapath:validate.
+   * Sauvegarde (auto-save) du résultat/conclusion uniquement — permission plus
+   * étroite que anapath:update, pour un rôle qui peut saisir un résultat
+   * provisoire sans gérer tout le dossier (ex: Interne qualifiant, dont le
+   * compte-rendu doit obligatoirement être contresigné par un senior). Ne
+   * touche ni au statut de validation finale, ni à la signature, ni à
+   * l'annulation : ces actions restent derrière anapath:update / anapath:validate.
    */
   async updateResultat(
     id: string,

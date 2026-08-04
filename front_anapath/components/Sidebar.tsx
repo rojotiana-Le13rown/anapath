@@ -26,9 +26,9 @@ const ALL_NAVIGATION = [
     name: 'Fil de travail',
     href: '/worklist',
     icon: 'clinical_notes',
-    // La Secrétaire (anapath:observation:write) doit pouvoir accéder au fil
-    // de travail pour transcrire la dictée, sans avoir anapath:update.
-    requiredPermission: [PERMISSIONS.UPDATE, PERMISSIONS.OBSERVATION_WRITE],
+    // Lecture seule (READ) pour suivre les prélèvements (Histotechnicien,
+    // Secrétaire) ; écriture avec UPDATE ou OBSERVATION_WRITE.
+    requiredPermission: [PERMISSIONS.READ, PERMISSIONS.UPDATE, PERMISSIONS.OBSERVATION_WRITE],
     allowedForMajor: false,
   },
   {

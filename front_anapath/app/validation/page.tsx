@@ -59,9 +59,10 @@ function ValidationPageContent() {
   const toast = useToast();
   const canWrite = hasPermission('anapath:update');
   const canSign  = hasPermission('anapath:validate');
-  // La Secrétaire (anapath:observation:write) peut transcrire le résultat/
-  // conclusion dicté par le pathologiste, mais pas remplir l'examen au
-  // spéculum (réservé à canWrite ci-dessus) ni valider/signer (canSign).
+  // anapath:observation:write : permission plus étroite que anapath:update,
+  // pour un rôle qui peut saisir un résultat provisoire (ex: Interne
+  // qualifiant) sans gérer tout le dossier, remplir l'examen au spéculum
+  // (réservé à canWrite ci-dessus) ni valider/signer (canSign).
   const canWriteObservation = canWrite || hasPermission('anapath:observation:write');
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
