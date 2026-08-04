@@ -26,14 +26,16 @@ const ALL_NAVIGATION = [
     name: 'Fil de travail',
     href: '/worklist',
     icon: 'clinical_notes',
-    requiredPermission: PERMISSIONS.UPDATE,
+    // La Secrétaire (anapath:observation:write) doit pouvoir accéder au fil
+    // de travail pour transcrire la dictée, sans avoir anapath:update.
+    requiredPermission: [PERMISSIONS.UPDATE, PERMISSIONS.OBSERVATION_WRITE],
     allowedForMajor: false,
   },
   {
     name: 'Validation',
     href: '/validation',
     icon: 'fact_check',
-    requiredPermission: PERMISSIONS.UPDATE,
+    requiredPermission: [PERMISSIONS.UPDATE, PERMISSIONS.OBSERVATION_WRITE],
     allowedForMajor: false,
   },
   {
@@ -59,7 +61,10 @@ export default function Sidebar() {
 
   const visibleNavigation = ALL_NAVIGATION.filter((item) => {
     if (isMajor && !item.allowedForMajor) return false;
-    return hasPermission(item.requiredPermission);
+    const required = Array.isArray(item.requiredPermission)
+      ? item.requiredPermission
+      : [item.requiredPermission];
+    return required.some((p) => hasPermission(p));
   });
 
   return (

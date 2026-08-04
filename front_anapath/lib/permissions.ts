@@ -1,10 +1,11 @@
 export const PERMISSIONS = {
-  READ:          'anapath:read',
-  UPDATE:        'anapath:update',
-  VALIDATE:      'anapath:validate',
-  CANCEL:        'anapath:cancel',
-  ARCHIVE_VIEW:  'anapath:archive:view',
-  REPORT_EXPORT: 'anapath:report:export',
+  READ:               'anapath:read',
+  UPDATE:             'anapath:update',
+  VALIDATE:           'anapath:validate',
+  CANCEL:             'anapath:cancel',
+  ARCHIVE_VIEW:       'anapath:archive:view',
+  REPORT_EXPORT:      'anapath:report:export',
+  OBSERVATION_WRITE:  'anapath:observation:write',
 } as const;
 
 export const PERMISSION_RULES = {

@@ -59,6 +59,10 @@ function ValidationPageContent() {
   const toast = useToast();
   const canWrite = hasPermission('anapath:update');
   const canSign  = hasPermission('anapath:validate');
+  // La Secrétaire (anapath:observation:write) peut transcrire le résultat/
+  // conclusion dicté par le pathologiste, mais pas remplir l'examen au
+  // spéculum (réservé à canWrite ci-dessus) ni valider/signer (canSign).
+  const canWriteObservation = canWrite || hasPermission('anapath:observation:write');
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<AnapathRequest | null>(null);
@@ -595,46 +599,50 @@ function ValidationPageContent() {
                     <section className="bg-white border border-outline-variant rounded-xl shadow-sm p-4">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">RÉSULTAT : <span className="text-red-500">*</span></p>
-                        <VoiceInputButton
-                          onResult={(text) =>
-                            setResultData((prev) => ({
-                              ...prev,
-                              details: prev.details.trim() ? `${prev.details} ${text}` : text,
-                            }))
-                          }
-                        />
+                        {canWriteObservation && (
+                          <VoiceInputButton
+                            onResult={(text) =>
+                              setResultData((prev) => ({
+                                ...prev,
+                                details: prev.details.trim() ? `${prev.details} ${text}` : text,
+                              }))
+                            }
+                          />
+                        )}
                       </div>
                       <textarea
                         value={resultData.details}
                         onChange={(e) => setResultData({ ...resultData, details: e.target.value })}
-                        className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWriteObservation ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Saisir les résultats de l'examen ici..."
                         rows={12}
                         required
-                        disabled={!canWrite}
+                        disabled={!canWriteObservation}
                       />
                     </section>
 
                     <section className="bg-white border border-outline-variant rounded-xl shadow-sm p-4">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">CONCLUSION : <span className="text-red-500">*</span></p>
-                        <VoiceInputButton
-                          onResult={(text) =>
-                            setResultData((prev) => ({
-                              ...prev,
-                              conclusion: prev.conclusion.trim() ? `${prev.conclusion} ${text}` : text,
-                            }))
-                          }
-                        />
+                        {canWriteObservation && (
+                          <VoiceInputButton
+                            onResult={(text) =>
+                              setResultData((prev) => ({
+                                ...prev,
+                                conclusion: prev.conclusion.trim() ? `${prev.conclusion} ${text}` : text,
+                              }))
+                            }
+                          />
+                        )}
                       </div>
                       <textarea
                         value={resultData.conclusion}
                         onChange={(e) => setResultData({ ...resultData, conclusion: e.target.value })}
-                        className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWriteObservation ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Saisir la conclusion ici..."
                         rows={4}
                         required
-                        disabled={!canWrite}
+                        disabled={!canWriteObservation}
                       />
                     </section>
 

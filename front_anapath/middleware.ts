@@ -18,13 +18,16 @@ const APP_BASE_URL = process.env.APP_BASE_URL;
 
 const PROTECTED_ROUTES: Array<{
   path: string;
-  permission: string;
+  // Une seule permission requise, ou une liste dont une seule suffit (ex. la
+  // Secrétaire n'a que anapath:observation:write, pas anapath:update, mais
+  // doit pouvoir accéder au fil de travail / à la validation pour dicter).
+  permission: string | string[];
   blockedForMajor?: boolean;
 }> = [
   { path: '/dashboard',  permission: 'anapath:read',         blockedForMajor: false },
   { path: '/demandes',   permission: 'anapath:update',       blockedForMajor: true },
-  { path: '/worklist',   permission: 'anapath:update',       blockedForMajor: true },
-  { path: '/validation', permission: 'anapath:update',       blockedForMajor: true },
+  { path: '/worklist',   permission: ['anapath:update', 'anapath:observation:write'], blockedForMajor: true },
+  { path: '/validation', permission: ['anapath:update', 'anapath:observation:write'], blockedForMajor: true },
   { path: '/archives',   permission: 'anapath:archive:view', blockedForMajor: true },
   { path: '/reports',    permission: 'anapath:report:export', blockedForMajor: false },
 ];
@@ -80,7 +83,10 @@ export function middleware(request: NextRequest) {
           new URL('/dashboard', APP_BASE_URL || request.url),
         );
       }
-      if (!userPermissions.includes(route.permission)) {
+      const requiredPermissions = Array.isArray(route.permission)
+        ? route.permission
+        : [route.permission];
+      if (!requiredPermissions.some((p) => userPermissions.includes(p))) {
         return NextResponse.redirect(
           new URL('/dashboard', APP_BASE_URL || request.url),
         );

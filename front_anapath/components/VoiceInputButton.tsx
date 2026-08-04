@@ -8,12 +8,20 @@ interface VoiceInputButtonProps {
   className?: string;
 }
 
+// Silence entre deux segments dictés : 3s = fin de phrase (point), 5s = saut de ligne.
+const SENTENCE_PAUSE_MS = 3000;
+const PARAGRAPH_PAUSE_MS = 5000;
+
 /** Bouton micro : dictée vocale en français via l'API navigateur (Chrome). Invisible si non supportée. */
 export default function VoiceInputButton({ onResult, className = '' }: VoiceInputButtonProps) {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
+  // Suit l'intention de l'utilisateur (bouton cliqué), séparément de l'état
+  // React `listening`, pour décider dans onend si on relance automatiquement.
+  const listeningRef = useRef(false);
+  const lastResultAtRef = useRef(0);
 
   useEffect(() => {
     const win = window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any };
@@ -32,15 +40,51 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
           finalTranscript += event.results[i][0].transcript;
         }
       }
-      if (finalTranscript.trim()) onResult(finalTranscript.trim());
+      finalTranscript = finalTranscript.trim();
+      if (!finalTranscript) return;
+
+      const now = Date.now();
+      const silence = lastResultAtRef.current ? now - lastResultAtRef.current : 0;
+      lastResultAtRef.current = now;
+
+      let separator = '';
+      if (silence >= PARAGRAPH_PAUSE_MS) {
+        separator = '\n\n';
+      } else if (silence >= SENTENCE_PAUSE_MS) {
+        separator = '. ';
+      }
+
+      onResult(separator ? `${separator}${finalTranscript}` : finalTranscript);
     };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onend = () => {
+      // En mode continu, certains navigateurs coupent la reconnaissance après
+      // un silence prolongé (pause de 3s/5s comprise) : on la relance tant que
+      // l'utilisateur n'a pas cliqué sur « Arrêter », pour ne perdre aucune
+      // parole après une pause.
+      if (listeningRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          // déjà démarrée ou erreur transitoire : ignorer, un futur onend réessaiera.
+        }
+      } else {
+        setListening(false);
+      }
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (event: any) => {
+      // « no-speech » se déclenche simplement après un silence — pas une vraie
+      // erreur : onend va suivre et relancer si l'utilisateur écoute toujours.
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      listeningRef.current = false;
+      setListening(false);
+    };
 
     recognitionRef.current = recognition;
     setSupported(true);
 
     return () => {
+      listeningRef.current = false;
       recognition.onresult = null;
       recognition.onend = null;
       recognition.onerror = null;
@@ -54,9 +98,12 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
   const toggle = () => {
     if (!recognitionRef.current) return;
     if (listening) {
+      listeningRef.current = false;
       recognitionRef.current.stop();
       setListening(false);
     } else {
+      listeningRef.current = true;
+      lastResultAtRef.current = 0;
       recognitionRef.current.start();
       setListening(true);
     }
