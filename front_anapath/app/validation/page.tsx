@@ -574,6 +574,15 @@ function ValidationPageContent() {
                     ) : (
                       <>
                     <div className="flex flex-wrap items-center gap-2">
+                      {selectedRequest?.typeExamen === 'FCV_PAP' && selectedRequest?.examenSpeculum && (
+                        <span
+                          title="L'examen au spéculum a déjà été soumis pour cette demande"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold"
+                        >
+                          <span className="material-symbols-outlined text-base">check_circle</span>
+                          Examen spéculum
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => setShowNoteModal(true)}
