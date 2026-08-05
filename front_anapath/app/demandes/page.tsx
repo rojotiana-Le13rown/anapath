@@ -8,7 +8,7 @@ import FilterButton from '@/components/FilterButton';
 import { useSearch } from '@/components/SearchContext';
 import { useToast } from '@/components/ToastContext';
 import { accepterPrescriptionNotif, refuserPrescriptionNotif, API_BASE } from '@/lib/api';
-import { formatDate, formatDateTime } from '@/lib/dateFormat';
+import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
 
 /* ---- Helpers (mêmes règles que la cloche de notification) ---- */
@@ -28,7 +28,7 @@ const getPatientName = (n: any): string =>
   n?.enriched?.patientName ??
   n?.metadata?.patientName ??
   n?.patientName ??
-  getPatientId(n);
+  '';
 const getCreatedAt = (n: any): string =>
   n?.createdAt ?? n?.timestamp ?? n?.enriched?.createdAt ?? '';
 const getResolvedAt = (n: any): string =>
@@ -140,6 +140,13 @@ export default function DemandesPage() {
   const [motifInput, setMotifInput] = useState('');
   const [refusing, setRefusing] = useState(false);
   const [detailTarget, setDetailTarget] = useState<any | null>(null);
+
+  // Actualise les libellés relatifs ("il y a X") toutes les 30 s.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((x) => x + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   const openDetail = (n: any) => setDetailTarget(n);
   const closeDetail = () => setDetailTarget(null);
@@ -430,7 +437,12 @@ export default function DemandesPage() {
                             {urg}
                           </span>
                         </td>
-                        <td className="p-4 text-slate-500 text-xs">{formatDate(getCreatedAt(n))}</td>
+                        <td className="p-4 text-slate-500 text-xs">
+                          <div>{formatDate(getCreatedAt(n))}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {formatRelativeTime(getCreatedAt(n))}
+                          </div>
+                        </td>
                         <td className="p-4">
                           <div className="flex items-center justify-center gap-2">
                             <button

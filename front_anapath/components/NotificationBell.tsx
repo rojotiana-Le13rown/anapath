@@ -105,7 +105,7 @@ function getPatientName(n: any): string {
   return n.enriched?.patientName
     ?? n.metadata?.patientName
     ?? n.patientName
-    ?? getPatientId(n);
+    ?? '';
 }
 
 function getAnapathId(n: any): string {
