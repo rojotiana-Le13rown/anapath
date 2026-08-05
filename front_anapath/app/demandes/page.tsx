@@ -422,11 +422,6 @@ export default function DemandesPage() {
                           <p className="font-medium text-[#191c21]">
                             {getPatientName(n) || '—'}
                           </p>
-                          {getPatientId(n) && getPatientName(n) !== getPatientId(n) && (
-                            <p className="text-[11px] text-slate-400 mt-0.5">
-                              ID : {getPatientId(n)}
-                            </p>
-                          )}
                         </td>
                         <td className="p-4">{getTypeExamen(n) || '—'}</td>
                         <td className="p-4 text-slate-600">{getServiceNom(n)}</td>
@@ -518,9 +513,6 @@ export default function DemandesPage() {
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-xs text-slate-400">Patient</p>
                   <p className="font-medium text-[#191c21]">{getPatientName(detailTarget) || '—'}</p>
-                  {getPatientId(detailTarget) && getPatientName(detailTarget) !== getPatientId(detailTarget) && (
-                    <p className="text-[11px] text-slate-400 mt-0.5">ID : {getPatientId(detailTarget)}</p>
-                  )}
                 </div>
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-xs text-slate-400">Type d'examen</p>

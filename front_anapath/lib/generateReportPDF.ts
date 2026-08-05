@@ -25,7 +25,6 @@ export async function generateWeeklyReportPDF(
   const examensRows = weekData.examens.map((e) => `
     <tr>
       <td>${escapeHtml(e.anapathId)}</td>
-      <td>${escapeHtml(e.patientId)}</td>
       <td>${escapeHtml(formatTypeExamen(e.typeExamen))}</td>
       <td>${escapeHtml(e.statutLabel ?? e.statut)}</td>
       <td>${escapeHtml(e.metadata?.prescripteurId ?? e.prescriber ?? '—')}</td>
@@ -91,10 +90,10 @@ th{background:#e8edf5;font-weight:bold;}
   <div class="section-title">Liste complète des examens de la semaine</div>
   <table>
     <tr>
-      <th>ID PARA</th><th>Patient</th><th>Type</th>
+      <th>ID PARA</th><th>Type</th>
       <th>Statut</th><th>Prescripteur</th><th>Date</th>
     </tr>
-    ${examensRows || '<tr><td colspan="6" style="text-align:center;color:#999;">Aucun examen cette semaine</td></tr>'}
+    ${examensRows || '<tr><td colspan="5" style="text-align:center;color:#999;">Aucun examen cette semaine</td></tr>'}
   </table>
 
   <div style="margin-top:16px;text-align:center;font-size:8px;color:#666;

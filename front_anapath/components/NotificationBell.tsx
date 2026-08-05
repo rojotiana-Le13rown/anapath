@@ -835,12 +835,6 @@ export default function NotificationBell() {
                   text-gray-800">
                   {getPatientName(detailNotif) || '—'}
                 </p>
-                {getPatientId(detailNotif) &&
-                  getPatientName(detailNotif) !== getPatientId(detailNotif) && (
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    ID : {getPatientId(detailNotif)}
-                  </p>
-                )}
               </div>
 
               <div>
