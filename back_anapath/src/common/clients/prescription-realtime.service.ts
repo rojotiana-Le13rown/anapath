@@ -9,6 +9,17 @@ import { io, Socket } from 'socket.io-client';
 import { AnapathService } from '../../anapath/anapath.service';
 import { AuthServiceTokenService } from './auth-service-token.service';
 
+function decodeJwtExp(token: string): number | null {
+  try {
+    const payloadB64 = token.split('.')[1];
+    const json = Buffer.from(payloadB64, 'base64url').toString('utf8');
+    const payload = JSON.parse(json);
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Client WebSocket (Socket.IO) vers le service Prescription — §4 du prompt
  * d'intégration. Le WebSocket sert de SIGNAL : à chaque événement pertinent, on
@@ -64,6 +75,15 @@ export class PrescriptionRealtimeService
       );
       return;
     }
+    // Détection précoce d'un token statique EXPIRÉ : le WebSocket Prescription
+    // n'authentifie pas la connexion, mais le re-pull REST qui suit chaque événement
+    // partira avec ce token et sera rejeté en 401 (cause n°1 de « rien n'apparaît »).
+    const exp = decodeJwtExp(token);
+    if (exp !== null && exp * 1000 < Date.now()) {
+      this.logger.error(
+        `PRESCRIPTION_CRON_JWT EXPIRÉ depuis ${((Date.now() - exp * 1000) / 3600000).toFixed(1)}h — le socket va se connecter mais chaque re-pull REST renverra 401 (aucune notification). Renouveler PRESCRIPTION_CRON_JWT ou configurer un compte de service (PRESCRIPTION_SERVICE_ACCOUNT_EMAIL/PASSWORD).`,
+      );
+    }
     this.connect();
   }
 
@@ -104,6 +124,12 @@ export class PrescriptionRealtimeService
 
     this.socket.on('connect_error', (err: Error) => {
       this.logger.warn(`Erreur de connexion temps réel : ${err.message}`);
+    });
+
+    this.socket.io.on('reconnect_attempt', (attempt: number) => {
+      this.logger.warn(
+        `Tentative de reconnexion temps réel n°${attempt} — cause sous-jacente à vérifier si répétée (réseau, CORS, namespace /notifications côté service Prescription)`,
+      );
     });
 
     // Événements signalant une nouvelle prescription / un changement pour anapath.

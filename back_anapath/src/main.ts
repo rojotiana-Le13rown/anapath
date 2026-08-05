@@ -2,11 +2,13 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { Utf8Interceptor } from './common/interceptors/utf8.interceptor';
 import { Utf8Pipe } from './common/pipes/utf8.pipe';
 import { ChuClient } from './common/clients/chu.client';
 import { AccueilClient } from './common/clients/accueil.client';
+import { getCorsOrigins } from './common/cors-origins';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -16,17 +18,10 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: '15mb' });
   app.useBodyParser('urlencoded', { limit: '15mb', extended: true });
 
-  const configuredOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-    : [];
+  // Gateway WebSocket temps réel (socket.io) sur le même serveur HTTP que l'API.
+  app.useWebSocketAdapter(new IoAdapter(app));
 
-  const corsOrigins = [
-    ...new Set([
-      ...configuredOrigins,
-      'http://localhost:3031',
-      'http://127.0.0.1:3031',
-    ]),
-  ].filter(Boolean);
+  const corsOrigins = getCorsOrigins();
 
   app.enableCors({
     origin: corsOrigins,

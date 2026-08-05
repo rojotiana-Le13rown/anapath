@@ -73,6 +73,25 @@ export async function getNotificationsAnapath(): Promise<any[]> {
   }
 }
 
+/**
+ * Ticket WebSocket temps réel : le backend renvoie le JWT de session courant
+ * (validé via le cookie httpOnly, illisible en JS) pour s'authentifier sur la
+ * Gateway socket.io `/anapath`. Retourne null si non connecté / indisponible.
+ */
+export async function getWsTicket(): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/anapath/notifications/ws-ticket`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.token === 'string' ? data.token : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getUnreadNotifications(): Promise<any[]> {
   try {
     const res = await fetch(

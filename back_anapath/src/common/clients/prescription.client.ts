@@ -81,8 +81,14 @@ export class PrescriptionClient {
         timeout: this.timeout,
       });
       return Array.isArray(data) ? data.map((p) => this.normalizePrescription(p)) : [];
-    } catch (e) {
-      console.warn('PrescriptionClient.getAnapathPrescriptions échoué:', e instanceof Error ? e.message : e);
+    } catch (e: any) {
+      // 401 = token invalide/expiré (cause racine fréquente du « temps réel qui ne
+      // remonte pas » : le WebSocket se connecte mais le re-pull REST est rejeté).
+      const status = e?.response?.status;
+      console.warn(
+        `PrescriptionClient.getAnapathPrescriptions échoué (HTTP ${status ?? 'inconnu'}):`,
+        e instanceof Error ? e.message : e,
+      );
       return [];
     }
   }

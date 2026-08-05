@@ -3,8 +3,10 @@ import {
   useState, useEffect, useRef, useCallback
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { io, type Socket } from 'socket.io-client';
 import {
   getNotificationsAnapath,
+  getWsTicket,
   markNotificationAsRead,
   marquerNotifLue,
   accepterPrescriptionNotif,
@@ -12,6 +14,11 @@ import {
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
+
+// URL de la Gateway socket.io du backend (namespace /anapath). En local :
+// http://localhost:3334. Sur Render : https://anapath-backend-ar7u-uj8n.onrender.com.
+// Si vide, la cloche retombe uniquement sur le polling 30s (filet de sécurité).
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.replace(/\/$/, '');
 
 function sortNotifs(notifs: any[]): any[] {
   const p: Record<string, number> =
@@ -258,6 +265,34 @@ export default function NotificationBell() {
     }
   }, []);
 
+  // Lance le compte à rebours (25 min) puis l'alarme sonore pour un examen
+  // extemporané STAT — partagé entre le polling et le push temps réel.
+  const scheduleExtemporane = useCallback((n: any) => {
+    const aid = getAnapathId(n);
+    const type = n.enriched?.typeExamen
+      ?? n.metadata?.typeExamen ?? '';
+    if (
+      type === 'EXTEMPORANE_STAT' && aid
+      && !extemporaneTimers.current.has(aid)
+    ) {
+      const timer = setTimeout(() => {
+        playAlerteExtemporane();
+        setNotifs(prev => prev.map(x =>
+          getAnapathId(x) === aid
+            ? {
+                ...x,
+                _alerteExtemporane: true,
+                _alerteAt: new Date().toISOString(),
+              }
+            : x
+        ));
+        extemporaneTimers.current.delete(aid);
+      }, 25 * 60 * 1000);
+
+      extemporaneTimers.current.set(aid, timer);
+    }
+  }, []);
+
   const fetchNotifs = useCallback(async () => {
     const raw = await getNotificationsAnapath();
     if (!Array.isArray(raw)) return;
@@ -289,33 +324,76 @@ export default function NotificationBell() {
       playSound(maxUrg);
 
       newOnes.forEach(n => {
-        const aid = getAnapathId(n);
-        const type = n.enriched?.typeExamen
-          ?? n.metadata?.typeExamen ?? '';
-        if (type === 'EXTEMPORANE_STAT' && aid
-            && !extemporaneTimers.current.has(aid)) {
-          const timer = setTimeout(() => {
-            playAlerteExtemporane();
-            setNotifs(prev => prev.map(x =>
-              getAnapathId(x) === aid
-                ? {
-                    ...x,
-                    _alerteExtemporane: true,
-                    _alerteAt: new Date().toISOString(),
-                  }
-                : x
-            ));
-            extemporaneTimers.current.delete(aid);
-          }, 25 * 60 * 1000);
-
-          extemporaneTimers.current.set(aid, timer);
-        }
+        scheduleExtemporane(n);
         known.current.add(n.id ?? n._id);
       });
     }
 
     setNotifs(sorted);
-  }, [cancelExtemporaneTimer]);
+  }, [cancelExtemporaneTimer, scheduleExtemporane]);
+
+  // Notification reçue en temps réel via socket.io (event `notification:new`) :
+  // affichage + son immédiats, puis réconciliation avec la version enrichie (REST).
+  const ingest = useCallback((payload: any) => {
+    if (!payload || typeof payload !== 'object') return;
+    const id = payload.id ?? payload._id;
+    if (!id || known.current.has(id)) return;
+
+    known.current.add(id);
+    setNotifs(prev => sortNotifs([
+      payload,
+      ...prev.filter(n => (n.id ?? n._id) !== id),
+    ]));
+    playSound(getUrgence(payload));
+    scheduleExtemporane(payload);
+    void fetchNotifs();
+  }, [fetchNotifs, scheduleExtemporane]);
+
+  const socketRef = useRef<Socket | null>(null);
+  const ticketRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!WS_URL) return;
+    let disposed = false;
+
+    const connect = async () => {
+      const ticket = await getWsTicket();
+      if (disposed) return;
+      ticketRef.current = ticket;
+
+      const s = io(`${WS_URL}/anapath`, {
+        transports: ['websocket'],
+        // Fonction (pas objet figé) : à chaque connexion/reconnexion, on lit le
+        // ticket courant (rafraîchi en cas d'expiration) — même pattern que le
+        // backend avec le service Prescription.
+        auth: (cb: (d: { token?: string }) => void) =>
+          cb({ token: ticketRef.current ?? undefined }),
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 15000,
+      });
+      socketRef.current = s;
+
+      s.on('notification:new', (payload: any) => ingest(payload));
+
+      s.on('connect_error', () => {
+        // Le ticket a pu expirer : on le rafraîchit pour la reconnexion suivante.
+        void getWsTicket().then((t) => {
+          if (!disposed && t) ticketRef.current = t;
+        });
+      });
+    };
+
+    void connect();
+
+    return () => {
+      disposed = true;
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+  }, [ingest]);
 
   useEffect(() => {
     fetchNotifs();

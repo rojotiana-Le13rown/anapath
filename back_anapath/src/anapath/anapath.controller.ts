@@ -182,6 +182,18 @@ export class AnapathController {
   }
 
   @Permissions('anapath:read')
+  @Get('notifications/ws-ticket')
+  @ApiOperation({
+    summary: 'Ticket WebSocket temps réel : renvoie le JWT de la session pour s’authentifier sur la Gateway /anapath',
+  })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getWsTicket(@CurrentToken() token?: string) {
+    // Le token vient d'être validé par JwtAuthGuard — on le renvoie au navigateur
+    // pour qu'il puisse ouvrir le socket (le cookie httpOnly n'est pas lisible en JS).
+    return { token };
+  }
+
+  @Permissions('anapath:read')
   @Get('notifications/refusees')
   @ApiOperation({ summary: 'Prescriptions refusées (pour affichage dans les rapports)' })
   @Header('Content-Type', 'application/json; charset=utf-8')

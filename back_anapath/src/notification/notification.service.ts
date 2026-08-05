@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationEntity } from './notification.entity';
 import { NotificationType } from './dto/receive-notification.dto';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class NotificationService {
   constructor(
     @InjectRepository(NotificationEntity)
     private notificationRepository: Repository<NotificationEntity>,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   async createNotification(data: {
@@ -28,7 +30,15 @@ export class NotificationService {
       metadata: data.metadata || {},
       read: false,
     });
-    return this.notificationRepository.save(notification);
+    const saved = await this.notificationRepository.save(notification);
+    // Push temps réel vers les navigateurs connectés (event `notification:new`).
+    // Jamais bloquant : si la Gateway est indisponible, l'event est simplement perdu.
+    try {
+      this.notificationsGateway.emitNotificationCreated(saved);
+    } catch (e) {
+      console.warn('Notification push temps réel échoué:', e);
+    }
+    return saved;
   }
 
   async findAll(): Promise<NotificationEntity[]> {
