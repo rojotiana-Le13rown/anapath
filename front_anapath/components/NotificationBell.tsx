@@ -169,6 +169,10 @@ export default function NotificationBell() {
   const known = useRef<Set<string>>(new Set());
   const extemporaneTimers =
     useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Dès la première remontée (chargement ou navigation), les notifications déjà
+  // présentes sont marquées connues SANS son : un son n'est joué que pour une
+  // notification réellement nouvelle, reçue après l'ouverture de la page.
+  const initializedRef = useRef(false);
   const router = useRouter();
 
   const cancelExtemporaneTimer = useCallback((aid: string) => {
@@ -179,32 +183,46 @@ export default function NotificationBell() {
     }
   }, []);
 
-  // Lance le compte à rebours (25 min) puis l'alarme sonore pour un examen
-  // extemporané STAT — partagé entre le polling et le push temps réel.
+  // Lance le compte à rebours (25 min depuis la RÉCEPTION) puis l'alarme sonore
+  // pour un examen extemporané STAT — partagé entre le polling et le push temps
+  // réel. Le délai est calculé depuis createdAt, donc une navigation/reconnexion
+  // ne redémarre PAS la minuterie (et n'alarme pas pour une fenêtre déjà passée).
   const scheduleExtemporane = useCallback((n: any) => {
     const aid = getAnapathId(n);
     const type = n.enriched?.typeExamen
       ?? n.metadata?.typeExamen ?? '';
     if (
-      type === 'EXTEMPORANE_STAT' && aid
-      && !extemporaneTimers.current.has(aid)
+      type !== 'EXTEMPORANE_STAT' || !aid
+      || extemporaneTimers.current.has(aid)
+      || n._alerteExtemporane
     ) {
-      const timer = setTimeout(() => {
-        playExtemporaneAlarm();
-        setNotifs(prev => prev.map(x =>
-          getAnapathId(x) === aid
-            ? {
-                ...x,
-                _alerteExtemporane: true,
-                _alerteAt: new Date().toISOString(),
-              }
-            : x
-        ));
-        extemporaneTimers.current.delete(aid);
-      }, 25 * 60 * 1000);
-
-      extemporaneTimers.current.set(aid, timer);
+      return;
     }
+
+    const ALARME_MS = 25 * 60 * 1000;
+    const createdAt = n.enriched?.createdAt
+      ?? n.createdAt ?? n.date ?? n.timestamp;
+    const elapsed = createdAt
+      ? Date.now() - new Date(createdAt).getTime()
+      : 0;
+    const remaining = ALARME_MS - elapsed;
+    if (remaining <= 0) return;
+
+    const timer = setTimeout(() => {
+      playExtemporaneAlarm();
+      setNotifs(prev => prev.map(x =>
+        getAnapathId(x) === aid
+          ? {
+              ...x,
+              _alerteExtemporane: true,
+              _alerteAt: new Date().toISOString(),
+            }
+          : x
+      ));
+      extemporaneTimers.current.delete(aid);
+    }, remaining);
+
+    extemporaneTimers.current.set(aid, timer);
   }, []);
 
   const fetchNotifs = useCallback(async () => {
@@ -229,6 +247,21 @@ export default function NotificationBell() {
       const id = n.id ?? n._id;
       return !isLue(n) && !known.current.has(id);
     });
+
+    // Hydratation silencieuse : au premier chargement on mémorise les
+    // notifications déjà en attente (sans son) et on planifie l'éventuelle
+    // alarme extemporanée pour le temps restant — pas pour un 25 min entier.
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      sorted.forEach(n => {
+        if (!isLue(n)) {
+          known.current.add(n.id ?? n._id);
+          scheduleExtemporane(n);
+        }
+      });
+      setNotifs(sorted);
+      return;
+    }
 
     if (newOnes.length > 0) {
       if (newOnes.some((n) => n.type === 'RAPPORT_HEBDOMADAIRE' || n.type === 'RAPPORT')) {
