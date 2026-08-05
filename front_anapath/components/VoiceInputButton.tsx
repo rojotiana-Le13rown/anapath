@@ -8,20 +8,32 @@ interface VoiceInputButtonProps {
   className?: string;
 }
 
-// Silence entre deux segments dictés : 3s = fin de phrase (point), 5s = saut de ligne.
-const SENTENCE_PAUSE_MS = 3000;
-const PARAGRAPH_PAUSE_MS = 5000;
+type Mode = 'idle' | 'listening' | 'paused';
 
-/** Bouton micro : dictée vocale en français via l'API navigateur (Chrome). Invisible si non supportée. */
+// Silence avant la fin d'une phrase : 3s → le navigateur considère la phrase
+// terminée et on ajoute ". " entre deux segments dictés d'affilée.
+const SENTENCE_PAUSE_MS = 3000;
+
+/** Bouton micro : dictée vocale en français via l'API navigateur (Chrome).
+ *
+ *  Cycle : Dicter → Écoute… (Pause) → Continuer (reprend une nouvelle ligne) → Pause…
+ *  Chaque reprise après une pause démarre une nouvelle ligne : utile pour
+ *  structurer un compte rendu en paragraphes, phrase par phrase. */
 export default function VoiceInputButton({ onResult, className = '' }: VoiceInputButtonProps) {
-  const [listening, setListening] = useState(false);
+  const [mode, setMode] = useState<Mode>('idle');
   const [supported, setSupported] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
-  // Suit l'intention de l'utilisateur (bouton cliqué), séparément de l'état
-  // React `listening`, pour décider dans onend si on relance automatiquement.
-  const listeningRef = useRef(false);
+  // Suit l'intention de l'utilisateur (bouton cliqué), séparément de l'état React.
+  const modeRef = useRef<Mode>('idle');
   const lastResultAtRef = useRef(0);
+  // Une reprise après pause doit insérer un saut de ligne avant le prochain segment.
+  const resumeNewLineRef = useRef(false);
+
+  const setModeBoth = (m: Mode) => {
+    modeRef.current = m;
+    setMode(m);
+  };
 
   useEffect(() => {
     const win = window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any };
@@ -47,28 +59,28 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
       const silence = lastResultAtRef.current ? now - lastResultAtRef.current : 0;
       lastResultAtRef.current = now;
 
-      let separator = '';
-      if (silence >= PARAGRAPH_PAUSE_MS) {
-        separator = '\n\n';
+      let prefix = '';
+      if (resumeNewLineRef.current) {
+        // Reprise après pause → retour à la ligne, puis on dicte les phrases suivantes.
+        prefix = '\n';
+        resumeNewLineRef.current = false;
       } else if (silence >= SENTENCE_PAUSE_MS) {
-        separator = '. ';
+        // Petite pause naturelle → fin de phrase.
+        prefix = '. ';
       }
 
-      onResult(separator ? `${separator}${finalTranscript}` : finalTranscript);
+      onResult(`${prefix}${finalTranscript}`);
     };
     recognition.onend = () => {
       // En mode continu, certains navigateurs coupent la reconnaissance après
-      // un silence prolongé (pause de 3s/5s comprise) : on la relance tant que
-      // l'utilisateur n'a pas cliqué sur « Arrêter », pour ne perdre aucune
-      // parole après une pause.
-      if (listeningRef.current) {
+      // un silence prolongé : on la relance tant qu'on est en écoute. En pause,
+      // on ne touche à rien (l'utilisateur verra « Continuer »).
+      if (modeRef.current === 'listening') {
         try {
           recognition.start();
         } catch {
           // déjà démarrée ou erreur transitoire : ignorer, un futur onend réessaiera.
         }
-      } else {
-        setListening(false);
       }
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,15 +88,14 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
       // « no-speech » se déclenche simplement après un silence — pas une vraie
       // erreur : onend va suivre et relancer si l'utilisateur écoute toujours.
       if (event.error === 'no-speech' || event.error === 'aborted') return;
-      listeningRef.current = false;
-      setListening(false);
+      setModeBoth('idle');
     };
 
     recognitionRef.current = recognition;
     setSupported(true);
 
     return () => {
-      listeningRef.current = false;
+      modeRef.current = 'idle';
       recognition.onresult = null;
       recognition.onend = null;
       recognition.onerror = null;
@@ -95,33 +106,75 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
 
   if (!supported) return null;
 
-  const toggle = () => {
+  const startListening = () => {
     if (!recognitionRef.current) return;
-    if (listening) {
-      listeningRef.current = false;
-      recognitionRef.current.stop();
-      setListening(false);
-    } else {
-      listeningRef.current = true;
-      lastResultAtRef.current = 0;
+    resumeNewLineRef.current = false;
+    lastResultAtRef.current = 0;
+    setModeBoth('listening');
+    try {
       recognitionRef.current.start();
-      setListening(true);
+    } catch {
+      // déjà démarrée : ignorer
     }
   };
+
+  const pause = () => {
+    if (!recognitionRef.current) return;
+    // On passe en pause AVANT stop() : onend verra le mode "paused" et ne
+    // relancera rien.
+    setModeBoth('paused');
+    try {
+      recognitionRef.current.stop();
+    } catch {}
+  };
+
+  const resume = () => {
+    if (!recognitionRef.current) return;
+    resumeNewLineRef.current = true; // prochain segment → nouvelle ligne
+    lastResultAtRef.current = 0;
+    setModeBoth('listening');
+    try {
+      recognitionRef.current.start();
+    } catch {}
+  };
+
+  const handleClick = () => {
+    if (mode === 'listening') pause();
+    else if (mode === 'paused') resume();
+    else startListening();
+  };
+
+  const label =
+    mode === 'listening' ? 'Pause'
+    : mode === 'paused' ? 'Continuer'
+    : 'Dicter';
+  const icon =
+    mode === 'listening' ? 'pause'
+    : mode === 'paused' ? 'play_arrow'
+    : 'mic_none';
+
+  const tone =
+    mode === 'listening'
+      ? 'bg-red-600 text-white animate-pulse'
+      : mode === 'paused'
+      ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+      : 'bg-slate-100 text-slate-500 hover:bg-slate-200';
 
   return (
     <button
       type="button"
-      onClick={toggle}
-      title={listening ? 'Arrêter la dictée' : 'Dicter (transcription vocale)'}
-      className={`p-1.5 rounded-full transition-colors flex items-center gap-1 text-[11px] font-semibold ${
-        listening ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-      } ${className}`}
+      onClick={handleClick}
+      title={
+        mode === 'listening'
+          ? 'Pause : interrompre la dictée (reprise = nouvelle ligne)'
+          : mode === 'paused'
+          ? 'Continuer la dictée sur une nouvelle ligne'
+          : 'Dicter (transcription vocale)'
+      }
+      className={`p-1.5 rounded-full transition-colors flex items-center gap-1 text-[11px] font-semibold ${tone} ${className}`}
     >
-      <span className={`material-symbols-outlined text-base ${listening ? 'animate-pulse' : ''}`}>
-        {listening ? 'mic' : 'mic_none'}
-      </span>
-      {listening ? 'Écoute...' : 'Dicter'}
+      <span className="material-symbols-outlined text-base">{icon}</span>
+      {label}
     </button>
   );
 }

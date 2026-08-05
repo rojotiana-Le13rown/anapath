@@ -8,7 +8,7 @@ import FilterButton from '@/components/FilterButton';
 import { useSearch } from '@/components/SearchContext';
 import { useToast } from '@/components/ToastContext';
 import { accepterPrescriptionNotif, refuserPrescriptionNotif, API_BASE } from '@/lib/api';
-import { formatDate } from '@/lib/dateFormat';
+import { formatDate, formatDateTime } from '@/lib/dateFormat';
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
 
 /* ---- Helpers (mêmes règles que la cloche de notification) ---- */
@@ -24,6 +24,11 @@ const getServiceNom = (n: any): string =>
   n?.enriched?.serviceNom ?? n?.metadata?.serviceNom ?? '—';
 const getPatientId = (n: any): string =>
   n?.enriched?.patientId ?? n?.metadata?.patientId ?? '';
+const getPatientName = (n: any): string =>
+  n?.enriched?.patientName ??
+  n?.metadata?.patientName ??
+  n?.patientName ??
+  getPatientId(n);
 const getCreatedAt = (n: any): string =>
   n?.createdAt ?? n?.timestamp ?? n?.enriched?.createdAt ?? '';
 const getResolvedAt = (n: any): string =>
@@ -134,6 +139,10 @@ export default function DemandesPage() {
   const [refuseTarget, setRefuseTarget] = useState<any | null>(null);
   const [motifInput, setMotifInput] = useState('');
   const [refusing, setRefusing] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<any | null>(null);
+
+  const openDetail = (n: any) => setDetailTarget(n);
+  const closeDetail = () => setDetailTarget(null);
 
   const loadOnce = useCallback(async () => {
     const [notifs, acceptees, refusees] = await Promise.all([
@@ -175,7 +184,7 @@ export default function DemandesPage() {
   }, [fetchData]);
 
   const matchesQuery = (n: any, q: string) =>
-    [getPatientId(n), getTypeExamen(n), getServiceNom(n), n?.title ?? '', n?.message ?? '']
+    [getPatientName(n), getPatientId(n), getTypeExamen(n), getServiceNom(n), n?.title ?? '', n?.message ?? '']
       .join(' ')
       .toLowerCase()
       .includes(q);
@@ -405,10 +414,20 @@ export default function DemandesPage() {
                     return (
                       <tr
                         key={id}
-                        className="card-rise hover:bg-[#00478d]/[0.03] transition-colors"
+                        onClick={() => openDetail(n)}
+                        className="card-rise cursor-pointer hover:bg-[#00478d]/[0.03] transition-colors"
                         style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
                       >
-                        <td className="p-4 font-medium">{getPatientId(n) || '—'}</td>
+                        <td className="p-4">
+                          <p className="font-medium text-[#191c21]">
+                            {getPatientName(n) || '—'}
+                          </p>
+                          {getPatientId(n) && getPatientName(n) !== getPatientId(n) && (
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              ID : {getPatientId(n)}
+                            </p>
+                          )}
+                        </td>
                         <td className="p-4">{getTypeExamen(n) || '—'}</td>
                         <td className="p-4 text-slate-600">{getServiceNom(n)}</td>
                         <td className="p-4">
@@ -421,7 +440,7 @@ export default function DemandesPage() {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               type="button"
-                              onClick={() => handleAccept(n)}
+                              onClick={(e) => { e.stopPropagation(); handleAccept(n); }}
                               disabled={busy}
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#00478d] to-[#005eb8] text-white text-xs font-semibold hover:shadow-md active:scale-95 transition-all disabled:opacity-60"
                             >
@@ -430,7 +449,7 @@ export default function DemandesPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => openRefuse(n)}
+                              onClick={(e) => { e.stopPropagation(); openRefuse(n); }}
                               disabled={busy}
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 active:scale-95 transition disabled:opacity-60"
                             >
@@ -464,6 +483,127 @@ export default function DemandesPage() {
         </div>
       </main>
 
+      {/* Fenêtre de détails de la prescription — thème bleu marine/blanc */}
+      {detailTarget && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#00203a]/50 backdrop-blur-sm p-4 overlay-in"
+          onClick={closeDetail}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-[#00284d] to-[#00478d] px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-white text-2xl">description</span>
+                <div>
+                  <h3 className="text-white font-bold text-base">Détails de la prescription</h3>
+                  <p className="text-white/60 text-xs mt-0.5">
+                    {getTypeExamen(detailTarget) || 'Examen'} — Patient{' '}
+                    {getPatientName(detailTarget) || '—'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="text-white/70 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-slate-400">Patient</p>
+                  <p className="font-medium text-[#191c21]">{getPatientName(detailTarget) || '—'}</p>
+                  {getPatientId(detailTarget) && getPatientName(detailTarget) !== getPatientId(detailTarget) && (
+                    <p className="text-[11px] text-slate-400 mt-0.5">ID : {getPatientId(detailTarget)}</p>
+                  )}
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-slate-400">Type d'examen</p>
+                  <p className="font-medium text-[#191c21]">{getTypeExamen(detailTarget) || '—'}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-slate-400">Service demandeur</p>
+                  <p className="font-medium text-[#191c21]">{getServiceNom(detailTarget)}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-slate-400">Urgence</p>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${urgenceBadge(getUrgence(detailTarget))}`}>
+                    {getUrgence(detailTarget)}
+                  </span>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                  <p className="text-xs text-slate-400">Reçue le</p>
+                  <p className="font-medium text-[#191c21]">
+                    {formatDateTime(getCreatedAt(detailTarget))}
+                  </p>
+                </div>
+              </div>
+
+              {(detailTarget.metadata?.anapathId || detailTarget.referenceId || detailTarget.examId) && (
+                <div className="bg-[#00478d]/5 border border-[#00478d]/15 rounded-lg p-3 text-sm">
+                  <p className="text-xs text-slate-400 mb-0.5">Référence examen</p>
+                  <p className="font-mono font-medium text-[#00478d]">
+                    {detailTarget.metadata?.anapathId ?? detailTarget.referenceId ?? detailTarget.examId}
+                  </p>
+                </div>
+              )}
+
+              {detailTarget.metadata?.alertes && (
+                <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
+                  <p className="text-xs text-red-400 font-bold uppercase tracking-wider mb-0.5">
+                    Alertes
+                  </p>
+                  <p className="font-medium text-red-700">{detailTarget.metadata.alertes}</p>
+                </div>
+              )}
+
+              {detailTarget.message && (
+                <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-3 text-sm">
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                    Message
+                  </p>
+                  <p className="font-medium text-[#191c21] leading-relaxed">{detailTarget.message}</p>
+                </div>
+              )}
+
+              {detailTarget.metadata?.data &&
+                Object.keys(detailTarget.metadata.data).length > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1.5">
+                      Détails cliniques
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {Object.entries(detailTarget.metadata.data).map(([k, v]) => (
+                        <div key={k} className="bg-slate-50 rounded-lg p-3">
+                          <p className="text-xs text-slate-400 capitalize">{k}</p>
+                          <p className="font-medium text-[#191c21] break-words">
+                            {String(v ?? '—')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-4 bg-slate-50 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[#00478d] to-[#005eb8] rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fenêtre de refus — thème bleu marine/blanc */}
       {refuseTarget && (
         <div
@@ -491,7 +631,7 @@ export default function DemandesPage() {
 
             <div className="p-5 space-y-3">
               <p className="text-sm text-slate-600">
-                Patient <strong className="text-[#191c21]">{getPatientId(refuseTarget) || '—'}</strong>
+                Patient <strong className="text-[#191c21]">{getPatientName(refuseTarget) || '—'}</strong>
                 {' — '}
                 {getTypeExamen(refuseTarget) || '—'}
               </p>

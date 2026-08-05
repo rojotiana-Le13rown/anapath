@@ -14,6 +14,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
+import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
 
 // URL de la Gateway socket.io du backend (namespace /anapath). En local :
 // http://localhost:3334. Sur Render : https://anapath-backend-ar7u-uj8n.onrender.com.
@@ -38,108 +39,6 @@ function sortNotifs(notifs: any[]): any[] {
       b.createdAt ?? b.date ?? 0).getTime();
     return db - da;
   });
-}
-
-function playSound(urgence: string, volume = 1.0) {
-  try {
-    const Ctx = window.AudioContext
-      || (window as any).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.connect(g);
-    g.connect(ctx.destination);
-
-    const vol = Math.min(volume, 1.0);
-
-    if (urgence === 'STAT') {
-      osc.frequency.value = 880;
-      osc.type = 'square';
-      g.gain.setValueAtTime(0, ctx.currentTime);
-      [0, 0.3, 0.6].forEach(t => {
-        g.gain.setValueAtTime(vol, ctx.currentTime + t);
-        g.gain.setValueAtTime(
-          0, ctx.currentTime + t + 0.2);
-      });
-      osc.start();
-      osc.stop(ctx.currentTime + 0.85);
-    } else if (urgence === 'URGENTE') {
-      osc.frequency.value = 660;
-      osc.type = 'sine';
-      g.gain.setValueAtTime(0, ctx.currentTime);
-      [0, 0.4].forEach(t => {
-        g.gain.setValueAtTime(
-          vol * 0.7, ctx.currentTime + t);
-        g.gain.setValueAtTime(
-          0, ctx.currentTime + t + 0.25);
-      });
-      osc.start();
-      osc.stop(ctx.currentTime + 0.7);
-    } else {
-      osc.frequency.value = 440;
-      osc.type = 'sine';
-      g.gain.setValueAtTime(vol * 0.4, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(
-        0.001, ctx.currentTime + 0.5);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-    }
-    setTimeout(() => ctx.close(), 2000);
-  } catch {}
-}
-
-function playAlerteExtemporane() {
-  try {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = 'none';
-    }
-
-    const Ctx = window.AudioContext
-      || (window as any).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-
-    const osc1 = ctx.createOscillator();
-    const osc2 = ctx.createOscillator();
-    const osc3 = ctx.createOscillator();
-    const g = ctx.createGain();
-    const compressor = ctx.createDynamicsCompressor();
-
-    compressor.threshold.value = -50;
-    compressor.knee.value = 40;
-    compressor.ratio.value = 12;
-    compressor.attack.value = 0;
-    compressor.release.value = 0.25;
-
-    osc1.connect(g);
-    osc2.connect(g);
-    osc3.connect(g);
-    g.connect(compressor);
-    compressor.connect(ctx.destination);
-
-    osc1.frequency.value = 1000;
-    osc2.frequency.value = 1250;
-    osc3.frequency.value = 800;
-    osc1.type = 'sawtooth';
-    osc2.type = 'square';
-    osc3.type = 'sawtooth';
-
-    g.gain.setValueAtTime(0, ctx.currentTime);
-
-    for (let i = 0; i < 5; i++) {
-      const t = ctx.currentTime + i * 0.4;
-      g.gain.setValueAtTime(1.0, t);
-      g.gain.setValueAtTime(0, t + 0.25);
-    }
-
-    osc1.start(); osc2.start(); osc3.start();
-    osc1.stop(ctx.currentTime + 2.0);
-    osc2.stop(ctx.currentTime + 2.0);
-    osc3.stop(ctx.currentTime + 2.0);
-
-    setTimeout(() => ctx.close(), 3000);
-  } catch {}
 }
 
 function isLue(n: any): boolean {
@@ -193,6 +92,20 @@ function getServiceNom(n: any): string {
     ?? n.metadata?.serviceId
     ?? n.metadata?.serviceIdSource
     ?? '—';
+}
+
+function getPatientId(n: any): string {
+  return n.enriched?.patientId
+    ?? n.metadata?.patientId
+    ?? n.patientId
+    ?? '';
+}
+
+function getPatientName(n: any): string {
+  return n.enriched?.patientName
+    ?? n.metadata?.patientName
+    ?? n.patientName
+    ?? getPatientId(n);
 }
 
 function getAnapathId(n: any): string {
@@ -276,7 +189,7 @@ export default function NotificationBell() {
       && !extemporaneTimers.current.has(aid)
     ) {
       const timer = setTimeout(() => {
-        playAlerteExtemporane();
+        playExtemporaneAlarm();
         setNotifs(prev => prev.map(x =>
           getAnapathId(x) === aid
             ? {
@@ -317,11 +230,15 @@ export default function NotificationBell() {
     });
 
     if (newOnes.length > 0) {
-      const urgences = newOnes.map(n => getUrgence(n));
-      const maxUrg = urgences.includes('STAT') ? 'STAT'
-        : urgences.includes('URGENTE') ? 'URGENTE'
-        : 'NORMALE';
-      playSound(maxUrg);
+      if (newOnes.some((n) => n.type === 'RAPPORT_HEBDOMADAIRE' || n.type === 'RAPPORT')) {
+        playReportSound();
+      } else {
+        const urgences = newOnes.map(n => getUrgence(n));
+        const maxUrg = urgences.includes('STAT') ? 'STAT'
+          : urgences.includes('URGENTE') ? 'URGENTE'
+          : 'NORMALE';
+        playUrgenceSound(maxUrg);
+      }
 
       newOnes.forEach(n => {
         scheduleExtemporane(n);
@@ -344,7 +261,11 @@ export default function NotificationBell() {
       payload,
       ...prev.filter(n => (n.id ?? n._id) !== id),
     ]));
-    playSound(getUrgence(payload));
+    if (payload.type === 'RAPPORT_HEBDOMADAIRE' || payload.type === 'RAPPORT') {
+      playReportSound();
+    } else {
+      playUrgenceSound(getUrgence(payload));
+    }
     scheduleExtemporane(payload);
     void fetchNotifs();
   }, [fetchNotifs, scheduleExtemporane]);
@@ -652,6 +573,7 @@ export default function NotificationBell() {
                 const id   = n.id ?? n._id;
                 const type = getTypeExamen(n);
                 const svc  = getServiceNom(n);
+                const patient = getPatientName(n);
                 const heure = formatHeure(
                   n.createdAt ?? n.date ?? '');
                 const relatif = formatRelativeTime(
@@ -737,6 +659,12 @@ export default function NotificationBell() {
                             ? 'text-orange-700'
                             : 'text-gray-800'}
                         `}>
+                          {patient || '—'}
+                        </p>
+
+                        <p className="text-xs
+                          text-gray-600 mt-0.5
+                          font-medium">
                           {type}
                         </p>
 
@@ -903,9 +831,16 @@ export default function NotificationBell() {
                 <p className="text-xs text-gray-500">
                   Patient
                 </p>
-                <p className="text-sm text-gray-800">
-                  {detailNotif.metadata?.patientId ?? '—'}
+                <p className="text-sm font-semibold
+                  text-gray-800">
+                  {getPatientName(detailNotif) || '—'}
                 </p>
+                {getPatientId(detailNotif) &&
+                  getPatientName(detailNotif) !== getPatientId(detailNotif) && (
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    ID : {getPatientId(detailNotif)}
+                  </p>
+                )}
               </div>
 
               <div>

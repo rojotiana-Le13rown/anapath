@@ -123,42 +123,9 @@ export class AnapathController {
     ]);
 
     const enriched = await Promise.all(
-      [...notifs, ...locales].map(async (n: any) => {
-        const anapathId = n.metadata?.anapathId ?? n.referenceId ?? n.examId;
-        if (!anapathId) return n;
-
-        try {
-          const examen = await this.anapathService.findByAnapathId(anapathId);
-          if (!examen) return n;
-
-          const metadata = examen.metadata as Record<string, unknown> | null;
-          return {
-            ...n,
-            enriched: {
-              id: examen.id,
-              anapathId: examen.anapathId,
-              typeExamen: examen.typeExamen,
-              statut: examen.statut,
-              urgence:
-                (metadata?.urgence as string) ??
-                (examen.isExtemporane ? 'STAT' : 'NORMALE'),
-              serviceNom:
-                (metadata?.serviceNom as string) ??
-                (metadata?.serviceId as string) ??
-                '—',
-              patientId: examen.patientId,
-              createdAt: examen.createdAt,
-              lu:
-                examen.notificationLue &&
-                ['RESULTAT_DISPONIBLE', 'VALIDE', 'ARCHIVE'].includes(
-                  examen.statut,
-                ),
-            },
-          };
-        } catch {
-          return n;
-        }
-      }),
+      [...notifs, ...locales].map(async (n: any) =>
+        this.enrichNotification(n),
+      ),
     );
 
     return sortNotifications(enriched);
@@ -178,7 +145,94 @@ export class AnapathController {
       this.notificationService.findUnread(),
     ]);
     const unread = notifs.filter((n) => !this.notificationClient.isRead(n));
-    return sortNotifications([...unread, ...locales]);
+    const enriched = await Promise.all(
+      [...unread, ...locales].map(async (n: any) =>
+        this.enrichNotification(n),
+      ),
+    );
+    return sortNotifications(enriched);
+  }
+
+  /**
+   * Enrichit une notification avec les champs de l'examen (si connu) et le nom
+   * complet du patient (résolu via Accueil). Pour les prescriptions encore en
+   * attente (aucun examen matérialisé), on résout le nom depuis les métadonnées
+   * (patientId + chuId) ; en dernier recours le patientId sert de libellé.
+   */
+  private async enrichNotification(n: any): Promise<any> {
+    if (!n || typeof n !== 'object') return n;
+
+    const anapathId = n.metadata?.anapathId ?? n.referenceId ?? n.examId;
+    let examen: any = null;
+    if (anapathId) {
+      try {
+        examen = await this.anapathService.findByAnapathId(anapathId);
+      } catch {
+        examen = null;
+      }
+    }
+
+    const base = examen
+      ? {
+          ...n,
+          enriched: {
+            id: examen.id,
+            anapathId: examen.anapathId,
+            typeExamen: examen.typeExamen,
+            statut: examen.statut,
+            urgence:
+              (examen.metadata?.urgence as string) ??
+              (examen.isExtemporane ? 'STAT' : 'NORMALE'),
+            serviceNom:
+              (examen.metadata?.serviceNom as string) ??
+              (examen.metadata?.serviceId as string) ??
+              '—',
+            patientId: examen.patientId,
+            createdAt: examen.createdAt,
+            lu:
+              examen.notificationLue &&
+              ['RESULTAT_DISPONIBLE', 'VALIDE', 'ARCHIVE'].includes(
+                examen.statut,
+              ),
+          },
+        }
+      : n;
+
+    const patientId =
+      (examen?.patientId as string) ??
+      (n.metadata?.patientId as string) ??
+      (n.patientId as string) ??
+      '';
+    const chuId =
+      ((examen?.metadata?.chuId as string) ??
+        (n.metadata?.chuId as string)) ??
+      '';
+    const info = (examen?.patientInfo as any) ?? null;
+
+    let patientName = patientId || '—';
+    if (info?.nom) {
+      patientName =
+        this.accueilClient.buildNomComplet(info) || patientName;
+    } else if (patientId && chuId) {
+      try {
+        const patient = await this.accueilClient.getPatient(patientId, chuId);
+        if (patient) {
+          patientName =
+            this.accueilClient.buildNomComplet(patient) || patientName;
+        }
+      } catch {
+        // Si Accueil est indisponible, on garde le patientId comme libellé.
+      }
+    }
+
+    return {
+      ...base,
+      enriched: {
+        ...(base.enriched ?? {}),
+        patientId,
+        patientName,
+      },
+    };
   }
 
   @Permissions('anapath:read')
