@@ -2,6 +2,7 @@
 import {
   useState, useEffect, useRef, useCallback
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { io, type Socket } from 'socket.io-client';
 import {
@@ -790,7 +791,8 @@ export default function NotificationBell() {
         </>
       )}
 
-      {detailNotif && (
+      {detailNotif &&
+        createPortal(
         <div
           className="fixed inset-0 z-[60] flex items-center
             justify-center bg-black/40 p-4"
@@ -974,7 +976,8 @@ export default function NotificationBell() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
