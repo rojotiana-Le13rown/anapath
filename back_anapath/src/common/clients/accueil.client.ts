@@ -22,10 +22,23 @@ export class AccueilClient {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
+  // Cache en mémoire des patients résolus (patientId|chuId -> patient ou null),
+  // pour que l'enrichissement des listes (GET /anapath) n'appelle Accueil qu'une
+  // fois par patient au lieu d'un appel par demande. Les résultats négatifs sont
+  // aussi mis en cache (évite de marteler Accueil quand il est indisponible).
+  private patientCache = new Map<string, { at: number; patient: any | null }>();
+  private readonly PATIENT_CACHE_TTL_MS = 10 * 60 * 1000;
+  private readonly PATIENT_CACHE_MAX = 500;
+
   async getPatient(patientId: string, chuId: string): Promise<any | null> {
     if (!patientId || !chuId) {
       console.warn('getPatient: patientId et chuId requis', { patientId, chuId });
       return null;
+    }
+    const key = `${patientId}|${chuId}`;
+    const cached = this.patientCache.get(key);
+    if (cached && Date.now() - cached.at < this.PATIENT_CACHE_TTL_MS) {
+      return cached.patient;
     }
     try {
       const url = `${ACCUEIL_BASE_URL}/accueil/patients/`
@@ -37,14 +50,25 @@ export class AccueilClient {
       });
       if (!res.ok) {
         console.warn(`Accueil getPatient ${res.status}:`, url);
+        this.setPatientCache(key, null);
         return null;
       }
       const data = await res.json();
+      this.setPatientCache(key, data);
       return data;
     } catch (e) {
       console.warn('Accueil getPatient erreur:', e);
+      this.setPatientCache(key, null);
       return null;
     }
+  }
+
+  private setPatientCache(key: string, patient: any | null): void {
+    if (this.patientCache.size >= this.PATIENT_CACHE_MAX) {
+      const oldest = this.patientCache.keys().next().value;
+      if (oldest !== undefined) this.patientCache.delete(oldest);
+    }
+    this.patientCache.set(key, { at: Date.now(), patient });
   }
 
   async getPatientsByChu(chuId: string): Promise<any[]> {

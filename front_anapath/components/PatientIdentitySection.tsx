@@ -65,7 +65,6 @@ export default function PatientIdentitySection({
 }: PatientIdentitySectionProps) {
   const nomComplet = patient?.nomComplet
     || patient?.nom
-    || examen?.patientId
     || '—';
   const ageDisplay = patient?.age !== null && patient?.age !== undefined
     ? `${patient.age} ans`

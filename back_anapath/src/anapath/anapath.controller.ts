@@ -43,8 +43,9 @@ export class AnapathController {
   @ApiOperation({ summary: 'Lister toutes les demandes (optionnellement filtrées par patientId)' })
   @ApiResponse({ status: 200, description: 'Liste des demandes', type: [AnapathRequest] })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  findAll(@Query('patientId') patientId?: string) {
-    return this.anapathService.findAll(patientId);
+  async findAll(@Query('patientId') patientId?: string) {
+    const rows = await this.anapathService.findAll(patientId);
+    return this.enrichExamensPatient(rows);
   }
 
   @Permissions('anapath:update')
@@ -235,6 +236,72 @@ export class AnapathController {
     };
   }
 
+  /**
+   * Enrichit une réponse d'examen (liste GET /anapath ou détail GET /anapath/:id)
+   * avec le nom complet du patient : résolu depuis patientInfo stocké, sinon via
+   * Accueil (mis en cache), sinon vide — jamais l'ID patient en guise de libellé.
+   */
+  private async enrichExamenPatient(examen: any): Promise<any> {
+    if (!examen || typeof examen !== 'object') return examen;
+
+    const info = (examen.patientInfo as any) ?? null;
+    const nomStoque =
+      typeof info?.nom === 'string' && info.nom
+        ? this.accueilClient.buildNomComplet(info)
+        : '';
+    if (nomStoque) {
+      return {
+        ...examen,
+        patientInfo: { ...info, nomComplet: nomStoque },
+        patientName: nomStoque,
+      };
+    }
+
+    const patientId = (examen.patientId as string) ?? '';
+    const chuId =
+      ((examen.metadata?.chuId as string) ?? '') ||
+      ((info?.chuId as string) ?? '');
+    if (!patientId || !chuId) {
+      return { ...examen, patientName: '' };
+    }
+
+    try {
+      const patient = await this.accueilClient.getPatient(patientId, chuId);
+      if (patient) {
+        const nomComplet = this.accueilClient.buildNomComplet(patient);
+        return {
+          ...examen,
+          patientInfo: { ...patient, nomComplet },
+          patientName: nomComplet,
+        };
+      }
+    } catch {
+      // Accueil indisponible : pas de nom, pas d'ID exposé.
+    }
+    return { ...examen, patientName: '' };
+  }
+
+  /** Enrichit toute une liste avec une concurrence bornée (pas d'appels Accueil en rafale). */
+  private async enrichExamensPatient(rows: any[]): Promise<any[]> {
+    if (rows.length === 0) return rows;
+    const results = new Array<any>(rows.length);
+    let cursor = 0;
+    const worker = async () => {
+      for (;;) {
+        const i = cursor++;
+        if (i >= rows.length) return;
+        results[i] = await this.enrichExamenPatient(rows[i]);
+      }
+    };
+    const CONCURRENCE = 8;
+    const workers = Array.from(
+      { length: Math.min(CONCURRENCE, rows.length) },
+      () => worker(),
+    );
+    await Promise.all(workers);
+    return results;
+  }
+
   @Permissions('anapath:read')
   @Get('notifications/ws-ticket')
   @ApiOperation({
@@ -388,8 +455,9 @@ export class AnapathController {
   @ApiResponse({ status: 200, description: 'Demande trouvée', type: AnapathRequest })
   @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  findOne(@Param('id') id: string) {
-    return this.anapathService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const examen = await this.anapathService.findOne(id);
+    return this.enrichExamenPatient(examen);
   }
 
   @Permissions('anapath:update')
