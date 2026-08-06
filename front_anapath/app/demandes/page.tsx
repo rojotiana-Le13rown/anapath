@@ -422,7 +422,7 @@ export default function DemandesPage() {
                         key={id}
                         onClick={() => openDetail(n)}
                         className={`card-rise cursor-pointer transition-colors ${
-                          urg === 'STAT' || urg === 'URGENTE'
+                          urg === 'STAT' || urg === 'URGENTE' || urg === 'TRES_URGENT'
                             ? 'bg-red-50/60'
                             : 'hover:bg-[#00478d]/[0.03]'
                         }`}
@@ -437,7 +437,9 @@ export default function DemandesPage() {
                         <td className="p-4 text-slate-600">{getServiceNom(n)}</td>
                         <td className="p-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${urgenceBadge(urg)}`}>
-                            {URGENCE_OPTIONS[urg as UrgenceLevel] ?? urg}
+                            {urg === 'TRES_URGENT'
+                              ? 'TRES URGENT'
+                              : URGENCE_OPTIONS[urg as UrgenceLevel] ?? urg}
                           </span>
                         </td>
                         <td className="p-4 text-slate-500 text-xs">
