@@ -24,14 +24,23 @@ export class ProfileController {
   }
 
   @Patch()
-  @ApiOperation({ summary: 'Mettre à jour la bio' })
+  @ApiOperation({ summary: 'Mettre à jour la bio et/ou le n° d\'ordre professionnel' })
   async updateBio(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() body: { bio?: string },
+    @Body()
+    body: { bio?: string; ordreProfessionnel?: string },
   ) {
-    return this.toResponse(
-      await this.profile.updateBio(user.userId, body?.bio ?? ''),
-    );
+    let p = await this.profile.get(user.userId);
+    if (body?.bio !== undefined) {
+      p = await this.profile.updateBio(user.userId, body.bio);
+    }
+    if (body?.ordreProfessionnel !== undefined) {
+      p = await this.profile.updateOrdreProfessionnel(
+        user.userId,
+        body.ordreProfessionnel,
+      );
+    }
+    return this.toResponse(p);
   }
 
   @Post('avatar')
@@ -61,6 +70,7 @@ export class ProfileController {
     return {
       userId: p.userId,
       bio: p.bio ?? '',
+      ordreProfessionnel: p.ordreProfessionnel ?? '',
       avatarFilename: p.avatarFilename ?? null,
       // URL same-origin : le proxy front + le backend ajoutent l'auth pour lire le fichier.
       avatarUrl: p.avatarFilename

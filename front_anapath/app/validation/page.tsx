@@ -55,7 +55,7 @@ function ValidationPageContent() {
   const preselectedId = searchParams.get('id');
 
   const { searchQuery } = useSearch();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const toast = useToast();
   const canWrite = hasPermission('anapath:update');
   const canSign  = hasPermission('anapath:validate');
@@ -120,6 +120,32 @@ function ValidationPageContent() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Signature automatique : le nom d'utilisateur + le n° d'ordre professionnel
+  // enregistré dans le profil. Plus rien à saisir à la validation.
+  useEffect(() => {
+    if (user?.name) {
+      setSignature((prev) => ({ ...prev, signature: user.name.trim() }));
+    }
+  }, [user?.name]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE}/anapath/profile`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (active && typeof d?.ordreProfessionnel === 'string') {
+          setSignature((prev) => ({
+            ...prev,
+            ordreProfessionnelNumber: d.ordreProfessionnel,
+          }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user?.name]);
 
   // Une nouvelle demande vient d'être chargée : ne pas déclencher l'autosave
   // sur les valeurs qu'on vient de repeupler nous-mêmes.
@@ -366,7 +392,7 @@ function ValidationPageContent() {
       } else {
         setSelectedRequest(null);
         setResultData({ details: '', conclusion: '' });
-        setSignature({ signature: '', ordreProfessionnelNumber: '' });
+        setSignature({ signature: user?.name?.trim() ?? '', ordreProfessionnelNumber: '' });
         setIppNumber('');
       }
     } catch (error) {
@@ -706,9 +732,10 @@ function ValidationPageContent() {
                             <input
                               type="text"
                               value={signature.signature}
-                              onChange={(e) => setSignature({ ...signature, signature: e.target.value })}
-                              className="w-full mt-1 p-2 bg-[#f2f3fb] border border-outline-variant/30 rounded-lg text-sm"
+                              readOnly
+                              className="w-full mt-1 p-2 bg-[#e8eaf0] border border-outline-variant/30 rounded-lg text-sm cursor-not-allowed"
                               placeholder="Signature électronique"
+                              title="Générée automatiquement à partir de votre nom d'utilisateur"
                               required
                             />
                           </div>
@@ -717,12 +744,17 @@ function ValidationPageContent() {
                             <input
                               type="text"
                               value={signature.ordreProfessionnelNumber}
-                              onChange={(e) => setSignature({ ...signature, ordreProfessionnelNumber: e.target.value })}
-                              className="w-full mt-1 p-2 bg-[#f2f3fb] border border-outline-variant/30 rounded-lg text-sm"
-                              placeholder="Ex: ONM-12345"
+                              readOnly
+                              className="w-full mt-1 p-2 bg-[#e8eaf0] border border-outline-variant/30 rounded-lg text-sm cursor-not-allowed"
+                              placeholder={signature.ordreProfessionnelNumber ? '' : 'À renseigner dans Mon profil'}
+                              title="Provient de votre profil (Mon profil)"
                               required
                             />
                           </div>
+                          <p className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+                            <span className="material-symbols-outlined text-xs">auto_awesome</span>
+                            Signature automatique — modifiable dans « Mon profil »
+                          </p>
                         </div>
                       </div>
                     </div>

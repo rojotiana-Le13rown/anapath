@@ -10,6 +10,7 @@ import { API_BASE } from '@/lib/api';
 
 interface ProfileData {
   bio: string;
+  ordreProfessionnel: string;
   avatarUrl: string | null;
 }
 
@@ -26,6 +27,7 @@ export default function ProfilePage() {
   };
 
   const [bio, setBio] = useState('');
+  const [ordreProfessionnel, setOrdreProfessionnel] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingBio, setSavingBio] = useState(false);
@@ -48,6 +50,7 @@ export default function ProfilePage() {
       .then((d: ProfileData | null) => {
         if (d) {
           setBio(d.bio ?? '');
+          setOrdreProfessionnel(d.ordreProfessionnel ?? '');
           setAvatarUrl(d.avatarUrl ?? null);
         }
       })
@@ -61,7 +64,7 @@ export default function ProfilePage() {
       const res = await fetch(`${API_BASE}/anapath/profile`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bio }),
+        body: JSON.stringify({ bio, ordreProfessionnel }),
       });
       if (!res.ok) throw new Error();
       toast.success('Enregistré avec succès');
@@ -180,6 +183,25 @@ export default function ProfilePage() {
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* N° Ordre professionnel */}
+            <div className="mt-6 pt-6 border-t border-outline-variant/20">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                N° Ordre professionnel
+              </label>
+              <input
+                type="text"
+                value={ordreProfessionnel}
+                onChange={(e) => setOrdreProfessionnel(e.target.value)}
+                disabled={loading}
+                maxLength={30}
+                placeholder="Ex: ONM-12345"
+                className="mt-2 w-full rounded-lg border border-slate-200 p-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none disabled:opacity-60"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Utilisé automatiquement comme numéro d&apos;inscription lors de la validation d&apos;un compte rendu.
+              </p>
             </div>
 
             {/* Bio */}

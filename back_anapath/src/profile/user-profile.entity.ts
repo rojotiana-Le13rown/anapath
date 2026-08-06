@@ -13,6 +13,10 @@ export class UserProfile {
   @Column({ type: 'varchar', nullable: true })
   avatarFilename: string | null;
 
+  /** Numéro d'inscription à l'Ordre national des médecins (ex : ONM-12345). */
+  @Column({ type: 'varchar', nullable: true })
+  ordreProfessionnel: string | null;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

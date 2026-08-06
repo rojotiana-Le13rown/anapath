@@ -15,13 +15,27 @@ export class ProfileService {
     const existing = await this.repo.findOne({ where: { userId } });
     return (
       existing ??
-      this.repo.create({ userId, bio: null, avatarFilename: null })
+      this.repo.create({
+        userId,
+        bio: null,
+        avatarFilename: null,
+        ordreProfessionnel: null,
+      })
     );
   }
 
   async updateBio(userId: string, bio: string): Promise<UserProfile> {
     const p = await this.get(userId);
     p.bio = bio;
+    return this.repo.save(p);
+  }
+
+  async updateOrdreProfessionnel(
+    userId: string,
+    ordreProfessionnel: string,
+  ): Promise<UserProfile> {
+    const p = await this.get(userId);
+    p.ordreProfessionnel = ordreProfessionnel;
     return this.repo.save(p);
   }
 
