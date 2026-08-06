@@ -51,6 +51,24 @@ export async function getServicesByChu(chuId: string): Promise<any[]> {
   }
 }
 
+export async function getChuById(id: string): Promise<any> {
+  try {
+    const { data } = await api.get(`/anapath/chu/${id}`);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export async function getPriseEnChargeById(id: string): Promise<any> {
+  try {
+    const { data } = await api.get(`/anapath/prise-en-charge/${id}`);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export async function getAnapathServiceInfo(): Promise<any> {
   try {
     const { data } = await api.get('/anapath/service/anapath');

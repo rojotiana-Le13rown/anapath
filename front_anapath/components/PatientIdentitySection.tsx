@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import PatientAvatar from './PatientAvatar';
+import { getPriseEnChargeById } from '@/lib/api';
 
 export interface PatientInfo {
   nomComplet?: string;
@@ -14,6 +16,14 @@ export interface PatientInfo {
   cin?: string | null;
   profession?: string | null;
   contactUrgence?: string | null;
+  priseEnChargeId?: string | null;
+}
+
+export interface PriseEnChargeInfo {
+  id?: string;
+  companyName?: string;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
 }
 
 interface PatientIdentitySectionProps {
@@ -63,6 +73,32 @@ export default function PatientIdentitySection({
   className = '',
   historiqueButton,
 }: PatientIdentitySectionProps) {
+  const [priseEnCharge, setPriseEnCharge] = useState<PriseEnChargeInfo | null>(null);
+  const [pecLoading, setPecLoading] = useState(false);
+
+  // Détail de la prise en charge (entreprise qui couvre le patient) reçu du
+  // service CHU par id — affiché dès que patient.priseEnChargeId est présent.
+  useEffect(() => {
+    let cancelled = false;
+    const pecId = patient?.priseEnChargeId;
+    if (!pecId) {
+      setPriseEnCharge(null);
+      setPecLoading(false);
+      return;
+    }
+    setPecLoading(true);
+    getPriseEnChargeById(pecId)
+      .then((d) => {
+        if (!cancelled) setPriseEnCharge(d);
+      })
+      .finally(() => {
+        if (!cancelled) setPecLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [patient?.priseEnChargeId]);
+
   const nomComplet = patient?.nomComplet
     || patient?.nom
     || '—';
@@ -98,6 +134,25 @@ export default function PatientIdentitySection({
         <Field label="Contact d'urgence" value={patient?.contactUrgence ?? '—'} loading={loading} />
         <Field label="Service demandeur" value={serviceNom} loading={loading && !examen} />
         <Field label="CHU" value={chuNom} loading={loading && !examen} />
+        <Field
+          label="Prise en charge"
+          loading={pecLoading && !priseEnCharge}
+          value={
+            priseEnCharge ? (
+              <span
+                title={
+                  priseEnCharge.contactPhone || priseEnCharge.contactEmail
+                    ? `Tél : ${priseEnCharge.contactPhone ?? '—'}\nEmail : ${priseEnCharge.contactEmail ?? '—'}`
+                    : undefined
+                }
+              >
+                {priseEnCharge.companyName ?? '—'}
+              </span>
+            ) : (
+              '—'
+            )
+          }
+        />
       </div>
     </div>
   );

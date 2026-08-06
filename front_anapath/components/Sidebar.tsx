@@ -54,10 +54,20 @@ const ALL_NAVIGATION = [
   },
 ];
 
+interface PersonnelContact {
+  id: string;
+  name: string;
+  role: string;
+  phone: string;
+}
+
+const PERSONNEL_CONTACTS: PersonnelContact[] = [];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { hasPermission, isMajor, logout, user } = useAuth();
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
+  const [showContacts, setShowContacts] = useState(false);
 
   const visibleNavigation = ALL_NAVIGATION.filter((item) => {
     if (isMajor && !item.allowedForMajor) return false;
@@ -121,19 +131,21 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto px-4 py-4 border-t border-white/20">
-        {user?.chu?.phone && (
-          <a
-            href={`tel:${user.chu.phone}`}
-            title={user.chu.name ? `Flotte ${user.chu.name}` : 'Numéro flotte du CHU'}
-            className="mb-2 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+        <div className="rounded-xl bg-white/5 p-3 mb-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">
+            Numéro flotte personnel
+          </p>
+          <p className="mt-0.5 text-[11px] leading-tight text-white/70">
+            Liste de contact de personnel
+          </p>
+          <button
+            onClick={() => setShowContacts(true)}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white text-xs font-semibold"
           >
-            <span className="material-symbols-outlined text-base text-white/80">call</span>
-            <span className="leading-tight">
-              <span className="block text-[10px] uppercase tracking-wider text-white/50">Flotte CHU</span>
-              <span className="text-sm font-semibold text-white">{user.chu.phone}</span>
-            </span>
-          </a>
-        )}
+            <span className="material-symbols-outlined text-sm">groups</span>
+            voir
+          </button>
+        </div>
         <button
           onClick={() => setConfirmLogoutOpen(true)}
           className="w-full flex items-center gap-3 px-3 py-2.5
@@ -159,6 +171,58 @@ export default function Sidebar() {
         }}
         onCancel={() => setConfirmLogoutOpen(false)}
       />
+
+      {showContacts && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowContacts(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
+              <h3 className="font-bold text-lg text-white">Liste de contact de personnel</h3>
+              <button
+                type="button"
+                onClick={() => setShowContacts(false)}
+                className="text-white/70 hover:text-white transition-colors"
+                aria-label="Fermer"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              {PERSONNEL_CONTACTS.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-8">
+                  Aucun numéro flotte disponible pour le moment.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {PERSONNEL_CONTACTS.map((contact) => (
+                    <li
+                      key={contact.id}
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{contact.name}</p>
+                        <p className="text-xs text-slate-500 truncate">{contact.role}</p>
+                      </div>
+                      <a
+                        href={`tel:${contact.phone}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00478d]/10 text-[#00478d] text-xs font-bold whitespace-nowrap hover:bg-[#00478d]/20 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">call</span>
+                        {contact.phone}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

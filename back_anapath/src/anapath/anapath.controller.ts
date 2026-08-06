@@ -86,6 +86,24 @@ export class AnapathController {
   }
 
   @Permissions('anapath:read')
+  @Get('chu/:id')
+  @ApiOperation({ summary: "Détail d'un CHU (nouveau service chu-service) par id" })
+  @ApiParam({ name: 'id', description: 'UUID du CHU' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getChuById(@Param('id') id: string, @CurrentToken() token: string) {
+    return this.chuClient.getCmsChuById(token, id);
+  }
+
+  @Permissions('anapath:read')
+  @Get('prise-en-charge/:id')
+  @ApiOperation({ summary: 'Détail d\'une prise en charge (entreprise) par id' })
+  @ApiParam({ name: 'id', description: 'UUID de la prise en charge' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getPriseEnChargeById(@Param('id') id: string, @CurrentToken() token: string) {
+    return this.chuClient.getCmsPriseEnChargeById(token, id);
+  }
+
+  @Permissions('anapath:read')
   @Get('service/anapath')
   @ApiOperation({ summary: 'Infos du service Anatomie Pathologique' })
   @Header('Content-Type', 'application/json; charset=utf-8')
