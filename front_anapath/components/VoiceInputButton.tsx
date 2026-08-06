@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 interface VoiceInputButtonProps {
   /** Appelé avec chaque segment de texte reconnu (définitif) — à concaténer au champ ciblé. */
   onResult: (text: string) => void;
+  /** Appelé avec la transcription en direct (provisoire), ou `null` quand il n'y en a plus. */
+  onInterim?: (text: string | null) => void;
   className?: string;
 }
 
@@ -19,7 +21,7 @@ const SENTENCE_PAUSE_MS = 3000;
  *  Cycle : Dicter → Écoute… (Pause) → Continuer (reprend une nouvelle ligne) → Pause…
  *  Chaque reprise après une pause démarre une nouvelle ligne : utile pour
  *  structurer un compte rendu en paragraphes, phrase par phrase. */
-export default function VoiceInputButton({ onResult, className = '' }: VoiceInputButtonProps) {
+export default function VoiceInputButton({ onResult, onInterim, className = '' }: VoiceInputButtonProps) {
   const [mode, setMode] = useState<Mode>('idle');
   const [supported, setSupported] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,10 +31,24 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
   const lastResultAtRef = useRef(0);
   // Une reprise après pause doit insérer un saut de ligne avant le prochain segment.
   const resumeNewLineRef = useRef(false);
+  // Dernière transcription provisoire (affichée en direct) — conservée pour la
+  // commiter au champ si l'utilisateur met en pause avant la fin de la phrase.
+  const lastInterimRef = useRef('');
 
   const setModeBoth = (m: Mode) => {
     modeRef.current = m;
     setMode(m);
+  };
+
+  // Committe au champ la transcription provisoire en cours (avec son éventuel
+  // retour à la ligne), pour ne rien perdre quand on coupe la dictée.
+  const commitInterim = () => {
+    if (!lastInterimRef.current) return;
+    const prefix = resumeNewLineRef.current ? '\n' : '';
+    onResult(`${prefix}${lastInterimRef.current}`);
+    lastInterimRef.current = '';
+    resumeNewLineRef.current = false;
+    onInterim?.(null);
   };
 
   useEffect(() => {
@@ -43,33 +59,54 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
     const recognition = new SpeechRecognition();
     recognition.lang = 'fr-FR';
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       let finalTranscript = '';
+      let interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
         }
       }
       finalTranscript = finalTranscript.trim();
-      if (!finalTranscript) return;
 
-      const now = Date.now();
-      const silence = lastResultAtRef.current ? now - lastResultAtRef.current : 0;
-      lastResultAtRef.current = now;
+      if (finalTranscript) {
+        const now = Date.now();
+        const silence = lastResultAtRef.current ? now - lastResultAtRef.current : 0;
+        lastResultAtRef.current = now;
 
-      let prefix = '';
-      if (resumeNewLineRef.current) {
-        // Reprise après pause → retour à la ligne, puis on dicte les phrases suivantes.
-        prefix = '\n';
-        resumeNewLineRef.current = false;
-      } else if (silence >= SENTENCE_PAUSE_MS) {
-        // Petite pause naturelle → fin de phrase.
-        prefix = '. ';
+        let prefix = '';
+        if (resumeNewLineRef.current) {
+          // Reprise après pause → retour à la ligne, puis on dicte les phrases suivantes.
+          prefix = '\n';
+          resumeNewLineRef.current = false;
+        } else if (silence >= SENTENCE_PAUSE_MS) {
+          // Petite pause naturelle → fin de phrase.
+          prefix = '. ';
+        }
+
+        onResult(`${prefix}${finalTranscript}`);
       }
 
-      onResult(`${prefix}${finalTranscript}`);
+      // Transcription en direct : le parent l'affiche en plus du texte définitif,
+      // pour voir les mots apparaître au fur et à mesure de la dictée.
+      const interimTrimmed = interimTranscript.trim();
+      lastInterimRef.current = interimTrimmed;
+      if (onInterim) {
+        if (interimTrimmed) {
+          let prefix = '';
+          if (resumeNewLineRef.current) {
+            prefix = '\n';
+          }
+          onInterim(`${prefix}${interimTrimmed}`);
+        } else {
+          onInterim(null);
+        }
+      }
     };
     recognition.onend = () => {
       // En mode continu, certains navigateurs coupent la reconnaissance après
@@ -96,6 +133,7 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
 
     return () => {
       modeRef.current = 'idle';
+      commitInterim();
       recognition.onresult = null;
       recognition.onend = null;
       recognition.onerror = null;
@@ -120,6 +158,9 @@ export default function VoiceInputButton({ onResult, className = '' }: VoiceInpu
 
   const pause = () => {
     if (!recognitionRef.current) return;
+    // On commite d'abord la transcription provisoire en cours, pour ne rien
+    // perdre quand on coupe la reconnaissance au milieu d'une phrase.
+    commitInterim();
     // On passe en pause AVANT stop() : onend verra le mode "paused" et ne
     // relancera rien.
     setModeBoth('paused');

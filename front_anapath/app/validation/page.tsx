@@ -50,6 +50,13 @@ function patientDisplayName(req: { patientInfo?: PatientInfo | null }): string {
   return assemble || '—';
 }
 
+/** Colle la transcription en direct au texte définitif, sans dédoubler les séparateurs. */
+function withInterim(committed: string, interim: string): string {
+  if (!interim) return committed;
+  if (interim.startsWith('\n')) return committed + interim;
+  return committed.trim() ? `${committed} ${interim}` : interim;
+}
+
 function ValidationPageContent() {
   const searchParams = useSearchParams();
   const preselectedId = searchParams.get('id');
@@ -73,6 +80,10 @@ function ValidationPageContent() {
   const [updating, setUpdating] = useState(false);
 
   const [resultData, setResultData] = useState({ details: '', conclusion: '' });
+  // Transcription vocale en direct : mots provisoires affichés en plus du texte définitif.
+  const [interimDetails, setInterimDetails] = useState('');
+  const [interimConclusion, setInterimConclusion] = useState('');
+  const [noteInterim, setNoteInterim] = useState('');
   const [signature, setSignature] = useState({ signature: '', ordreProfessionnelNumber: '' });
   const [ippNumber, setIppNumber] = useState('');
   const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -151,6 +162,8 @@ function ValidationPageContent() {
   // sur les valeurs qu'on vient de repeupler nous-mêmes.
   useEffect(() => {
     skipAutosaveRef.current = true;
+    setInterimDetails('');
+    setInterimConclusion('');
   }, [selectedRequest?.id]);
 
   // La note (brouillon) est un scratch-pad local à l'appareil, propre à
@@ -168,6 +181,11 @@ function ValidationPageContent() {
     setNoteText(text);
     if (selectedRequest) localStorage.setItem(`anapath_note_${selectedRequest.id}`, text);
   };
+
+  // Fermeture du modal note : on oublie la transcription en direct en cours.
+  useEffect(() => {
+    if (!showNoteModal) setNoteInterim('');
+  }, [showNoteModal]);
 
   const handleImportNoteToResultat = () => {
     setResultData((prev) => ({
@@ -643,12 +661,16 @@ function ValidationPageContent() {
                                 details: prev.details.trim() ? `${prev.details} ${text}` : text,
                               }))
                             }
+                            onInterim={(t) => setInterimDetails(t ?? '')}
                           />
                         )}
                       </div>
                       <textarea
-                        value={resultData.details}
-                        onChange={(e) => setResultData({ ...resultData, details: e.target.value })}
+                        value={withInterim(resultData.details, interimDetails)}
+                        onChange={(e) => {
+                          setResultData({ ...resultData, details: e.target.value });
+                          setInterimDetails('');
+                        }}
                         className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWriteObservation ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Saisir les résultats de l'examen ici..."
                         rows={12}
@@ -668,12 +690,16 @@ function ValidationPageContent() {
                                 conclusion: prev.conclusion.trim() ? `${prev.conclusion} ${text}` : text,
                               }))
                             }
+                            onInterim={(t) => setInterimConclusion(t ?? '')}
                           />
                         )}
                       </div>
                       <textarea
-                        value={resultData.conclusion}
-                        onChange={(e) => setResultData({ ...resultData, conclusion: e.target.value })}
+                        value={withInterim(resultData.conclusion, interimConclusion)}
+                        onChange={(e) => {
+                          setResultData({ ...resultData, conclusion: e.target.value });
+                          setInterimConclusion('');
+                        }}
                         className={`w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface ${!canWriteObservation ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Saisir la conclusion ici..."
                         rows={4}
@@ -812,11 +838,15 @@ function ValidationPageContent() {
                 <div className="flex justify-end mb-2">
                   <VoiceInputButton
                     onResult={(text) => updateNoteText(noteText.trim() ? `${noteText} ${text}` : text)}
+                    onInterim={(t) => setNoteInterim(t ?? '')}
                   />
                 </div>
                 <textarea
-                  value={noteText}
-                  onChange={(e) => updateNoteText(e.target.value)}
+                  value={withInterim(noteText, noteInterim)}
+                  onChange={(e) => {
+                    updateNoteText(e.target.value);
+                    setNoteInterim('');
+                  }}
                   rows={8}
                   placeholder="Écrivez ou dictez votre brouillon ici..."
                   className="w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface"
