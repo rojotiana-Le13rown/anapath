@@ -47,8 +47,7 @@ const isToday = (d?: string): boolean => {
 
 const urgenceBadge = (u: string) => {
   const up = u.toUpperCase();
-  if (up.includes('STAT')) return 'bg-red-100 text-red-700';
-  if (up.includes('URGENT')) return 'bg-amber-100 text-amber-800';
+  if (up.includes('STAT') || up.includes('URGENT')) return 'bg-red-100 text-red-700';
   return 'bg-slate-100 text-slate-600';
 };
 
@@ -422,7 +421,11 @@ export default function DemandesPage() {
                       <tr
                         key={id}
                         onClick={() => openDetail(n)}
-                        className="card-rise cursor-pointer hover:bg-[#00478d]/[0.03] transition-colors"
+                        className={`card-rise cursor-pointer transition-colors ${
+                          urg === 'STAT' || urg === 'URGENTE'
+                            ? 'bg-red-50/60'
+                            : 'hover:bg-[#00478d]/[0.03]'
+                        }`}
                         style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
                       >
                         <td className="p-4">
@@ -434,7 +437,7 @@ export default function DemandesPage() {
                         <td className="p-4 text-slate-600">{getServiceNom(n)}</td>
                         <td className="p-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${urgenceBadge(urg)}`}>
-                            {urg}
+                            {URGENCE_OPTIONS[urg as UrgenceLevel] ?? urg}
                           </span>
                         </td>
                         <td className="p-4 text-slate-500 text-xs">

@@ -679,7 +679,7 @@ export default function NotificationBell() {
                               : 'bg-orange-500 text-white'}
                           `}>
                             {urg === 'STAT'
-                              ? '🚨 STAT' : '⚠️ URGENT'}
+                              ? '🚨 TRES URGENT' : '⚠️ URGENT'}
                           </span>
                         )}
 
