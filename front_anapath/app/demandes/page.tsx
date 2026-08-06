@@ -47,7 +47,7 @@ const isToday = (d?: string): boolean => {
 
 const urgenceBadge = (u: string) => {
   const up = u.toUpperCase();
-  if (up.includes('STAT')) return 'bg-red-100 text-red-700';
+  if (up.includes('STAT') || up === 'TRES_URGENT') return 'bg-red-100 text-red-700';
   if (up.includes('URGENT')) return 'bg-orange-100 text-orange-700';
   return 'bg-slate-100 text-slate-600';
 };
