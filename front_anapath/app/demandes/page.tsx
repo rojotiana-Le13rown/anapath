@@ -47,7 +47,8 @@ const isToday = (d?: string): boolean => {
 
 const urgenceBadge = (u: string) => {
   const up = u.toUpperCase();
-  if (up.includes('STAT') || up.includes('URGENT')) return 'bg-red-100 text-red-700';
+  if (up.includes('STAT')) return 'bg-red-100 text-red-700';
+  if (up.includes('URGENT')) return 'bg-orange-100 text-orange-700';
   return 'bg-slate-100 text-slate-600';
 };
 
@@ -422,8 +423,10 @@ export default function DemandesPage() {
                         key={id}
                         onClick={() => openDetail(n)}
                         className={`card-rise cursor-pointer transition-colors ${
-                          urg === 'STAT' || urg === 'URGENTE' || urg === 'TRES_URGENT'
+                          urg === 'STAT' || urg === 'TRES_URGENT'
                             ? 'bg-red-50/60'
+                            : urg === 'URGENTE'
+                            ? 'bg-orange-50/60'
                             : 'hover:bg-[#00478d]/[0.03]'
                         }`}
                         style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
