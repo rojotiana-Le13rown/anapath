@@ -22,21 +22,69 @@ interface PrescriptionDetailsProps {
   historiqueButton?: React.ReactNode;
 }
 
-function extractValue(description: unknown, key: string): string {
-  if (typeof description !== 'string' || !description) return '-';
-  const regex = new RegExp(`${key}:\\s*([^,]+)`);
-  const match = description.match(regex);
-  return match ? match[1].trim() : '-';
+type Raw = Record<string, any>;
+
+function rawDataOf(request: PrescriptionRequest): Raw {
+  const md = (request.metadata ?? {}) as Record<string, any>;
+  const raw = (md.rawData ?? md.data ?? {}) as unknown;
+  return raw && typeof raw === 'object' ? (raw as Raw) : {};
 }
 
-function formatMotif(description: unknown): string {
-  if (typeof description !== 'string' || !description) return 'Non renseigné';
-  const cleaned = description.replace(/(?:[A-Za-zÀ-ÖØ-öø-ÿ]+):\s*[^,]+(?:,\s*)?/g, '').trim();
-  return cleaned || 'Non renseigné';
+function detailsOf(raw: Raw): Raw {
+  const details = raw.details;
+  return details && typeof details === 'object' ? (details as Raw) : {};
+}
+
+/** Lit une valeur dans rawData.details puis rawData (champs plats), jamais le JSON brut. */
+function val(request: PrescriptionRequest, keys: string[]): string {
+  const raw = rawDataOf(request);
+  const details = detailsOf(raw);
+  for (const key of keys) {
+    const value = details[key] ?? raw[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number') return String(value);
+  }
+  return '';
+}
+
+/** Motif lisible : description déjà lisible, sinon composition depuis les données brutes. */
+function motif(request: PrescriptionRequest): string {
+  const description = request.prelevement?.description;
+  if (description && !description.startsWith('{')) return description;
+  const raw = rawDataOf(request);
+  const details = detailsOf(raw);
+  const parts = [
+    raw.renseignementsCliniques,
+    raw.note,
+    details.bioNote,
+    details.bioSuspicion,
+    details.bioNature,
+    details.bioOrgane,
+    details.bioAtcd,
+    details.bioExamAnt,
+    details.bioResAnt,
+  ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
+  return parts.join(' — ') || 'Non renseigné';
+}
+
+function display(value: string): string {
+  return value || '—';
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-surface-container-low rounded-lg p-3">
+      <label className="text-xs text-slate-400 block">{label}</label>
+      <p className="font-medium text-on-surface">{display(value)}</p>
+    </div>
+  );
 }
 
 /** Détails d'une prescription (identité patient, type d'examen, motif, infos cliniques par type). */
 export default function PrescriptionDetails({ request, patient, patientLoading, historiqueButton }: PrescriptionDetailsProps) {
+  const suspicion = val(request, ['suspicion', 'bioSuspicion']);
+  const clinicalNotes = val(request, ['renseignementsCliniques', 'note', 'bioNote']);
+
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-outline-variant/20">
       <div className="flex items-center gap-2 mb-4">
@@ -96,11 +144,11 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
             </div>
             <div className="mb-3">
               <p className="text-xs text-slate-400">Suspicion diagnostique</p>
-              <p className="font-medium text-on-surface italic leading-relaxed">{request.prelevement?.clinicalData?.suspicion || '—'}</p>
+              <p className="font-medium text-on-surface italic leading-relaxed">{display(suspicion)}</p>
             </div>
             <div>
               <p className="text-xs text-slate-400">Renseignements cliniques</p>
-              <p className="font-medium text-on-surface italic leading-relaxed">{request.prelevement?.clinicalData?.clinicalNotes || '—'}</p>
+              <p className="font-medium text-on-surface italic leading-relaxed">{display(clinicalNotes)}</p>
             </div>
           </div>
         </div>
@@ -119,7 +167,7 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
               Motif de prescription
             </label>
             <p className="text-base font-medium text-on-surface leading-relaxed">
-              {formatMotif(request.prelevement?.description) || 'Non renseigné'}
+              {motif(request)}
             </p>
           </div>
 
@@ -131,82 +179,52 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
 
             {request.typeExamen === 'FCV_PAP' && (
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">GPA</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'GPA')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">DDR</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'DDR')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Méthode</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Méthode')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Symptômes</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Symptômes')}</p>
-                </div>
+                <Field label="GPA" value={val(request, ['fcvGPA', 'gpa'])} />
+                <Field label="DDR" value={val(request, ['fcvDDR', 'ddr'])} />
+                <Field label="Ménopause" value={val(request, ['fcvMeno', 'menopause'])} />
+                <Field label="Ménarche" value={val(request, ['fcvMenarche', 'menarche'])} />
+                <Field label="État du col" value={val(request, ['etat_col'])} />
+                <Field label="Résultat PAP" value={val(request, ['papResultat'])} />
               </div>
             )}
 
             {request.typeExamen === 'CYT0PONCTION' && (
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Siège</label>
-                  <p className="font-medium text-on-surface">{request.prelevement?.site || '-'}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Organe</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Organe')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Fixateur</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Fixateur')}</p>
-                </div>
+                <Field label="Siège" value={val(request, ['siege'])} />
+                <Field label="Organe" value={val(request, ['organe', 'bioOrgane'])} />
+                <Field label="Fixateur" value={val(request, ['fixateur', 'bioFixateur'])} />
               </div>
             )}
 
             {request.typeExamen === 'LIQUIDE' && (
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Nature du liquide</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Nature')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Notes</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Notes')}</p>
-                </div>
+                <Field label="Nature du liquide" value={val(request, ['type_liquide', 'nature', 'bioNature'])} />
+                <Field label="Volume" value={val(request, ['volume'])} />
+                <Field label="Notes" value={val(request, ['note', 'bioNote'])} />
               </div>
             )}
 
             {(request.typeExamen === 'BIOPSIE' || request.typeExamen === 'POS' || request.typeExamen === 'POC') && (
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Type</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Type')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Fixateur</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Fixateur')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Nature</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Nature')}</p>
-                </div>
+                <Field label="GPA" value={val(request, ['bioGPA', 'gpa'])} />
+                <Field label="DDR" value={val(request, ['bioDDR', 'ddr'])} />
+                <Field label="ATCD" value={val(request, ['bioAtcd', 'atcd'])} />
+                <Field label="Ménopause" value={val(request, ['bioMeno', 'menopause'])} />
+                <Field label="Nature" value={val(request, ['bioNature', 'nature'])} />
+                <Field label="Organe" value={val(request, ['bioOrgane', 'organe'])} />
+                <Field label="Localisation" value={val(request, ['bioLocalisation', 'localisation'])} />
+                <Field label="Fixateur" value={val(request, ['bioFixateur', 'fixateur'])} />
+                <Field label="Suspicion" value={val(request, ['bioSuspicion', 'suspicion'])} />
               </div>
             )}
 
             {request.typeExamen === 'EXTEMPORANE_STAT' && (
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Chirurgien</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Chirurgien')}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-lg p-3">
-                  <label className="text-xs text-slate-400 block">Question posée</label>
-                  <p className="font-medium text-on-surface">{extractValue(request.prelevement?.description, 'Question')}</p>
-                </div>
+                <Field label="Chirurgien" value={val(request, ['chirurgien'])} />
+                <Field label="Urgence chirurgicale" value={val(request, ['urgence_chirurgicale'])} />
+                <Field label="Organe" value={val(request, ['organe', 'bioOrgane'])} />
+                <Field label="Date prévue" value={val(request, ['extDatePrevue', 'extDate'])} />
+                <Field label="Question posée" value={val(request, ['note', 'renseignementsCliniques'])} />
               </div>
             )}
           </div>

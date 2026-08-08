@@ -312,12 +312,39 @@ export class AnapathService {
       prescripteurId: prescription.prescripteurId,
       urgence: prescription.urgence,
       alertes: prescription.alertes,
+      chuNom: prescription.chuNom ?? prescription.chu?.nom,
+      serviceNom: prescription.serviceNameSource ?? prescription.serviceNameDest,
     };
   }
 
   /** Construit les champs AnapathRequest depuis les métadonnées d'une notification "nouvelle prescription" (acceptation). */
   private buildRequestFromPendingMetadata(metadata: Record<string, any>): Partial<AnapathRequest> {
     const data = (metadata.data ?? {}) as Record<string, unknown>;
+    const details = (data.details ?? {}) as Record<string, unknown>;
+    const pick = (...keys: string[]): string => {
+      for (const key of keys) {
+        const value = details[key] ?? data[key];
+        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (typeof value === 'number') return String(value);
+      }
+      return '';
+    };
+
+    const site = pick('organe', 'localisation', 'siege');
+    const motif =
+      pick('renseignementsCliniques', 'note', 'bioNote') ||
+      [
+        pick('bioNature'),
+        pick('bioOrgane'),
+        pick('bioSuspicion'),
+        pick('bioAtcd'),
+        pick('bioExamAnt'),
+        pick('bioResAnt'),
+      ]
+        .filter(Boolean)
+        .join(' — ');
+    const suspicion = pick('suspicion', 'bioSuspicion');
+
     return {
       anapathId: this.generateAnapathId(),
       patientId: metadata.patientId,
@@ -326,8 +353,12 @@ export class AnapathService {
       typeExamen: metadata.typeExamen as AnapathRequest['typeExamen'],
       isExtemporane: metadata.typeExamen === 'EXTEMPORANE_STAT',
       prelevement: {
-        site: (data.organe as string) ?? (data.localisation as string) ?? '',
-        description: (data.nature as string) ?? JSON.stringify(data),
+        site,
+        description: motif,
+        clinicalData: {
+          suspicion: suspicion || undefined,
+          clinicalNotes: motif || undefined,
+        },
       },
       metadata: {
         sourceService: 'prescription-pull',
@@ -337,6 +368,8 @@ export class AnapathService {
         prescripteurId: metadata.prescripteurId,
         urgence: metadata.urgence,
         alertes: metadata.alertes,
+        chuNom: metadata.chuNom ?? null,
+        serviceNom: metadata.serviceNom ?? null,
         rawData: data,
       },
       statut: Statut.CREEE,
