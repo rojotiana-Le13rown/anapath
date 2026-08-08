@@ -42,15 +42,6 @@ export async function getChus(): Promise<any[]> {
   }
 }
 
-export async function getServicesByChu(chuId: string): Promise<any[]> {
-  try {
-    const { data } = await api.get(`/anapath/chu/${chuId}/services`);
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
-}
-
 export async function getChuById(id: string): Promise<any> {
   try {
     const { data } = await api.get(`/anapath/chu/${id}`);

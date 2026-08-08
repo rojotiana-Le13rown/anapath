@@ -36,8 +36,8 @@ services:
         sync: false
       - key: ANAPATH_ID
         sync: false
-      - key: CHU_SERVICE_URL
-        value: https://service-chu-back-production-d6a8.up.railway.app
+      - key: CHU_CMS_SERVICE_URL
+        sync: false
       - key: ACCUEIL_BASE_URL
         value: https://acceuil-back-production.up.railway.app
       - key: ANAPATH_SERVICE_ID

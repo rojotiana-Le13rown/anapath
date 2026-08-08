@@ -10,6 +10,7 @@ import { ValidateAnapathDto } from './dto/validate-anapath.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
 import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
+import { ChuClient } from '../common/clients/chu.client';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/receive-notification.dto';
 import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
@@ -25,6 +26,11 @@ export type AnapathRequestResponse = AnapathRequest & {
 
 @Injectable()
 export class AnapathService {
+  /** Cache court (5 min) des services par CHU — évite un appel /services par prescription au pull. */
+  private readonly servicesByChu = new Map<string, { at: number; list: any[] }>();
+  /** Cache court (5 min) du nom de CHU par chuId. */
+  private readonly chuNomCache = new Map<string, { at: number; nom: string | null }>();
+
   constructor(
     @InjectRepository(AnapathRequest)
     private anapathRepository: Repository<AnapathRequest>,
@@ -33,6 +39,7 @@ export class AnapathService {
     private readonly prescriptionClient: PrescriptionClient,
     private readonly notificationService: NotificationService,
     private readonly authServiceToken: AuthServiceTokenService,
+    private readonly chuClient: ChuClient,
   ) {}
 
   /**
@@ -299,6 +306,8 @@ export class AnapathService {
   private buildPendingMetadata(
     prescription: AnapathPrescription,
     demande: PrescriptionDemande,
+    chuNom?: string | null,
+    serviceNom?: string | null,
   ): Record<string, unknown> {
     return {
       prescriptionId: prescription.id,
@@ -312,9 +321,51 @@ export class AnapathService {
       prescripteurId: prescription.prescripteurId,
       urgence: prescription.urgence,
       alertes: prescription.alertes,
-      chuNom: prescription.chuNom ?? prescription.chu?.nom,
-      serviceNom: prescription.serviceNameSource ?? prescription.serviceNameDest,
+      chuNom: prescription.chuNom ?? prescription.chu?.nom ?? chuNom ?? null,
+      serviceNom: prescription.serviceNameSource ?? prescription.serviceNameDest ?? serviceNom ?? null,
     };
+  }
+
+  /**
+   * Résout le nom du CHU via le service CHU (best-effort, jamais bloquant) :
+   * la prescription externe ne fournit qu'un chuId. Cache 5 min.
+   */
+  async getChuNom(token: string | undefined, chuId?: string): Promise<string | null> {
+    if (!token || !chuId) return null;
+    const cached = this.chuNomCache.get(String(chuId));
+    if (cached && Date.now() - cached.at <= 5 * 60 * 1000) return cached.nom;
+    let nom: string | null = null;
+    try {
+      const chu = await this.chuClient.getCmsChuById(token, String(chuId));
+      nom = typeof chu?.name === 'string' ? chu.name : null;
+    } catch {
+      nom = null;
+    }
+    this.chuNomCache.set(String(chuId), { at: Date.now(), nom });
+    return nom;
+  }
+
+  /**
+   * Résout le nom du service demandeur (serviceIdSource) via la liste des
+   * services du CHU (GET /services?chuId=…, cache 5 min). Best-effort : null
+   * si le token, le chuId ou le service ne sont pas résolvables.
+   */
+  async getServiceNom(
+    token: string | undefined,
+    serviceId?: string,
+    chuId?: string,
+  ): Promise<string | null> {
+    if (!token || !serviceId) return null;
+    const key = String(chuId ?? '');
+    const cached = this.servicesByChu.get(key);
+    if (!cached || Date.now() - cached.at > 5 * 60 * 1000) {
+      const list = await this.prescriptionClient.getServices(token, chuId);
+      this.servicesByChu.set(key, { at: Date.now(), list });
+    }
+    const entry = (this.servicesByChu.get(key)?.list ?? []).find(
+      (s) => String(s.serviceId) === String(serviceId),
+    );
+    return typeof entry?.name === 'string' ? entry.name : null;
   }
 
   /** Construit les champs AnapathRequest depuis les métadonnées d'une notification "nouvelle prescription" (acceptation). */
@@ -382,7 +433,11 @@ export class AnapathService {
    * déjà en attente pour ce demandeId). Ne matérialise PAS de AnapathRequest directement —
    * c'est le rôle d'accepterPrescription(), déclenché par l'utilisateur depuis la cloche.
    */
-  private async creerNotificationsPourNouvellesDemandes(prescription: AnapathPrescription): Promise<number> {
+  private async creerNotificationsPourNouvellesDemandes(prescription: AnapathPrescription, token?: string): Promise<number> {
+    const [chuNom, serviceNom] = await Promise.all([
+      this.getChuNom(token, prescription.chuId),
+      this.getServiceNom(token, prescription.serviceIdSource, prescription.chuId),
+    ]);
     let created = 0;
     for (const demande of prescription.demandes ?? []) {
       if (!demande.id) continue;
@@ -397,7 +452,7 @@ export class AnapathService {
         message: `Patient ${prescription.patientId} — ${prescription.urgence ?? 'NORMALE'}`,
         priority: prescription.urgence === 'TRES_URGENT' ? 'high' : 'medium',
         source: 'prescription-pull',
-        metadata: this.buildPendingMetadata(prescription, demande),
+        metadata: this.buildPendingMetadata(prescription, demande, chuNom, serviceNom),
       });
       created++;
     }
@@ -411,7 +466,7 @@ export class AnapathService {
     });
     let notificationsCreees = 0;
     for (const prescription of prescriptions) {
-      notificationsCreees += await this.creerNotificationsPourNouvellesDemandes(prescription);
+      notificationsCreees += await this.creerNotificationsPourNouvellesDemandes(prescription, token);
     }
     return { prescriptions: prescriptions.length, notificationsCreees };
   }

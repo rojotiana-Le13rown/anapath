@@ -6,7 +6,6 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { Utf8Interceptor } from './common/interceptors/utf8.interceptor';
 import { Utf8Pipe } from './common/pipes/utf8.pipe';
-import { ChuClient } from './common/clients/chu.client';
 import { AccueilClient } from './common/clients/accueil.client';
 import { getCorsOrigins } from './common/cors-origins';
 
@@ -54,15 +53,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3334;
   await app.listen(port);
 
-  const chuClient = new ChuClient();
   new AccueilClient();
-
-  const serviceInfo = await chuClient.getAnapathServiceInfo();
-  console.log(
-    serviceInfo
-      ? `✅ CHU Service OK : ${serviceInfo.name}`
-      : `⚠️ CHU Service indisponible`,
-  );
+  const cmsUrl = process.env.CHU_CMS_SERVICE_URL ?? 'https://chu-service-cms7.onrender.com';
+  console.log(`✅ Service CHU configuré : ${cmsUrl}`);
 
   console.log(`🚀 Backend Anapath démarré sur http://localhost:${port}`);
   console.log(`📚 Documentation Swagger disponible sur http://localhost:${port}/api/docs`);

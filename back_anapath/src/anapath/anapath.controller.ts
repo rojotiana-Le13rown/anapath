@@ -48,7 +48,7 @@ export class AnapathController {
     @CurrentToken() token?: string,
   ) {
     const rows = await this.anapathService.findAll(patientId);
-    return this.enrichExamensPatient(rows, this.decodeAnapathContext(token));
+    return this.enrichExamensPatient(rows, this.decodeAnapathContext(token), token);
   }
 
   @Permissions('anapath:update')
@@ -73,19 +73,10 @@ export class AnapathController {
 
   @Permissions('anapath:read')
   @Get('chu')
-  @ApiOperation({ summary: 'Lister tous les CHU' })
+  @ApiOperation({ summary: 'Lister tous les CHU (service CHU externe)' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  getChus() {
-    return this.chuClient.getAllChus();
-  }
-
-  @Permissions('anapath:read')
-  @Get('chu/:chuId/services')
-  @ApiOperation({ summary: "Lister les services d'un CHU" })
-  @ApiParam({ name: 'chuId', description: 'UUID du CHU' })
-  @Header('Content-Type', 'application/json; charset=utf-8')
-  getServicesByChu(@Param('chuId') chuId: string) {
-    return this.chuClient.getServicesByChu(chuId);
+  getChus(@CurrentToken() token?: string) {
+    return this.chuClient.getCmsChus(token ?? '');
   }
 
   @Permissions('anapath:read')
@@ -108,10 +99,10 @@ export class AnapathController {
 
   @Permissions('anapath:read')
   @Get('service/anapath')
-  @ApiOperation({ summary: 'Infos du service Anatomie Pathologique' })
+  @ApiOperation({ summary: 'Infos du service Anatomie Pathologique (contexte du token connecté)' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  getAnapathService() {
-    return this.chuClient.getAnapathServiceInfo();
+  getAnapathService(@CurrentToken() token?: string) {
+    return this.decodeAnapathContext(token);
   }
 
   @Permissions('anapath:read')
@@ -187,8 +178,9 @@ export class AnapathController {
    * Contexte du service Anapath connecté (décodé du JWT de la session) : le CHU de
    * l'utilisateur — source du champ affiché « CHU ». Le « Service demandeur » (le
    * service émetteur de la prescription, serviceIdSource) n'a à ce jour aucune source
-   * de nom exploitable dans l'écosystème : il reste basé sur les métadonnées en
-   * attendant une décision sur sa provenance.
+   * de nom exploitable : l'ancien service CHU (service-chu-back-production-*.railway.app)
+   * est arrêté et le service CHU actuel (chu-service-cms7) n'expose aucun endpoint
+   * service — seuls /chu et /prise-en-charge sont documentés.
    */
   private decodeAnapathContext(token?: string): { serviceName?: string; chuName?: string } {
     if (!token) return {};
@@ -311,12 +303,47 @@ export class AnapathController {
     };
   }
 
+  /** Enrichit chuNom/serviceNom manquants (best-effort) depuis le service Prescription / service CHU. */
+  private async enrichChuServiceExamen(examen: any, token?: string): Promise<any> {
+    if (!examen || typeof examen !== 'object') return examen;
+    const metadata =
+      examen.metadata && typeof examen.metadata === 'object' ? { ...examen.metadata } : {};
+    let changed = false;
+    if (!metadata.serviceNom && (metadata.serviceIdSource ?? metadata.serviceIdDest)) {
+      const serviceNom = await this.anapathService.getServiceNom(
+        token,
+        metadata.serviceIdSource ?? metadata.serviceIdDest,
+        metadata.chuId,
+      );
+      if (serviceNom) {
+        metadata.serviceNom = serviceNom;
+        changed = true;
+      }
+    }
+    if (!metadata.chuNom && metadata.chuId) {
+      const chuNom = await this.anapathService.getChuNom(token, metadata.chuId);
+      if (chuNom) {
+        metadata.chuNom = chuNom;
+        changed = true;
+      }
+    }
+    return changed ? { ...examen, metadata } : examen;
+  }
+
   /**
    * Enrichit une réponse d'examen (liste GET /anapath ou détail GET /anapath/:id)
    * avec le nom complet du patient : résolu depuis patientInfo stocké, sinon via
    * Accueil (mis en cache), sinon vide — jamais l'ID patient en guise de libellé.
+   * Ajoute aussi chuNom/serviceNom manquants (métadonnées, best-effort).
    */
-  private async enrichExamenPatient(examen: any): Promise<any> {
+  private async enrichExamenPatient(examen: any, token?: string): Promise<any> {
+    return this.enrichChuServiceExamen(
+      await this.enrichPatientIdentite(examen),
+      token,
+    );
+  }
+
+  private async enrichPatientIdentite(examen: any): Promise<any> {
     if (!examen || typeof examen !== 'object') return examen;
 
     const info = (examen.patientInfo as any) ?? null;
@@ -368,6 +395,7 @@ export class AnapathController {
   private async enrichExamensPatient(
     rows: any[],
     ctx?: { serviceName?: string; chuName?: string },
+    token?: string,
   ): Promise<any[]> {
     if (rows.length === 0) return rows;
     const results = new Array<any>(rows.length);
@@ -377,7 +405,7 @@ export class AnapathController {
         const i = cursor++;
         if (i >= rows.length) return;
         results[i] = this.appliquerContexteAffichage(
-          await this.enrichExamenPatient(rows[i]),
+          await this.enrichExamenPatient(rows[i], token),
           ctx,
         );
       }
@@ -566,7 +594,7 @@ export class AnapathController {
     const examen = await this.anapathService.findOne(id);
     const ctx = this.decodeAnapathContext(token);
     return this.appliquerContexteAffichage(
-      await this.enrichExamenPatient(examen),
+      await this.enrichExamenPatient(examen, token),
       ctx,
     );
   }
