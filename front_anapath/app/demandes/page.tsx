@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import LocalSearchBox from '@/components/LocalSearchBox';
 import FilterButton from '@/components/FilterButton';
 import { useSearch } from '@/components/SearchContext';
 import { useToast } from '@/components/ToastContext';
+import StatCountdown from '@/components/StatCountdown';
 import { accepterPrescriptionNotif, refuserPrescriptionNotif, API_BASE } from '@/lib/api';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
@@ -31,6 +32,8 @@ const getPatientName = (n: any): string =>
   '';
 const getCreatedAt = (n: any): string =>
   n?.createdAt ?? n?.timestamp ?? n?.enriched?.createdAt ?? '';
+const getAnapathId = (n: any): string =>
+  n?.enriched?.anapathId ?? n?.metadata?.anapathId ?? n?.referenceId ?? n?.examId ?? '';
 const getResolvedAt = (n: any): string =>
   n?.metadata?.resolvedAt ?? getCreatedAt(n);
 
@@ -189,6 +192,41 @@ export default function DemandesPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Alerte à l'arrivée d'un examen STAT (TRES URGENT) : la première remontée
+  // hydrate silencieusement, puis chaque nouveau STAT réellement reçu déclenche
+  // une notification dans la cloche.
+  const knownStatIds = useRef<Set<string>>(new Set());
+  const statHydrated = useRef(false);
+  useEffect(() => {
+    if (!statHydrated.current) {
+      statHydrated.current = true;
+      pendingList.forEach((n) => {
+        const urg = getUrgence(n);
+        if (urg === 'STAT' || urg === 'TRES_URGENT') {
+          knownStatIds.current.add(String(n.id ?? n._id ?? getCreatedAt(n)));
+        }
+      });
+      return;
+    }
+    pendingList.forEach((n) => {
+      const urg = getUrgence(n);
+      if (urg !== 'STAT' && urg !== 'TRES_URGENT') return;
+      const id = String(n.id ?? n._id);
+      if (knownStatIds.current.has(id)) return;
+      knownStatIds.current.add(id);
+      fetch(`${API_BASE}/anapath/notifications/stat-alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          anapathId: getAnapathId(n),
+          patientId: getPatientId(n),
+          requestId: id,
+          phase: 'arrival',
+        }),
+      }).catch(() => {});
+    });
+  }, [pendingList]);
 
   const matchesQuery = (n: any, q: string) =>
     [getPatientName(n), getPatientId(n), getTypeExamen(n), getServiceNom(n), n?.title ?? '', n?.message ?? '']
@@ -439,11 +477,16 @@ export default function DemandesPage() {
                         <td className="p-4">{getTypeExamen(n) || '—'}</td>
                         <td className="p-4 text-slate-600">{getServiceNom(n)}</td>
                         <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${urgenceBadge(urg)}`}>
-                            {urg === 'TRES_URGENT'
-                              ? 'TRES URGENT'
-                              : URGENCE_OPTIONS[urg as UrgenceLevel] ?? urg}
-                          </span>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${urgenceBadge(urg)}`}>
+                              {urg === 'TRES_URGENT'
+                                ? 'TRES URGENT'
+                                : URGENCE_OPTIONS[urg as UrgenceLevel] ?? urg}
+                            </span>
+                            {(urg === 'STAT' || urg === 'TRES_URGENT') && (
+                              <StatCountdown startTime={getCreatedAt(n)} />
+                            )}
+                          </div>
                         </td>
                         <td className="p-4 text-slate-500 text-xs">
                           <div>{formatDate(getCreatedAt(n))}</div>

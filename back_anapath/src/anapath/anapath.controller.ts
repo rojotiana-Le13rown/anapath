@@ -350,21 +350,34 @@ export class AnapathController {
 
   @Permissions('anapath:read')
   @Post('notifications/stat-alert')
-  @ApiOperation({ summary: 'Créer une alerte STAT locale (examen extemporané, 5 minutes restantes)' })
+  @ApiOperation({ summary: 'Créer une alerte STAT locale (examen très urgent : arrivée ou 5 minutes restantes)' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   async creerAlerteStat(
-    @Body() body: { anapathId?: string; patientId?: string; requestId?: string },
+    @Body() body: {
+      anapathId?: string;
+      patientId?: string;
+      requestId?: string;
+      phase?: 'arrival' | 'remaining';
+    },
   ) {
+    const phase = body.phase === 'arrival' ? 'arrival' : 'remaining';
+    const title =
+      phase === 'arrival' ? '🚨 NOUVEL EXAMEN STAT' : '🚨 ALERTE STAT';
+    const message =
+      phase === 'arrival'
+        ? `Nouvel examen STAT (TRES URGENT) arrivé - Patient ${body.patientId ?? ''} — délai de 30 min`
+        : `Il reste 5 minutes pour l'examen STAT ${body.anapathId ?? ''} - Patient ${body.patientId ?? ''}`;
     await this.notificationService.createNotification({
       type: 'STAT_ALERT',
-      title: '🚨 ALERTE STAT',
-      message: `Il reste 5 minutes pour l'examen ${body.anapathId ?? ''} - Patient ${body.patientId ?? ''}`,
+      title,
+      message,
       priority: 'high',
       source: 'Anapath',
       metadata: {
         anapathId: body.anapathId,
         patientId: body.patientId,
         requestId: body.requestId,
+        phase,
         timestamp: new Date().toISOString(),
       },
     });

@@ -12,6 +12,7 @@ import {
   marquerNotifLue,
   accepterPrescriptionNotif,
   refuserPrescriptionNotif,
+  API_BASE,
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -69,6 +70,30 @@ function getUrgence(n: any): string {
     ?? n.metadata?.urgence
     ?? 'NORMALE';
   return URGENCE_MAP[raw] ?? raw;
+}
+
+/** Examen STAT / TRES URGENT (le vocabulaire Prescription est normalisé par getUrgence). */
+function isStatUrgent(n: any): boolean {
+  const urg = getUrgence(n);
+  return urg === 'STAT' || urg === 'TRES_URGENT';
+}
+
+/** Crée la notification d'alerte STAT (arrivée ou 5 min restantes) dans la cloche. */
+async function postStatAlert(payload: {
+  anapathId?: string;
+  patientId?: string;
+  requestId?: string;
+  phase: 'arrival' | 'remaining';
+}): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/anapath/notifications/stat-alert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // Non bloquant : le fil de travail garde l'alerte côté client.
+  }
 }
 
 function getTypeExamen(n: any): string {
@@ -184,15 +209,15 @@ export default function NotificationBell() {
   }, []);
 
   // Lance le compte à rebours (25 min depuis la RÉCEPTION) puis l'alarme sonore
-  // pour un examen extemporané STAT — partagé entre le polling et le push temps
-  // réel. Le délai est calculé depuis createdAt, donc une navigation/reconnexion
-  // ne redémarre PAS la minuterie (et n'alarme pas pour une fenêtre déjà passée).
+  // et la notification « 5 min restantes » pour un examen STAT (très urgent) —
+  // partagé entre le polling et le push temps réel. Le délai est calculé depuis
+  // createdAt, donc une navigation/reconnexion ne redémarre PAS la minuterie.
   const scheduleExtemporane = useCallback((n: any) => {
     const aid = getAnapathId(n);
     const type = n.enriched?.typeExamen
       ?? n.metadata?.typeExamen ?? '';
     if (
-      type !== 'EXTEMPORANE_STAT' || !aid
+      (!isStatUrgent(n) && type !== 'EXTEMPORANE_STAT') || !aid
       || extemporaneTimers.current.has(aid)
       || n._alerteExtemporane
     ) {
@@ -210,6 +235,12 @@ export default function NotificationBell() {
 
     const timer = setTimeout(() => {
       playExtemporaneAlarm();
+      void postStatAlert({
+        anapathId: aid,
+        patientId: getPatientId(n),
+        requestId: n.id ?? n._id,
+        phase: 'remaining',
+      });
       setNotifs(prev => prev.map(x =>
         getAnapathId(x) === aid
           ? {
@@ -277,6 +308,14 @@ export default function NotificationBell() {
       newOnes.forEach(n => {
         scheduleExtemporane(n);
         known.current.add(n.id ?? n._id);
+        if (isStatUrgent(n)) {
+          void postStatAlert({
+            anapathId: getAnapathId(n),
+            patientId: getPatientId(n),
+            requestId: n.id ?? n._id,
+            phase: 'arrival',
+          });
+        }
       });
     }
 
@@ -301,6 +340,14 @@ export default function NotificationBell() {
       playUrgenceSound(getUrgence(payload));
     }
     scheduleExtemporane(payload);
+    if (isStatUrgent(payload)) {
+      void postStatAlert({
+        anapathId: getAnapathId(payload),
+        patientId: getPatientId(payload),
+        requestId: id,
+        phase: 'arrival',
+      });
+    }
     void fetchNotifs();
   }, [fetchNotifs, scheduleExtemporane]);
 
