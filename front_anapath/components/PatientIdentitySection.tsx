@@ -118,12 +118,14 @@ export default function PatientIdentitySection({
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           <PatientAvatar nom={patient?.nom} prenom={patient?.prenom} size="sm" />
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</label>
+          <div className="flex flex-col">
+            <p className="font-bold text-on-surface leading-tight">{nomComplet}</p>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</label>
+          </div>
         </div>
         {historiqueButton}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-        <Field label="Nom complet" value={nomComplet} loading={loading} bold />
         <Field label="Âge" value={ageDisplay} loading={loading} />
         <Field label="Sexe" value={sexeDisplay} loading={loading} />
         <Field label="Date de naissance" value={dateNaissance} loading={loading} />

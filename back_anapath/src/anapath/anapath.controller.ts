@@ -43,9 +43,12 @@ export class AnapathController {
   @ApiOperation({ summary: 'Lister toutes les demandes (optionnellement filtrées par patientId)' })
   @ApiResponse({ status: 200, description: 'Liste des demandes', type: [AnapathRequest] })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async findAll(@Query('patientId') patientId?: string) {
+  async findAll(
+    @Query('patientId') patientId?: string,
+    @CurrentToken() token?: string,
+  ) {
     const rows = await this.anapathService.findAll(patientId);
-    return this.enrichExamensPatient(rows);
+    return this.enrichExamensPatient(rows, this.decodeAnapathContext(token));
   }
 
   @Permissions('anapath:update')
@@ -131,7 +134,11 @@ export class AnapathController {
   @Get('notifications')
   @ApiOperation({ summary: 'Notifications du service Anapath' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async getNotifications(@CurrentUser() user: AuthenticatedUser) {
+  async getNotifications(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentToken() token: string,
+  ) {
+    const ctx = this.decodeAnapathContext(token);
     const [notifs, locales] = await Promise.all([
       this.notificationClient.getNotificationsForUser(
         user.userId,
@@ -143,7 +150,7 @@ export class AnapathController {
 
     const enriched = await Promise.all(
       [...notifs, ...locales].map(async (n: any) =>
-        this.enrichNotification(n),
+        this.enrichNotification(n, ctx),
       ),
     );
 
@@ -154,7 +161,11 @@ export class AnapathController {
   @Get('notifications/non-lues')
   @ApiOperation({ summary: 'Notifications non lues' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async getUnread(@CurrentUser() user: AuthenticatedUser) {
+  async getUnread(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentToken() token: string,
+  ) {
+    const ctx = this.decodeAnapathContext(token);
     const [notifs, locales] = await Promise.all([
       this.notificationClient.getNotificationsForUser(
         user.userId,
@@ -166,10 +177,51 @@ export class AnapathController {
     const unread = notifs.filter((n) => !this.notificationClient.isRead(n));
     const enriched = await Promise.all(
       [...unread, ...locales].map(async (n: any) =>
-        this.enrichNotification(n),
+        this.enrichNotification(n, ctx),
       ),
     );
     return sortNotifications(enriched);
+  }
+
+  /**
+   * Contexte du service Anapath connecté (décodé du JWT de la session) : le CHU de
+   * l'utilisateur — source du champ affiché « CHU ». Le « Service demandeur » (le
+   * service émetteur de la prescription, serviceIdSource) n'a à ce jour aucune source
+   * de nom exploitable dans l'écosystème : il reste basé sur les métadonnées en
+   * attendant une décision sur sa provenance.
+   */
+  private decodeAnapathContext(token?: string): { serviceName?: string; chuName?: string } {
+    if (!token) return {};
+    try {
+      const payloadB64 = token.split('.')[1];
+      if (!payloadB64) return {};
+      const payload = JSON.parse(
+        Buffer.from(payloadB64, 'base64url').toString('utf8'),
+      );
+      const entry = (payload?.services ?? []).find(
+        (s: any) => s.serviceId === this.notificationClient.getAnapathServiceId(),
+      );
+      return {
+        serviceName:
+          typeof entry?.serviceName === 'string' ? entry.serviceName : undefined,
+        chuName: typeof entry?.chu?.name === 'string' ? entry.chu.name : undefined,
+      };
+    } catch {
+      return {};
+    }
+  }
+
+  /** Complète (affichage uniquement) le nom de CHU vide d'un objet par le contexte connecté. */
+  private appliquerContexteAffichage(
+    obj: any,
+    ctx?: { serviceName?: string; chuName?: string },
+  ): any {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (!ctx?.chuName) return obj;
+    const metadata =
+      obj.metadata && typeof obj.metadata === 'object' ? { ...obj.metadata } : {};
+    if (!metadata.chuNom && ctx.chuName) metadata.chuNom = ctx.chuName;
+    return { ...obj, metadata };
   }
 
   /**
@@ -178,14 +230,19 @@ export class AnapathController {
    * attente (aucun examen matérialisé), on résout le nom depuis les métadonnées
    * (patientId + chuId) ; en dernier recours le patientId sert de libellé.
    */
-  private async enrichNotification(n: any): Promise<any> {
+  private async enrichNotification(
+    n: any,
+    ctx?: { serviceName?: string; chuName?: string },
+  ): Promise<any> {
     if (!n || typeof n !== 'object') return n;
+    n = this.appliquerContexteAffichage(n, ctx);
 
     const anapathId = n.metadata?.anapathId ?? n.referenceId ?? n.examId;
     let examen: any = null;
     if (anapathId) {
       try {
         examen = await this.anapathService.findByAnapathId(anapathId);
+        if (examen) examen = this.appliquerContexteAffichage(examen, ctx);
       } catch {
         examen = null;
       }
@@ -300,7 +357,10 @@ export class AnapathController {
   }
 
   /** Enrichit toute une liste avec une concurrence bornée (pas d'appels Accueil en rafale). */
-  private async enrichExamensPatient(rows: any[]): Promise<any[]> {
+  private async enrichExamensPatient(
+    rows: any[],
+    ctx?: { serviceName?: string; chuName?: string },
+  ): Promise<any[]> {
     if (rows.length === 0) return rows;
     const results = new Array<any>(rows.length);
     let cursor = 0;
@@ -308,7 +368,10 @@ export class AnapathController {
       for (;;) {
         const i = cursor++;
         if (i >= rows.length) return;
-        results[i] = await this.enrichExamenPatient(rows[i]);
+        results[i] = this.appliquerContexteAffichage(
+          await this.enrichExamenPatient(rows[i]),
+          ctx,
+        );
       }
     };
     const CONCURRENCE = 8;
@@ -402,7 +465,10 @@ export class AnapathController {
   @ApiParam({ name: 'id', description: 'UUID de la notification "nouvelle prescription"' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   accepterPrescription(@Param('id') id: string, @CurrentToken() token: string) {
-    return this.anapathService.accepterPrescription(id, token);
+    const ctx = this.decodeAnapathContext(token);
+    return this.anapathService
+      .accepterPrescription(id, token)
+      .then((r) => this.appliquerContexteAffichage(r, ctx));
   }
 
   @Permissions('anapath:update')
@@ -437,9 +503,11 @@ export class AnapathController {
     }
 
     if (examen.patientInfo?.nom) {
+      const info = examen.patientInfo;
       return {
-        ...examen.patientInfo,
-        nomComplet: this.accueilClient.buildNomComplet(examen.patientInfo),
+        ...info,
+        nomComplet: this.accueilClient.buildNomComplet(info),
+        age: this.accueilClient.calculateAge(info.dateNaissance) ?? info.age ?? null,
       };
     }
 
@@ -486,9 +554,13 @@ export class AnapathController {
   @ApiResponse({ status: 200, description: 'Demande trouvée', type: AnapathRequest })
   @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string, @CurrentToken() token?: string) {
     const examen = await this.anapathService.findOne(id);
-    return this.enrichExamenPatient(examen);
+    const ctx = this.decodeAnapathContext(token);
+    return this.appliquerContexteAffichage(
+      await this.enrichExamenPatient(examen),
+      ctx,
+    );
   }
 
   @Permissions('anapath:update')
