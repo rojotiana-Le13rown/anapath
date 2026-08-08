@@ -332,14 +332,14 @@ export class AnapathService {
 
     const site = pick('organe', 'localisation', 'siege');
     const motif =
-      pick('renseignementsCliniques', 'note', 'bioNote') ||
+      pick('renseignementsCliniques', 'renseign', 'note', 'bioNote') ||
       [
-        pick('bioNature'),
-        pick('bioOrgane'),
-        pick('bioSuspicion'),
-        pick('bioAtcd'),
-        pick('bioExamAnt'),
-        pick('bioResAnt'),
+        pick('bioNature', 'nature'),
+        pick('bioOrgane', 'organe'),
+        pick('bioSuspicion', 'suspicion'),
+        pick('bioAtcd', 'atcd'),
+        pick('bioExamAnt', 'examAnt'),
+        pick('bioResAnt', 'resAnt'),
       ]
         .filter(Boolean)
         .join(' — ');

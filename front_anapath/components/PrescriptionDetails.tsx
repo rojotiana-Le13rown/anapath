@@ -43,6 +43,18 @@ function val(request: PrescriptionRequest, keys: string[]): string {
     const value = details[key] ?? raw[key];
     if (typeof value === 'string' && value.trim()) return value.trim();
     if (typeof value === 'number') return String(value);
+    if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
+  }
+  return '';
+}
+
+/** Lit dans details puis plats, avec repli booléen/nombre. */
+function pickValue(raw: Raw, details: Raw, keys: string[]): string {
+  for (const key of keys) {
+    const value = details[key] ?? raw[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
+    if (typeof value === 'number') return String(value);
   }
   return '';
 }
@@ -53,18 +65,17 @@ function motif(request: PrescriptionRequest): string {
   if (description && !description.startsWith('{')) return description;
   const raw = rawDataOf(request);
   const details = detailsOf(raw);
-  const parts = [
-    raw.renseignementsCliniques,
-    raw.note,
-    details.bioNote,
-    details.bioSuspicion,
-    details.bioNature,
-    details.bioOrgane,
-    details.bioAtcd,
-    details.bioExamAnt,
-    details.bioResAnt,
-  ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
-  return parts.join(' — ') || 'Non renseigné';
+  const primary = pickValue(raw, details, ['renseignementsCliniques', 'renseign', 'note', 'bioNote']);
+  if (primary) return primary;
+  const composed = [
+    pickValue(raw, details, ['bioNature', 'nature']),
+    pickValue(raw, details, ['bioOrgane', 'organe']),
+    pickValue(raw, details, ['bioSuspicion', 'suspicion']),
+    pickValue(raw, details, ['bioAtcd', 'atcd']),
+    pickValue(raw, details, ['bioExamAnt', 'examAnt']),
+    pickValue(raw, details, ['bioResAnt', 'resAnt']),
+  ].filter((part) => part.length > 0);
+  return composed.join(' — ') || 'Non renseigné';
 }
 
 function display(value: string): string {
@@ -83,7 +94,7 @@ function Field({ label, value }: { label: string; value: string }) {
 /** Détails d'une prescription (identité patient, type d'examen, motif, infos cliniques par type). */
 export default function PrescriptionDetails({ request, patient, patientLoading, historiqueButton }: PrescriptionDetailsProps) {
   const suspicion = val(request, ['suspicion', 'bioSuspicion']);
-  const clinicalNotes = val(request, ['renseignementsCliniques', 'note', 'bioNote']);
+  const clinicalNotes = val(request, ['renseignementsCliniques', 'renseign', 'note', 'bioNote']);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-outline-variant/20">
@@ -183,8 +194,17 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
                 <Field label="DDR" value={val(request, ['fcvDDR', 'ddr'])} />
                 <Field label="Ménopause" value={val(request, ['fcvMeno', 'menopause'])} />
                 <Field label="Ménarche" value={val(request, ['fcvMenarche', 'menarche'])} />
+                <Field label="Rapports" value={val(request, ['rapport'])} />
+                <Field label="Contraception" value={val(request, ['contraception'])} />
+                <Field label="Traitement" value={val(request, ['traitement'])} />
+                <Field label="ATCD" value={val(request, ['bioAtcd', 'atcd'])} />
+                <Field label="Méthode" value={val(request, ['methode'])} />
                 <Field label="État du col" value={val(request, ['etat_col'])} />
-                <Field label="Résultat PAP" value={val(request, ['papResultat'])} />
+                <Field label="Dernier PAP" value={val(request, ['papResultat', 'papRes'])} />
+                <Field label="Date PAP" value={val(request, ['papDate'])} />
+                <Field label="Nb PAP" value={val(request, ['papNb'])} />
+                <Field label="Lieu PAP" value={val(request, ['papLieu'])} />
+                <Field label="Notes" value={val(request, ['bioNote', 'note'])} />
               </div>
             )}
 
@@ -193,14 +213,18 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
                 <Field label="Siège" value={val(request, ['siege'])} />
                 <Field label="Organe" value={val(request, ['organe', 'bioOrgane'])} />
                 <Field label="Fixateur" value={val(request, ['fixateur', 'bioFixateur'])} />
+                <Field label="Fixateur (autre)" value={val(request, ['fixateurAutre'])} />
+                <Field label="Notes" value={val(request, ['bioNote', 'note'])} />
               </div>
             )}
 
             {request.typeExamen === 'LIQUIDE' && (
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <Field label="Nature du liquide" value={val(request, ['type_liquide', 'nature', 'bioNature'])} />
-                <Field label="Volume" value={val(request, ['volume'])} />
-                <Field label="Notes" value={val(request, ['note', 'bioNote'])} />
+                <Field label="Unité" value={val(request, ['unite'])} />
+                <Field label="Volume (ml)" value={val(request, ['volume'])} />
+                <Field label="Nature (autre)" value={val(request, ['natureAutre'])} />
+                <Field label="Notes" value={val(request, ['bioNote', 'note'])} />
               </div>
             )}
 
@@ -210,21 +234,30 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
                 <Field label="DDR" value={val(request, ['bioDDR', 'ddr'])} />
                 <Field label="ATCD" value={val(request, ['bioAtcd', 'atcd'])} />
                 <Field label="Ménopause" value={val(request, ['bioMeno', 'menopause'])} />
-                <Field label="Nature" value={val(request, ['bioNature', 'nature'])} />
                 <Field label="Organe" value={val(request, ['bioOrgane', 'organe'])} />
                 <Field label="Localisation" value={val(request, ['bioLocalisation', 'localisation'])} />
+                <Field label="Nature" value={val(request, ['bioNature', 'nature'])} />
+                <Field label="Nature (autre)" value={val(request, ['natureAutre'])} />
                 <Field label="Fixateur" value={val(request, ['bioFixateur', 'fixateur'])} />
                 <Field label="Suspicion" value={val(request, ['bioSuspicion', 'suspicion'])} />
+                <Field label="Examen antérieur" value={val(request, ['bioExamAnt', 'examAnt'])} />
+                <Field label="Résultat antérieur" value={val(request, ['bioResAnt', 'resAnt'])} />
+                <Field label="Date prélèvement" value={val(request, ['bioDatePrelev', 'datePrelev'])} />
+                <Field label="Prélèvement fait à" value={val(request, ['bioFaitA', 'faitA'])} />
+                <Field label="Prélèvement fait le" value={val(request, ['bioFaitLe', 'faitLe'])} />
               </div>
             )}
 
             {request.typeExamen === 'EXTEMPORANE_STAT' && (
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <Field label="Chirurgien" value={val(request, ['chirurgien'])} />
-                <Field label="Urgence chirurgicale" value={val(request, ['urgence_chirurgicale'])} />
+                <Field label="Intervention" value={val(request, ['intervention'])} />
                 <Field label="Organe" value={val(request, ['organe', 'bioOrgane'])} />
-                <Field label="Date prévue" value={val(request, ['extDatePrevue', 'extDate'])} />
-                <Field label="Question posée" value={val(request, ['note', 'renseignementsCliniques'])} />
+                <Field label="Nature" value={val(request, ['bioNature', 'nature'])} />
+                <Field label="Question posée" value={val(request, ['question'])} />
+                <Field label="Urgence chirurgicale" value={val(request, ['urgence_chirurgicale'])} />
+                <Field label="Date prévue" value={val(request, ['extDatePrevue', 'datePrevue'])} />
+                <Field label="Heure" value={val(request, ['heure'])} />
               </div>
             )}
           </div>
