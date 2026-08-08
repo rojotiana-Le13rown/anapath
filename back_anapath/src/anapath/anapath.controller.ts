@@ -327,7 +327,11 @@ export class AnapathController {
     if (nomStoque) {
       return {
         ...examen,
-        patientInfo: { ...info, nomComplet: nomStoque },
+        patientInfo: {
+          ...info,
+          nomComplet: nomStoque,
+          age: this.accueilClient.calculateAge(info.dateNaissance) ?? info.age ?? null,
+        },
         patientName: nomStoque,
       };
     }
@@ -346,7 +350,11 @@ export class AnapathController {
         const nomComplet = this.accueilClient.buildNomComplet(patient);
         return {
           ...examen,
-          patientInfo: { ...patient, nomComplet },
+          patientInfo: {
+            ...patient,
+            nomComplet,
+            age: this.accueilClient.calculateAge(patient.dateNaissance) ?? patient.age ?? null,
+          },
           patientName: nomComplet,
         };
       }
