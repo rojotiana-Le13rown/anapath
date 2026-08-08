@@ -37,13 +37,23 @@ services:
       - key: ANAPATH_ID
         sync: false
       - key: CHU_CMS_SERVICE_URL
-        sync: false
+        value: https://chu-service-cms7.onrender.com
+      - key: SERVICE_SERVICE_URL
+        value: https://service-service-0f7p.onrender.com
       - key: ACCUEIL_BASE_URL
-        value: https://acceuil-back-production.up.railway.app
+        value: https://acceuil-back.onrender.com
       - key: ANAPATH_SERVICE_ID
-        value: 14a94274-db57-49e3-9375-1e642729b92b
-      - key: NOTIF_SERVICE_URL
-        value: https://prescription-back-7m7a.onrender.com
+        value: 9e73904c-71e5-4477-9280-513e4112a468
+      - key: NOTIFICATION_SERVICE_URL
+        value: https://service-notification-nlqp.onrender.com
+      - key: AUTH_SERVICE_URL
+        value: https://auth-service-4q6g.onrender.com
+      - key: USER_SERVICES_URL
+        value: https://user-services-0sze.onrender.com
+      - key: PRESCRIPTION_SERVICE_URL
+        value: https://prescriptionback-production.up.railway.app
+      - key: UPLOAD_SERVICE_URL
+        value: https://service-upload-u5z9.onrender.com
       - key: CORS_ORIGINS
         sync: false
 

@@ -41,7 +41,7 @@ export class AuthClient {
     this.userServicesUrl = (
       configService?.get<string>('USER_SERVICES_URL') ??
       process.env.USER_SERVICES_URL ??
-      'https://user-services-w4xq.onrender.com'
+      'https://user-services-0sze.onrender.com'
     ).replace(/\/$/, '');
     this.anapathServiceId =
       configService?.get<string>('AUTH_ANAPATH_SERVICE_ID') ??

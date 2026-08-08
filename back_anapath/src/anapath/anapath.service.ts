@@ -11,6 +11,7 @@ import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
 import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
 import { ChuClient } from '../common/clients/chu.client';
+import { ServiceServiceClient } from '../common/clients/service.client';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/receive-notification.dto';
 import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
@@ -28,6 +29,8 @@ export type AnapathRequestResponse = AnapathRequest & {
 export class AnapathService {
   /** Cache court (5 min) des services par CHU — évite un appel /services par prescription au pull. */
   private readonly servicesByChu = new Map<string, { at: number; list: any[] }>();
+  /** Cache court (5 min) du nom de service par serviceId (résolution directe service-service). */
+  private readonly servicesById = new Map<string, { at: number; nom: string | null }>();
   /** Cache court (5 min) du nom de CHU par chuId. */
   private readonly chuNomCache = new Map<string, { at: number; nom: string | null }>();
 
@@ -40,6 +43,7 @@ export class AnapathService {
     private readonly notificationService: NotificationService,
     private readonly authServiceToken: AuthServiceTokenService,
     private readonly chuClient: ChuClient,
+    private readonly serviceServiceClient: ServiceServiceClient,
   ) {}
 
   /**
@@ -329,9 +333,19 @@ export class AnapathService {
   /**
    * Résout le nom du CHU via le service CHU (best-effort, jamais bloquant) :
    * la prescription externe ne fournit qu'un chuId. Cache 5 min.
+   * Le token utilisateur est privilégié ; s'il est absent ou rejeté (401),
+   * on retombe sur le token de service renouvelé automatiquement.
    */
   async getChuNom(token: string | undefined, chuId?: string): Promise<string | null> {
-    if (!token || !chuId) return null;
+    if (!chuId) return null;
+    for (const t of await this.resolveTokens(token)) {
+      const nom = await this.resolveChuNom(t, chuId);
+      if (nom) return nom;
+    }
+    return null;
+  }
+
+  private async resolveChuNom(token: string, chuId: string): Promise<string | null> {
     const cached = this.chuNomCache.get(String(chuId));
     if (cached && Date.now() - cached.at <= 5 * 60 * 1000) return cached.nom;
     let nom: string | null = null;
@@ -346,26 +360,66 @@ export class AnapathService {
   }
 
   /**
-   * Résout le nom du service demandeur (serviceIdSource) via la liste des
-   * services du CHU (GET /services?chuId=…, cache 5 min). Best-effort : null
-   * si le token, le chuId ou le service ne sont pas résolvables.
+   * Résout le nom du service demandeur (serviceIdSource) via le service-service
+   * dédié (GET /services/{id}, puis repli GET /services?chuId=…, caches 5 min).
+   * Best-effort : null si aucun token résolvable ou service introuvable.
    */
   async getServiceNom(
     token: string | undefined,
     serviceId?: string,
     chuId?: string,
   ): Promise<string | null> {
-    if (!token || !serviceId) return null;
-    const key = String(chuId ?? '');
-    const cached = this.servicesByChu.get(key);
-    if (!cached || Date.now() - cached.at > 5 * 60 * 1000) {
-      const list = await this.prescriptionClient.getServices(token, chuId);
-      this.servicesByChu.set(key, { at: Date.now(), list });
+    if (!serviceId) return null;
+    for (const t of await this.resolveTokens(token)) {
+      const nom = await this.resolveServiceNom(t, serviceId, chuId);
+      if (nom) return nom;
     }
-    const entry = (this.servicesByChu.get(key)?.list ?? []).find(
-      (s) => String(s.serviceId) === String(serviceId),
-    );
-    return typeof entry?.name === 'string' ? entry.name : null;
+    return null;
+  }
+
+  private async resolveServiceNom(
+    token: string,
+    serviceId: string,
+    chuId?: string,
+  ): Promise<string | null> {
+    const idKey = String(serviceId);
+    const idCached = this.servicesById.get(idKey);
+    if (idCached && Date.now() - idCached.at <= 5 * 60 * 1000) {
+      return idCached.nom;
+    }
+
+    let nom: string | null = null;
+    const srv = await this.serviceServiceClient.getServiceById(token, serviceId);
+    if (srv && typeof srv.name === 'string') {
+      nom = srv.name;
+    } else {
+      const key = String(chuId ?? '');
+      let cached = this.servicesByChu.get(key);
+      if (!cached || Date.now() - cached.at > 5 * 60 * 1000) {
+        const list = await this.serviceServiceClient.getServicesByChu(token, chuId);
+        cached = { at: Date.now(), list };
+        this.servicesByChu.set(key, cached);
+      }
+      const entry = (cached?.list ?? []).find(
+        (s) =>
+          String(s.id) === idKey || String(s.serviceId) === idKey,
+      );
+      nom = typeof entry?.name === 'string' ? entry.name : null;
+    }
+
+    this.servicesById.set(idKey, { at: Date.now(), nom });
+    return nom;
+  }
+
+  /** Liste dédupliquée des tokens candidats : utilisateur puis compte de service. */
+  private async resolveTokens(token?: string): Promise<string[]> {
+    const candidates: string[] = [];
+    if (token) candidates.push(token);
+    const serviceToken = await this.authServiceToken.getToken();
+    if (serviceToken && !candidates.includes(serviceToken)) {
+      candidates.push(serviceToken);
+    }
+    return candidates;
   }
 
   /** Construit les champs AnapathRequest depuis les métadonnées d'une notification "nouvelle prescription" (acceptation). */

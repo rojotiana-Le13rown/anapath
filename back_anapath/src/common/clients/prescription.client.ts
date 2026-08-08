@@ -94,29 +94,9 @@ export class PrescriptionClient {
   }
 
   /**
-   * Services d'un CHU (GET /services?chuId=…) — source du libellé « Service
-   * demandeur » (serviceIdSource d'une prescription). La prescription externe ne
-   * fournit qu'un UUID, le nom est résolu via cette liste.
+   * Propage le changement de statut d'une demande vers le service Prescription. Ne throw jamais — mode dégradé.
    */
-  async getServices(token: string, chuId?: string): Promise<any[]> {
-    try {
-      const { data } = await axios.get(`${this.baseUrl}/services`, {
-        headers: this.headers(token),
-        params: chuId ? { chuId } : undefined,
-        timeout: this.timeout,
-      });
-      return Array.isArray(data) ? data : [];
-    } catch (e: any) {
-      const status = e?.response?.status;
-      console.warn(
-        `PrescriptionClient.getServices échoué (HTTP ${status ?? 'inconnu'}):`,
-        e instanceof Error ? e.message : e,
-      );
-      return [];
-    }
-  }
-
-  async getAnapathPrescriptionsByPatient(
+  async updateDemandeStatut(
     token: string,
     patientId: string,
     filters?: AnapathPrescriptionFilters,
