@@ -21,6 +21,27 @@ import * as crypto from 'crypto';
 const ANAPATH_SERVICE_ID =
   process.env.ANAPATH_SERVICE_ID ?? '9e73904c-71e5-4477-9280-513e4112a468';
 
+// Délai maximal de validation (la « borne ») par type d'examen, en jours.
+// Le rappel de validation part dès qu'on atteint SEUIL_RAPPEL_FRACTION de cette
+// borne (défaut 2/3 : pour un délai de 3 jours → notification le 2e jour).
+const DELAIS_VALIDATION_PAR_TYPE: Record<string, number> = {
+  BIOPSIE: 5,
+  FCV_PAP: 3,
+  CYT0PONCTION: 3,
+  LIQUIDE: 3,
+  POS: 7,
+  POC: 3,
+  EXTEMPORANE_STAT: 30 / (24 * 60), // 30 min
+};
+const DELAI_VALIDATION_DEFAUT_JOURS = 3;
+const SEUIL_RAPPEL_FRACTION = 2 / 3;
+const DELAI_MIN_ENTRE_RELANCES_MS = 20 * 60 * 60 * 1000;
+
+function formatDelai(delaiJours: number): string {
+  if (delaiJours < 1) return `${Math.round(delaiJours * 24 * 60)} min`;
+  return `${delaiJours} j`;
+}
+
 export type AnapathRequestResponse = AnapathRequest & {
   resultat: { details: string | null; conclusion: string | null };
   validationHash: string | null;
@@ -665,20 +686,31 @@ export class AnapathService {
     }
   }
 
-  @Cron('0 8 * * *')
+  @Cron('0 * * * *')
   async relanceExamensNonValides() {
     const examens = await this.anapathRepository.find({
       where: { statut: Statut.RESULTAT_DISPONIBLE },
     });
+    const maintenant = new Date();
 
     for (const examen of examens) {
-      const maintenant = new Date();
-      const derniereRelance = examen.derniereRelanceAt;
-      const doitRelancer =
-        !derniereRelance ||
-        maintenant.getTime() - derniereRelance.getTime() >= 23 * 60 * 60 * 1000;
+      // La relance est déclenchée quand l'examen approche de sa borne : dès que
+      // (âge >= 2/3 du délai). Exemple : délai de 3 jours → rappel le 2e jour.
+      const delaiJours =
+        DELAIS_VALIDATION_PAR_TYPE[examen.typeExamen] ??
+        DELAI_VALIDATION_DEFAUT_JOURS;
+      const seuilMs =
+        delaiJours * SEUIL_RAPPEL_FRACTION * 24 * 60 * 60 * 1000;
+      const ageMs = maintenant.getTime() - new Date(examen.createdAt).getTime();
+      if (ageMs < seuilMs) continue;
 
-      if (!doitRelancer) continue;
+      const derniereRelance = examen.derniereRelanceAt;
+      if (
+        derniereRelance &&
+        maintenant.getTime() - derniereRelance.getTime() < DELAI_MIN_ENTRE_RELANCES_MS
+      ) {
+        continue;
+      }
 
       const metadata = examen.metadata as Record<string, unknown> | null;
       const message =
@@ -686,8 +718,8 @@ export class AnapathService {
         ` — ${examen.typeExamen}` +
         ` — Patient: ${examen.patientId}` +
         ` — Service: ${metadata?.serviceNom ?? '—'}` +
-        ` — Résultat saisi depuis ${formatTimeSince(examen.updatedAt)}` +
-        `. Le temps passe !`;
+        ` — Délai de validation (${formatDelai(delaiJours)}) presque atteint` +
+        ` — Résultat saisi depuis ${formatTimeSince(examen.updatedAt)}.`;
 
       try {
         await this.notificationService.createNotification({
@@ -702,12 +734,15 @@ export class AnapathService {
             patientId: examen.patientId,
             serviceNom: metadata?.serviceNom,
             isRelance: true,
+            delaiJours,
           },
         });
 
         examen.derniereRelanceAt = maintenant;
         await this.anapathRepository.save(examen);
-        console.log(`✅ Relance créée : ${examen.anapathId}`);
+        console.log(
+          `✅ Relance créée : ${examen.anapathId} (délai ${formatDelai(delaiJours)}, âge ${(ageMs / 3600000).toFixed(1)}h)`,
+        );
       } catch (e) {
         console.warn(`Relance échouée ${examen.anapathId}:`, e);
       }

@@ -522,6 +522,18 @@ export default function NotificationBell() {
     }
   };
 
+  // Accès direct à la validation depuis une notification de rappel
+  // (RAPPEL_VALIDATION) : ouvre la page de validation de l'examen concerné.
+  const handleValidateClick = (n: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    const uuid = getRequestUuid(n);
+    const aid = getAnapathId(n);
+    if (uuid) router.push(`/worklist/${uuid}`);
+    else if (aid) router.push(`/validation?id=${aid}`);
+    else router.push('/validation');
+  };
+
   const openInlineRefuse = (n: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setInlineRefuseId(n.id ?? n._id);
@@ -875,6 +887,20 @@ export default function NotificationBell() {
                       <p className="mt-1 text-xs text-red-600">
                         {inlineError}
                       </p>
+                    )}
+
+                    {rel && !lue && (
+                      <button
+                        onClick={(e) => handleValidateClick(n, e)}
+                        className="mt-2 w-full px-3 py-1.5
+                          text-xs font-semibold text-white
+                          bg-gradient-to-r from-[#00478d]
+                          to-[#005eb8] rounded-lg
+                          hover:opacity-90 active:scale-[0.98]
+                          transition"
+                      >
+                        Cliquer pour valider
+                      </button>
                     )}
                   </div>
                 );
