@@ -16,6 +16,7 @@ import { formatDateLong } from '@/lib/dateFormat';
 import { getPatientForExamen, marquerNotifLue, API_BASE } from '@/lib/api';
 import { getTypeLabel } from '@/lib/generatePDF';
 import { sortByUrgencyThenArrival } from '@/lib/urgencySort';
+import { getClinicalNotes, getSuspicion, getTreatmentType } from '@/lib/prescriptionFields';
 
 interface AnapathRequest {
   id: string;
@@ -571,21 +572,21 @@ function ValidationPageContent() {
                       <div className="mb-3">
                         <p className="text-xs text-on-surface-variant">Type de traitement</p>
                         <p className="font-medium text-on-surface">
-                          {selectedRequest.prelevement?.clinicalData?.treatmentType || '—'}
+                          {getTreatmentType(selectedRequest) || '—'}
                         </p>
                       </div>
 
                       <div className="mb-3">
                         <p className="text-xs text-on-surface-variant">Suspicion diagnostique</p>
                         <p className="font-medium text-on-surface italic leading-relaxed">
-                          {selectedRequest.prelevement?.clinicalData?.suspicion || '—'}
+                          {getSuspicion(selectedRequest) || '—'}
                         </p>
                       </div>
 
                       <div>
                         <p className="text-xs text-on-surface-variant">Renseignements cliniques</p>
                         <p className="font-medium text-on-surface italic leading-relaxed">
-                          {selectedRequest.prelevement?.clinicalData?.clinicalNotes || '—'}
+                          {getClinicalNotes(selectedRequest) || '—'}
                         </p>
                       </div>
                     </section>

@@ -6,6 +6,7 @@ import {
   renderHtmlToPdf,
 } from './pdfUtils';
 import { API_BASE } from './api';
+import { getClinicalNotes, getSuspicion } from './prescriptionFields';
 
 const FALLBACK_LOGO = '/assets/logo-chu.png';
 
@@ -59,12 +60,11 @@ export async function generatePDF(
   const typePrelevement = formatTypeExamen(examen?.typeExamen ?? '');
   const descPrelevement = examen?.prelevement?.description ?? '';
   const cd = examen?.prelevement?.clinicalData ?? {};
-  const renseignementClinique = cd.clinicalNotes
-    ?? cd.alertes
-    ?? examen?.metadata?.alertes
-    ?? (descPrelevement || '—');
-  const suspicionDiagnostique = cd.suspicion
-    ?? cd.suspicion_diagnostique ?? '—';
+  const renseignementClinique = getClinicalNotes(examen)
+    || cd.alertes
+    || examen?.metadata?.alertes
+    || (descPrelevement || '—');
+  const suspicionDiagnostique = getSuspicion(examen) || cd.suspicion_diagnostique || '—';
   const prescripteur = examen?.metadata?.prescripteurNom
     ?? examen?.metadata?.prescripteurId ?? '—';
   const resultat = examen?.resultat?.details

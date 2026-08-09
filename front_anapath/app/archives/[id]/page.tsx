@@ -11,6 +11,7 @@ import { formatDateLong, formatDateTime } from '@/lib/dateFormat';
 import { getPatientForExamen, API_BASE } from '@/lib/api';
 import { getTypeLabel } from '@/lib/generatePDF';
 import { statusLabels, statusColors } from '@/lib/statusLabels';
+import { getClinicalNotes, getSuspicion, getTreatmentType } from '@/lib/prescriptionFields';
 
 interface AnapathRequest {
   id: string;
@@ -121,7 +122,11 @@ export default function ArchiveDetailPage() {
     );
   }
 
-  const clinicalData = request.prelevement?.clinicalData || {};
+  const clinicalData = {
+    treatmentType: getTreatmentType(request),
+    suspicion: getSuspicion(request),
+    clinicalNotes: getClinicalNotes(request),
+  };
 
   return (
     <div className="flex min-h-screen bg-transparent text-[#191c21]">

@@ -2,17 +2,20 @@
 
 import PatientIdentitySection, { PatientInfo } from '@/components/PatientIdentitySection';
 import { formatDateLong } from '@/lib/dateFormat';
+import {
+  getClinicalNotes,
+  getSuspicion,
+  getTreatmentType,
+  rawDataOf,
+  detailsOf,
+  val,
+  type PrescriptionLike,
+} from '@/lib/prescriptionFields';
 
-interface PrescriptionRequest {
+interface PrescriptionRequest extends PrescriptionLike {
   typeExamen: string;
   createdAt: string;
   patientId: string;
-  prelevement?: {
-    site?: string;
-    description?: string;
-    clinicalData?: { treatmentType?: string; suspicion?: string; clinicalNotes?: string };
-  } | null;
-  metadata?: Record<string, unknown> | null;
 }
 
 interface PrescriptionDetailsProps {
@@ -22,59 +25,24 @@ interface PrescriptionDetailsProps {
   historiqueButton?: React.ReactNode;
 }
 
-type Raw = Record<string, any>;
-
-function rawDataOf(request: PrescriptionRequest): Raw {
-  const md = (request.metadata ?? {}) as Record<string, any>;
-  const raw = (md.rawData ?? md.data ?? {}) as unknown;
-  return raw && typeof raw === 'object' ? (raw as Raw) : {};
-}
-
-function detailsOf(raw: Raw): Raw {
-  const details = raw.details;
-  return details && typeof details === 'object' ? (details as Raw) : {};
-}
-
-/** Lit une valeur dans rawData.details puis rawData (champs plats), jamais le JSON brut. */
-function val(request: PrescriptionRequest, keys: string[]): string {
-  const raw = rawDataOf(request);
-  const details = detailsOf(raw);
-  for (const key of keys) {
-    const value = details[key] ?? raw[key];
-    if (typeof value === 'string' && value.trim()) return value.trim();
-    if (typeof value === 'number') return String(value);
-    if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
-  }
-  return '';
-}
-
-/** Lit dans details puis plats, avec repli booléen/nombre. */
-function pickValue(raw: Raw, details: Raw, keys: string[]): string {
-  for (const key of keys) {
-    const value = details[key] ?? raw[key];
-    if (typeof value === 'string' && value.trim()) return value.trim();
-    if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
-    if (typeof value === 'number') return String(value);
-  }
-  return '';
-}
-
 /** Motif lisible : description déjà lisible, sinon composition depuis les données brutes. */
 function motif(request: PrescriptionRequest): string {
   const description = request.prelevement?.description;
   if (description && !description.startsWith('{')) return description;
   const raw = rawDataOf(request);
   const details = detailsOf(raw);
-  const primary = pickValue(raw, details, ['renseignementsCliniques', 'renseign', 'note', 'bioNote']);
+  const primary = getClinicalNotes(request);
   if (primary) return primary;
   const composed = [
-    pickValue(raw, details, ['bioNature', 'nature']),
-    pickValue(raw, details, ['bioOrgane', 'organe']),
-    pickValue(raw, details, ['bioSuspicion', 'suspicion']),
-    pickValue(raw, details, ['bioAtcd', 'atcd']),
-    pickValue(raw, details, ['bioExamAnt', 'examAnt']),
-    pickValue(raw, details, ['bioResAnt', 'resAnt']),
-  ].filter((part) => part.length > 0);
+    raw.details?.bioNature ?? raw.bioNature,
+    raw.details?.bioOrgane ?? raw.bioOrgane,
+    raw.details?.bioSuspicion ?? raw.bioSuspicion,
+    raw.details?.bioAtcd ?? raw.bioAtcd,
+    raw.details?.bioExamAnt ?? raw.bioExamAnt,
+    raw.details?.bioResAnt ?? raw.bioResAnt,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .map((part) => part.trim());
   return composed.join(' — ') || 'Non renseigné';
 }
 
@@ -93,8 +61,8 @@ function Field({ label, value }: { label: string; value: string }) {
 
 /** Détails d'une prescription (identité patient, type d'examen, motif, infos cliniques par type). */
 export default function PrescriptionDetails({ request, patient, patientLoading, historiqueButton }: PrescriptionDetailsProps) {
-  const suspicion = val(request, ['suspicion', 'bioSuspicion']);
-  const clinicalNotes = val(request, ['renseignementsCliniques', 'renseign', 'note', 'bioNote']);
+  const suspicion = getSuspicion(request);
+  const clinicalNotes = getClinicalNotes(request);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-outline-variant/20">
@@ -151,7 +119,7 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
 
             <div className="mb-3">
               <p className="text-xs text-slate-400">Type de traitement</p>
-              <p className="font-medium text-on-surface">{request.prelevement?.clinicalData?.treatmentType || '—'}</p>
+              <p className="font-medium text-on-surface">{getTreatmentType(request) || '—'}</p>
             </div>
             <div className="mb-3">
               <p className="text-xs text-slate-400">Suspicion diagnostique</p>
