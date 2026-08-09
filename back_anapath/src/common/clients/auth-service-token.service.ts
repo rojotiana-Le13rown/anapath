@@ -49,10 +49,15 @@ export class AuthServiceTokenService {
     ).replace(/\/$/, '');
     this.email =
       configService?.get<string>('PRESCRIPTION_SERVICE_ACCOUNT_EMAIL') ??
-      process.env.PRESCRIPTION_SERVICE_ACCOUNT_EMAIL;
+      process.env.PRESCRIPTION_SERVICE_ACCOUNT_EMAIL ??
+      // Variante acceptée sur Render : le nom EMAIL n'a pas pu y être enregistré,
+      // le compte est stocké sous PRESCRIPTION_SERVICE_ACCOUNT_MAIL.
+      process.env.PRESCRIPTION_SERVICE_ACCOUNT_MAIL;
     this.password =
       configService?.get<string>('PRESCRIPTION_SERVICE_ACCOUNT_PASSWORD') ??
-      process.env.PRESCRIPTION_SERVICE_ACCOUNT_PASSWORD;
+      process.env.PRESCRIPTION_SERVICE_ACCOUNT_PASSWORD ??
+      // Variante acceptée sur Render : PRESCRIPTION_SERVICE_ACCOUNT_PWD.
+      process.env.PRESCRIPTION_SERVICE_ACCOUNT_PWD;
     this.staticFallbackToken =
       configService?.get<string>('PRESCRIPTION_CRON_JWT') ??
       process.env.PRESCRIPTION_CRON_JWT;
