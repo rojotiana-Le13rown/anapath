@@ -17,6 +17,7 @@ import {
 import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
+import { generateWeeklyReportPDF } from '@/lib/weeklyReportPdf';
 
 // URL de la Gateway socket.io du backend (namespace /anapath). En local :
 // http://localhost:3334. Sur Render : https://anapath-backend-ar7u-uj8n.onrender.com.
@@ -422,6 +423,24 @@ export default function NotificationBell() {
     : 'bg-[#e41e3f]';
 
   const handleClick = async (n: any) => {
+    // Rapport hebdomadaire : génère et télécharge automatiquement le PDF du
+    // rapport de la semaine en cours, sans quitter la page.
+    const type = n.type ?? n.enriched?.type ?? '';
+    if (type === 'RAPPORT_HEBDOMADAIRE' || type === 'RAPPORT') {
+      setOpen(false);
+      try {
+        const res = await fetch(`${API_BASE}/anapath`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          await generateWeeklyReportPDF(Array.isArray(data) ? data : []);
+        }
+      } catch (e) {
+        console.error('Erreur génération rapport hebdomadaire:', e);
+        alert('Erreur lors de la génération du rapport hebdomadaire.');
+      }
+      return;
+    }
+
     if (isPrescriptionEnAttente(n)) {
       setOpen(false);
       setActionError(null);

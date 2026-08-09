@@ -655,7 +655,7 @@ export class AnapathService {
         type: 'RAPPORT_HEBDOMADAIRE',
         title: 'Rapport hebdomadaire disponible',
         message:
-          "Le rapport hebdomadaire d'activité du service est prêt — ouvrez la page Rapports pour le consulter et l'exporter en PDF.",
+          "Le rapport hebdomadaire d'activité du service est prêt — cliquez pour télécharger automatiquement le PDF de la semaine en cours.",
         priority: 'medium',
         source: 'Anapath',
       });
