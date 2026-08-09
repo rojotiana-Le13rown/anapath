@@ -133,7 +133,7 @@ function ValidationPageContent() {
   }, []);
 
   // Signature automatique : le nom d'utilisateur + le n° d'ordre professionnel
-  // enregistré dans le profil. Plus rien à saisir à la validation.
+  // fournis par le service des utilisateurs. Plus rien à saisir à la validation.
   useEffect(() => {
     if (user?.name) {
       setSignature((prev) => ({ ...prev, signature: user.name.trim() }));
@@ -772,8 +772,8 @@ function ValidationPageContent() {
                               value={signature.ordreProfessionnelNumber}
                               readOnly
                               className="w-full mt-1 p-2 bg-[#e8eaf0] border border-outline-variant/30 rounded-lg text-sm cursor-not-allowed"
-                              placeholder={signature.ordreProfessionnelNumber ? '' : 'À renseigner dans Mon profil'}
-                              title="Provient de votre profil (Mon profil)"
+                              placeholder={signature.ordreProfessionnelNumber ? '' : 'Géré par le service des utilisateurs'}
+                              title="Provient de votre compte (service utilisateurs)"
                               required
                             />
                           </div>

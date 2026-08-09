@@ -5,6 +5,7 @@ import { CurrentToken } from '../auth/decorators/current-token.decorator';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import { ProfileService } from './profile.service';
 import { UploadClient } from '../common/clients/upload.client';
+import { UserServiceClient } from '../common/clients/user-service.client';
 import { UserProfile } from './user-profile.entity';
 
 // Gardes globales (JwtAuthGuard + PermissionsGuard) : token requis, pas de
@@ -15,32 +16,31 @@ export class ProfileController {
   constructor(
     private readonly profile: ProfileService,
     private readonly upload: UploadClient,
+    private readonly userService: UserServiceClient,
   ) {}
 
   @Get()
   @ApiOperation({ summary: 'Profil (bio + photo) de l\'utilisateur connecté' })
-  async getMine(@CurrentUser() user: AuthenticatedUser) {
-    return this.toResponse(await this.profile.get(user.userId));
+  async getMine(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentToken() token?: string,
+  ) {
+    return this.toResponse(await this.profile.get(user.userId), token);
   }
 
   @Patch()
-  @ApiOperation({ summary: 'Mettre à jour la bio et/ou le n° d\'ordre professionnel' })
+  @ApiOperation({ summary: 'Mettre à jour la bio' })
   async updateBio(
     @CurrentUser() user: AuthenticatedUser,
+    @CurrentToken() token: string | undefined,
     @Body()
-    body: { bio?: string; ordreProfessionnel?: string },
+    body: { bio?: string },
   ) {
     let p = await this.profile.get(user.userId);
     if (body?.bio !== undefined) {
       p = await this.profile.updateBio(user.userId, body.bio);
     }
-    if (body?.ordreProfessionnel !== undefined) {
-      p = await this.profile.updateOrdreProfessionnel(
-        user.userId,
-        body.ordreProfessionnel,
-      );
-    }
-    return this.toResponse(p);
+    return this.toResponse(p, token);
   }
 
   @Post('avatar')
@@ -63,14 +63,16 @@ export class ProfileController {
     if (!stored) {
       return { error: "Échec de l'envoi de la photo au service d'upload" };
     }
-    return this.toResponse(await this.profile.setAvatar(user.userId, stored));
+    return this.toResponse(await this.profile.setAvatar(user.userId, stored), token);
   }
 
-  private toResponse(p: UserProfile) {
+  private async toResponse(p: UserProfile, token?: string) {
     return {
       userId: p.userId,
       bio: p.bio ?? '',
-      ordreProfessionnel: p.ordreProfessionnel ?? '',
+      // Données utilisateur générées par user-services : le n° d'ordre
+      // professionnel (ONM) n'est plus saisi/stocké localement.
+      ordreProfessionnel: await this.userService.getOrdreProfessionnel(token ?? ''),
       avatarFilename: p.avatarFilename ?? null,
       // URL same-origin : le proxy front + le backend ajoutent l'auth pour lire le fichier.
       avatarUrl: p.avatarFilename

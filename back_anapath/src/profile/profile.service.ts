@@ -19,7 +19,6 @@ export class ProfileService {
         userId,
         bio: null,
         avatarFilename: null,
-        ordreProfessionnel: null,
       })
     );
   }
@@ -27,15 +26,6 @@ export class ProfileService {
   async updateBio(userId: string, bio: string): Promise<UserProfile> {
     const p = await this.get(userId);
     p.bio = bio;
-    return this.repo.save(p);
-  }
-
-  async updateOrdreProfessionnel(
-    userId: string,
-    ordreProfessionnel: string,
-  ): Promise<UserProfile> {
-    const p = await this.get(userId);
-    p.ordreProfessionnel = ordreProfessionnel;
     return this.repo.save(p);
   }
 
