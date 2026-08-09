@@ -88,7 +88,7 @@ export async function generateWeeklyReportPDF(
   const data: ReportPdfData = {
     period: 'week',
     periodLabel: `Rapport hebdomadaire : semaine du ${weeklyLabel}`,
-    stats: computeCoreStats(requests),
+    stats: { ...computeCoreStats(requests), monthlyData: [] },
     filteredMonthlyData: [],
     weekly: {
       weekLabel: weeklyLabel,
