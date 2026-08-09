@@ -514,14 +514,20 @@ function ValidationPageContent() {
                     <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Compte Rendu d'Examen</p>
                     <h2 className="text-2xl font-bold text-on-surface">Anatomo-Pathologique</h2>
                   </div>
-                  <input
-                    type="text"
-                    value={ippNumber}
-                    onChange={(e) => setIppNumber(e.target.value)}
-                    placeholder="F26399"
-                    className="w-32 px-2 py-1 text-sm font-bold text-on-surface bg-surface-container-low border border-outline-variant rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-                    required
-                  />
+                  <div className="flex flex-col items-end gap-1">
+                    <label htmlFor="ippNumber" className="text-xs font-semibold text-on-surface-variant">
+                      N° d'ordre
+                    </label>
+                    <input
+                      id="ippNumber"
+                      type="text"
+                      value={ippNumber}
+                      onChange={(e) => setIppNumber(e.target.value)}
+                      placeholder="F26399"
+                      className="w-32 px-2 py-1 text-sm font-bold text-on-surface bg-surface-container-low border border-outline-variant rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
