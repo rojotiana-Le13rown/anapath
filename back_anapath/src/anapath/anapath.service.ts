@@ -12,6 +12,7 @@ import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
 import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
 import { ChuClient } from '../common/clients/chu.client';
 import { ServiceServiceClient } from '../common/clients/service.client';
+import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/receive-notification.dto';
 import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
@@ -44,6 +45,7 @@ export class AnapathService {
     private readonly authServiceToken: AuthServiceTokenService,
     private readonly chuClient: ChuClient,
     private readonly serviceServiceClient: ServiceServiceClient,
+    private readonly accueilClient: AccueilClient,
   ) {}
 
   /**
@@ -544,6 +546,22 @@ export class AnapathService {
     );
     const saved = await this.anapathRepository.save(entity);
 
+    // Stocke une fois pour toutes l'identité du patient (nom, prénom, dateNaissance…)
+    // résolue depuis Accueil : les lectures ultérieures n'ont plus besoin d'appeler
+    // Accueil (évite le martelage / rate limit 429) et le détail de prescription
+    // peut afficher nom + âge sans dépendre de la disponibilité d'Accueil.
+    const metadata = (notification.metadata ?? {}) as Record<string, any>;
+    if (saved.patientId && metadata.chuId) {
+      const patient = await this.accueilClient.getPatient(
+        saved.patientId,
+        String(metadata.chuId),
+      );
+      if (patient) {
+        saved.patientInfo = patient;
+        await this.anapathRepository.save(saved);
+      }
+    }
+
     await this.prescriptionClient.updateDemandeStatut(
       token,
       notification.metadata?.prescriptionId,
@@ -591,7 +609,7 @@ export class AnapathService {
     const token = await this.authServiceToken.getToken();
     if (!token) {
       console.warn(
-        'Pull des prescriptions ignoré : ni compte de service (AUTH_SERVICE_URL + PRESCRIPTION_SERVICE_ACCOUNT_*) ni PRESCRIPTION_CRON_JWT configurés',
+        'Pull des prescriptions ignoré : aucun token de service disponible (compte de service absent ou /auth/login en échec — vérifier AUTH_SERVICE_URL + PRESCRIPTION_SERVICE_ACCOUNT_*)',
       );
       return;
     }

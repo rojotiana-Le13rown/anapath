@@ -35,7 +35,7 @@ export class AuthServiceTokenService {
   private readonly email?: string;
   private readonly password?: string;
   private readonly staticFallbackToken?: string;
-  private readonly timeout = 10000;
+  private readonly timeout = 30000;
   // Renouvelle un peu avant l'expiration réelle pour ne jamais être pris au dépourvu.
   private readonly refreshMarginMs = 15 * 60 * 1000;
   private cached: CachedToken | null = null;

@@ -409,7 +409,9 @@ export class AnapathController {
         );
       }
     };
-    const CONCURRENCE = 8;
+    // Concurrence volontairement faible : Accueil (Render free tier) applique un
+    // rate limit (429) si on lui envoie des rafales — 3 workers bornent les appels.
+    const CONCURRENCE = 3;
     const workers = Array.from(
       { length: Math.min(CONCURRENCE, rows.length) },
       () => worker(),

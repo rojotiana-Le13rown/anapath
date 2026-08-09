@@ -25,10 +25,18 @@ export class AccueilClient {
   // Cache en mémoire des patients résolus (patientId|chuId -> patient ou null),
   // pour que l'enrichissement des listes (GET /anapath) n'appelle Accueil qu'une
   // fois par patient au lieu d'un appel par demande. Les résultats négatifs sont
-  // aussi mis en cache (évite de marteler Accueil quand il est indisponible).
+  // aussi mis en cache (évite de marteler Accueil quand il est indisponible) mais
+  // avec un TTL plus long (backoff) pour ne pas re-attaquer un service en panne.
   private patientCache = new Map<string, { at: number; patient: any | null }>();
+  // Requêtes en vol : évite que N enrichissements parallèles du même patient
+  // déclenchent N appels Accueil simultanés (cause racine des 429).
+  private inflight = new Map<string, Promise<any | null>>();
   private readonly PATIENT_CACHE_TTL_MS = 10 * 60 * 1000;
+  private readonly PATIENT_CACHE_FAIL_TTL_MS = 60 * 60 * 1000;
   private readonly PATIENT_CACHE_MAX = 500;
+  // Render free tier met ~20-30 s à "réveiller" Accueil après une inactivité :
+  // un timeout de 8 s coupait tous les appels pendant le cold start.
+  private readonly ACCUEIL_TIMEOUT_MS = 30000;
 
   async getPatient(patientId: string, chuId: string): Promise<any | null> {
     if (!patientId || !chuId) {
@@ -37,18 +45,35 @@ export class AccueilClient {
     }
     const key = `${patientId}|${chuId}`;
     const cached = this.patientCache.get(key);
-    if (cached && Date.now() - cached.at < this.PATIENT_CACHE_TTL_MS) {
-      return cached.patient;
+    if (cached) {
+      const ttl = cached.patient ? this.PATIENT_CACHE_TTL_MS : this.PATIENT_CACHE_FAIL_TTL_MS;
+      if (Date.now() - cached.at < ttl) return cached.patient;
     }
+    const inflight = this.inflight.get(key);
+    if (inflight) return inflight;
+    const promise = this.doGetPatient(key, patientId, chuId).finally(() => {
+      if (this.inflight.get(key) === promise) this.inflight.delete(key);
+    });
+    this.inflight.set(key, promise);
+    return promise;
+  }
+
+  private async doGetPatient(
+    key: string,
+    patientId: string,
+    chuId: string,
+  ): Promise<any | null> {
     try {
       const url = `${ACCUEIL_BASE_URL}/accueil/patients/`
         + `${encodeURIComponent(patientId)}`
         + `?chuId=${encodeURIComponent(chuId)}`;
       const res = await fetch(url, {
         headers: this.buildHeaders(),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) {
+        // 429 = rate limit d'Accueil : un log par fenêtre de cache suffit,
+        // le backoff (TTL long sur échec) évite de re-marteler le service.
         console.warn(`Accueil getPatient ${res.status}:`, url);
         this.setPatientCache(key, null);
         return null;
@@ -57,7 +82,6 @@ export class AccueilClient {
       this.setPatientCache(key, data);
       return data;
     } catch (e) {
-      console.warn('Accueil getPatient erreur:', e);
       this.setPatientCache(key, null);
       return null;
     }
@@ -78,7 +102,7 @@ export class AccueilClient {
         + `?chuId=${encodeURIComponent(chuId)}`;
       const res = await fetch(url, {
         headers: this.buildHeaders(),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) return [];
       const data = await res.json();
@@ -98,7 +122,7 @@ export class AccueilClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...this.buildHeaders() },
         body: JSON.stringify(dto),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) {
         console.warn(`Accueil registerPatient ${res.status}:`, url);
@@ -125,7 +149,7 @@ export class AccueilClient {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...this.buildHeaders() },
         body: JSON.stringify(dto ?? {}),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) {
         console.warn(`Accueil updatePatient ${res.status}:`, url);
@@ -146,7 +170,7 @@ export class AccueilClient {
         + `${encodeURIComponent(id)}/allergie?chuId=${encodeURIComponent(chuId)}`;
       const res = await fetch(url, {
         headers: this.buildHeaders(),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) {
         console.warn(`Accueil getAllergie ${res.status}:`, url);
@@ -174,7 +198,7 @@ export class AccueilClient {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...this.buildHeaders() },
         body: JSON.stringify({ allergie }),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) {
         console.warn(`Accueil updateAllergie ${res.status}:`, url);
