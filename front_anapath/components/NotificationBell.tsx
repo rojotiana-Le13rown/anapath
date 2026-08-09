@@ -418,10 +418,8 @@ export default function NotificationBell() {
     }, 'NORMALE');
 
   const badgeCls = maxUrg === 'STAT'
-    ? 'bg-red-600 animate-pulse'
-    : maxUrg === 'URGENTE'
-    ? 'bg-orange-500'
-    : 'bg-blue-600';
+    ? 'bg-[#e41e3f] animate-pulse'
+    : 'bg-[#e41e3f]';
 
   const handleClick = async (n: any) => {
     if (isPrescriptionEnAttente(n)) {
