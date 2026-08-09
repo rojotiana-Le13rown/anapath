@@ -356,7 +356,10 @@ export class AnapathController {
         patientInfo: {
           ...info,
           nomComplet: nomStoque,
-          age: this.accueilClient.calculateAge(info.dateNaissance) ?? info.age ?? null,
+        age:
+          this.accueilClient.calculateAge(info.dateNaissance as string) ??
+          info.age ??
+          null,
         },
         patientName: nomStoque,
       };
@@ -544,7 +547,10 @@ export class AnapathController {
       return {
         ...info,
         nomComplet: this.accueilClient.buildNomComplet(info),
-        age: this.accueilClient.calculateAge(info.dateNaissance) ?? info.age ?? null,
+        age:
+          this.accueilClient.calculateAge(info.dateNaissance as string) ??
+          info.age ??
+          null,
       };
     }
 

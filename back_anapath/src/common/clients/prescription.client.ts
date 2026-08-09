@@ -93,29 +93,6 @@ export class PrescriptionClient {
     }
   }
 
-  /**
-   * Propage le changement de statut d'une demande vers le service Prescription. Ne throw jamais — mode dégradé.
-   */
-  async updateDemandeStatut(
-    token: string,
-    patientId: string,
-    filters?: AnapathPrescriptionFilters,
-  ): Promise<AnapathPrescription[]> {
-    try {
-      const { data } = await axios.get(
-        `${this.baseUrl}/prescriptions/anapath/patient/${patientId}`,
-        { headers: this.headers(token), params: filters, timeout: this.timeout },
-      );
-      return Array.isArray(data) ? data.map((p) => this.normalizePrescription(p)) : [];
-    } catch (e) {
-      console.warn(
-        'PrescriptionClient.getAnapathPrescriptionsByPatient échoué:',
-        e instanceof Error ? e.message : e,
-      );
-      return [];
-    }
-  }
-
   /** Propage le changement de statut d'une demande vers le service Prescription. Ne throw jamais — mode dégradé. */
   async updateDemandeStatut(
     token: string,
