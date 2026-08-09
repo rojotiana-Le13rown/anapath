@@ -45,9 +45,13 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
       },
       inject: [ConfigService],
     }),
+    // ProfileModule AVANT AnapathModule : sinon la route statique GET/PATCH
+    // /anapath/profile est captée par @Get(':id')/@Patch(':id') de
+    // l'AnapathController → id="profile" → "invalid input syntax for type
+    // uuid" → 500. L'ordre d'import définit l'ordre d'enregistrement des routes.
+    ProfileModule,
     AnapathModule,
     NotificationModule,
-    ProfileModule,
   ],
   controllers: [AppController],
   providers: [
