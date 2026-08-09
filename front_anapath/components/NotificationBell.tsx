@@ -559,11 +559,7 @@ export default function NotificationBell() {
   };
 
   const markAll = async () => {
-    const eligibles = notifs.filter(n => {
-      const statut = n.enriched?.statut ?? '';
-      return ['RESULTAT_DISPONIBLE', 'VALIDE', 'ARCHIVE']
-        .includes(statut) && !isLue(n);
-    });
+    const eligibles = notifs.filter(n => !isLue(n));
     await Promise.all(eligibles.map(async n => {
       const aid = getAnapathId(n);
       const notifId = n.id ?? n._id;
