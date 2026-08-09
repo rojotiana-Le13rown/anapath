@@ -53,11 +53,28 @@ export class UserServiceClient {
     }
   }
 
-  /** Numéro d'inscription à l'ordre professionnel (ONM), géré par user-services. */
+  /** N° d'ordre (ex. F26945) et n° d'inscription à l'ordre professionnel (ex. ONM-12345),
+   *  gérés par user-services. Un seul appel à /users/{id} pour les deux. */
+  async getOrdreInfos(token: string): Promise<{
+    ordre: string;
+    ordreProfessionnel: string;
+  }> {
+    const user = await this.getUser(token);
+    return {
+      ordre:
+        typeof user?.registration_number_professional_order === 'string'
+          ? user.registration_number_professional_order
+          : '',
+      ordreProfessionnel:
+        typeof user?.professional_order === 'string' ? user.professional_order : '',
+    };
+  }
+
+  /** N° d'inscription à l'ordre professionnel (ONM), géré par user-services. */
   async getOrdreProfessionnel(token: string): Promise<string> {
     const user = await this.getUser(token);
-    return typeof user?.registration_number_professional_order === 'string'
-      ? user.registration_number_professional_order
+    return typeof user?.professional_order === 'string'
+      ? user.professional_order
       : '';
   }
 }

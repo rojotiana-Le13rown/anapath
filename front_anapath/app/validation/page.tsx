@@ -141,16 +141,22 @@ function ValidationPageContent() {
     }
   }, [user?.name]);
 
+  // Signature automatique : le nom d'utilisateur + les numéros (n° d'ordre et
+  // n° d'inscription à l'ordre professionnel) fournis par user-services.
   useEffect(() => {
     let active = true;
     fetch(`${API_BASE}/anapath/profile`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (active && typeof d?.ordreProfessionnel === 'string') {
+        if (!active || !d) return;
+        if (typeof d?.ordreProfessionnel === 'string') {
           setSignature((prev) => ({
             ...prev,
             ordreProfessionnelNumber: d.ordreProfessionnel,
           }));
+        }
+        if (typeof d?.ordre === 'string') {
+          setIppNumber(d.ordre);
         }
       })
       .catch(() => {});

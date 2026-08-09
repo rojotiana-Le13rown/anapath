@@ -67,12 +67,18 @@ export class ProfileController {
   }
 
   private async toResponse(p: UserProfile, token?: string) {
+    // Données utilisateur générées par user-services (source officielle) :
+    // `ordre` = n° d'ordre (ex. F26945) et `ordreProfessionnel` = n°
+    // d'inscription à l'ordre professionnel (ex. ONM-12345). Plus rien à
+    // saisir/stocker localement.
+    const { ordre, ordreProfessionnel } = await this.userService.getOrdreInfos(
+      token ?? '',
+    );
     return {
       userId: p.userId,
       bio: p.bio ?? '',
-      // Données utilisateur générées par user-services : le n° d'ordre
-      // professionnel (ONM) n'est plus saisi/stocké localement.
-      ordreProfessionnel: await this.userService.getOrdreProfessionnel(token ?? ''),
+      ordre,
+      ordreProfessionnel,
       avatarFilename: p.avatarFilename ?? null,
       // URL same-origin : le proxy front + le backend ajoutent l'auth pour lire le fichier.
       avatarUrl: p.avatarFilename
