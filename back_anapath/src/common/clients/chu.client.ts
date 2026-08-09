@@ -9,11 +9,9 @@ export class ChuClient {
   private readonly timeout = 5000;
 
   constructor(configService?: ConfigService) {
-    // Service CHU (Render) : expose /chu et /prise-en-charge, sécurisé par le
-    // JWT de l'écosystème d'auth (un Bearer est exigé).
-    // L'ancien service Railway (service-chu-back-production-d6a8.up.railway.app)
-    // qui exposait /service-chu/* a été arrêté : plus aucune dépendance ne doit
-    // pointer vers lui.
+    // Ce client ne parle qu'au service CHU (Render) : /chu et /prise-en-charge,
+    // sécurisé par le JWT de l'écosystème d'auth (un Bearer est exigé).
+    // L'ancien service CHU Railway est arrêté : aucune dépendance ne doit pointer vers lui.
     this.cmsBaseUrl = (
       configService?.get<string>('CHU_CMS_SERVICE_URL') ??
       process.env.CHU_CMS_SERVICE_URL ??

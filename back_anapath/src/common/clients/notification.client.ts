@@ -4,8 +4,7 @@ import axios from 'axios';
 
 /**
  * Client vers le service Notification externe dédié (aucune authentification requise,
- * vérifié empiriquement). Remplace l'ancienne intégration qui pointait par erreur vers
- * le service Prescription via NOTIF_SERVICE_URL.
+ * vérifié empiriquement). URL : NOTIFICATION_SERVICE_URL (défaut https://service-notification-nlqp.onrender.com).
  */
 @Injectable()
 export class NotificationClient {
