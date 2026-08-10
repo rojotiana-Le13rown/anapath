@@ -445,6 +445,11 @@ export class AnapathController {
     },
   ) {
     const phase = body.phase === 'arrival' ? 'arrival' : 'remaining';
+    // Garde-fou : une alerte STAT sans examen rattaché (anapathId vide) est du
+    // spam (ex. ancien onglet avec l'ancien code front qui postait en boucle).
+    // On l'ignore car la dédup ci-dessous ne peut pas la bloquer (anapathId vide
+    // ⇒ findActiveByAnapathId renvoie null).
+    if (!body.anapathId) return { success: true, ignore: true };
     // Dédup : pas de nouvelle alerte STAT si une alerte non lue (même examen,
     // même phase) existe déjà — évite le spam quand le front poste en boucle.
     const existante =
