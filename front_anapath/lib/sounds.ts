@@ -2,6 +2,8 @@
 // Conçus pour être distincts ET agréables : ondes sinusoïdales / triangulaires,
 // intervalles musicaux (accords majeurs), enveloppes douces (attaque courte,
 // décroissance exponentielle) et volume maîtrisé pour éviter l'écrêtage.
+// EXCEPTION : le son STAT (examen très urgent) est volontairement assourdissant,
+// joué à 200 % du volume maximal de l'appareil pour forcer l'attention.
 
 type WaveType = OscillatorType;
 
@@ -88,18 +90,25 @@ function playUrgente(): void {
   );
 }
 
-/** Urgence STAT — sirène musicale (ré/la alternés), pressante mais pas agressive. */
+/**
+ * Urgence STAT — sirène d'urgence assourdissante.
+ * Volontairement « à fond » : ondes dent de scie aiguës, saturation (vol 0.9)
+ * et amplification à 200 % du volume maximal de l'appareil (masterVol = 2.0,
+ * ce qui provoque un écrêtage sonore qui perce immédiatement l'attention).
+ */
 function playStat(): void {
   playSequence(
     [
-      { freq: 587.33, start: 0, dur: 0.18, type: 'triangle', vol: 0.55 },
-      { freq: 880.0, start: 0.18, dur: 0.18, type: 'triangle', vol: 0.55 },
-      { freq: 587.33, start: 0.36, dur: 0.18, type: 'triangle', vol: 0.55 },
-      { freq: 880.0, start: 0.54, dur: 0.18, type: 'triangle', vol: 0.55 },
-      { freq: 587.33, start: 0.72, dur: 0.18, type: 'triangle', vol: 0.55 },
-      { freq: 880.0, start: 0.9, dur: 0.32, type: 'triangle', vol: 0.6 },
+      { freq: 880.0, start: 0, dur: 0.2, type: 'sawtooth', vol: 0.9 },
+      { freq: 1174.66, start: 0.2, dur: 0.2, type: 'sawtooth', vol: 0.9 },
+      { freq: 880.0, start: 0.4, dur: 0.2, type: 'sawtooth', vol: 0.9 },
+      { freq: 1174.66, start: 0.6, dur: 0.2, type: 'sawtooth', vol: 0.9 },
+      { freq: 880.0, start: 0.8, dur: 0.2, type: 'sawtooth', vol: 0.9 },
+      { freq: 1174.66, start: 1.0, dur: 0.2, type: 'sawtooth', vol: 0.9 },
+      { freq: 880.0, start: 1.2, dur: 0.25, type: 'sawtooth', vol: 0.95 },
+      { freq: 1174.66, start: 1.45, dur: 0.45, type: 'sawtooth', vol: 0.95 },
     ],
-    0.9,
+    2.0, // 200 % du volume maximal de l'appareil
   );
 }
 
