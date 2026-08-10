@@ -537,7 +537,7 @@ export class AnapathService {
     if (!notification || notification.type !== NotificationType.NOUVELLE_PRESCRIPTION) {
       throw new NotFoundException('Notification de prescription introuvable');
     }
-    if (notification.read) {
+    if (notification.metadata?.outcome) {
       throw new BadRequestException('Cette prescription a déjà été traitée');
     }
 
@@ -585,7 +585,7 @@ export class AnapathService {
     if (!notification || notification.type !== NotificationType.NOUVELLE_PRESCRIPTION) {
       throw new NotFoundException('Notification de prescription introuvable');
     }
-    if (notification.read) {
+    if (notification.metadata?.outcome) {
       throw new BadRequestException('Cette prescription a déjà été traitée');
     }
     if (!motif?.trim()) {
