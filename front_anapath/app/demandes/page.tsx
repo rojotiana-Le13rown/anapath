@@ -382,6 +382,43 @@ export default function DemandesPage() {
           </div>
 
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Total nouvelles demandes — grand compteur style dashboard */}
+              <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#00284d] to-[#00478d] text-white shadow-sm">
+                <span className="material-symbols-outlined text-white/60 text-2xl">inbox</span>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-white/70 leading-none">
+                    Nouvelles demandes
+                  </p>
+                  <p className="text-3xl font-extrabold leading-none mt-1">
+                    {pendingList.length}
+                  </p>
+                </div>
+              </div>
+              {/* Sous-totaux acceptées / refusées */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700/70 leading-none">
+                    Acceptées
+                  </p>
+                  <p className="text-xl font-extrabold text-emerald-700 leading-none mt-0.5">
+                    {acceptedList.length}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-100">
+                <span className="material-symbols-outlined text-red-600 text-lg">cancel</span>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-red-700/70 leading-none">
+                    Refusées
+                  </p>
+                  <p className="text-xl font-extrabold text-red-700 leading-none mt-0.5">
+                    {refusedList.length}
+                  </p>
+                </div>
+              </div>
+            </div>
             <LocalSearchBox
               value={localQuery}
               onChange={setLocalQuery}
