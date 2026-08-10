@@ -6,6 +6,9 @@ import { ReportSettings } from './entities/report-settings.entity';
 import { PrescriptionClient } from '../common/clients/prescription.client';
 import { NotificationService } from '../notification/notification.service';
 import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
+import { ChuClient } from '../common/clients/chu.client';
+import { ServiceServiceClient } from '../common/clients/service.client';
+import { AccueilClient } from '../common/clients/accueil.client';
 
 describe('AnapathService', () => {
   let service: AnapathService;
@@ -19,6 +22,9 @@ describe('AnapathService', () => {
         { provide: PrescriptionClient, useValue: {} },
         { provide: NotificationService, useValue: {} },
         { provide: AuthServiceTokenService, useValue: {} },
+        { provide: ChuClient, useValue: {} },
+        { provide: ServiceServiceClient, useValue: {} },
+        { provide: AccueilClient, useValue: {} },
       ],
     }).compile();
 

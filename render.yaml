@@ -48,6 +48,20 @@ services:
         value: https://user-services-0sze.onrender.com
       - key: PRESCRIPTION_SERVICE_URL
         value: https://prescriptionback-production.up.railway.app
+      - key: PRESCRIPTION_SYNC_ENABLED
+        value: "true"
+      - key: PRESCRIPTION_SYNC_CRON
+        value: "*/15 * * * *"
+      - key: PRESCRIPTION_WS_ENABLED
+        value: "true"
+      # Compte de service utilisé par AuthServiceTokenService pour s'authentifier
+      # automatiquement auprès du service Prescription (POST /auth/login). À créer
+      # dans le dashboard Render (sync:false = ne pas écraser les valeurs manuelles).
+      # Le code tolère aussi les variantes _MAIL/_PWD.
+      - key: PRESCRIPTION_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: PRESCRIPTION_SERVICE_ACCOUNT_PASSWORD
+        sync: false
       - key: UPLOAD_SERVICE_URL
         value: https://service-upload-u5z9.onrender.com
       - key: CORS_ORIGINS

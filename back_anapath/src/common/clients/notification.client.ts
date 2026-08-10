@@ -1,13 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
 /**
  * Client vers le service Notification externe dédié (aucune authentification requise,
  * vérifié empiriquement). URL : NOTIFICATION_SERVICE_URL (défaut https://service-notification-nlqp.onrender.com).
+ *
+ * Les erreurs du service externe sont LOGGÉES (jamais silencieuses) afin de distinguer
+ * « rien à afficher » d'« API externe injoignable » : un catch silencieux ferait croire
+ * que tout est lu alors que le service est simplement down.
  */
 @Injectable()
 export class NotificationClient {
+  private readonly logger = new Logger('NotificationClient');
   private readonly baseUrl: string;
   private readonly serviceId: string;
   private readonly timeout = 5000;
@@ -32,7 +37,10 @@ export class NotificationClient {
         timeout: this.timeout,
       });
       return Array.isArray(data) ? data : [];
-    } catch {
+    } catch (e) {
+      this.logger.warn(
+        `getNotificationsForUser(${userId}) échoué (${this.baseUrl}): ${e instanceof Error ? e.message : e}`,
+      );
       return [];
     }
   }
@@ -42,7 +50,10 @@ export class NotificationClient {
     try {
       const { data } = await axios.get(`${this.baseUrl}/notifications`, { timeout: this.timeout });
       return Array.isArray(data) ? data : [];
-    } catch {
+    } catch (e) {
+      this.logger.warn(
+        `getAllNotifications échoué (${this.baseUrl}): ${e instanceof Error ? e.message : e}`,
+      );
       return [];
     }
   }
@@ -61,14 +72,12 @@ export class NotificationClient {
         { timeout: this.timeout },
       );
       return true;
-    } catch {
+    } catch (e) {
+      this.logger.warn(
+        `markAsRead(${notificationId}) échoué (${this.baseUrl}): ${e instanceof Error ? e.message : e}`,
+      );
       return false;
     }
-  }
-
-  /** Nom du champ "lu" non confirmé côté API externe (read/lu/isRead) — vérifie les variantes courantes. */
-  isRead(notification: any): boolean {
-    return Boolean(notification?.read ?? notification?.lu ?? notification?.isRead ?? false);
   }
 
   getAnapathServiceId(): string {

@@ -87,12 +87,20 @@ export class NotificationService implements OnApplicationBootstrap {
     return true;
   }
 
-  /** Notification locale "nouvelle prescription en attente" déjà créée pour cette demande, si elle existe. */
+  /**
+   * Notification "nouvelle prescription" déjà créée pour cette demande, SI ELLE
+   * EXISTE — quel que soit son état (lue ou non, acceptée ou refusée).
+   *
+   * C'est LE garde-fou anti-doublons du pull des prescriptions : une demande
+   * déjà connue (y compris marquée « lue » ou refusée) ne doit JAMAIS générer une
+   * nouvelle notification. Si on filtrait sur `read: false`, « tout marquer lu »
+   * ferait ré-apparaître la demande au pull suivant (cron 15 min + re-pull socket).
+   */
   async findPendingByDemandeId(demandeId: string): Promise<NotificationEntity | null> {
-    const pending = await this.notificationRepository.find({
-      where: { type: NotificationType.NOUVELLE_PRESCRIPTION, read: false },
+    const all = await this.notificationRepository.find({
+      where: { type: NotificationType.NOUVELLE_PRESCRIPTION },
     });
-    return pending.find((n) => n.metadata?.demandeId === demandeId) ?? null;
+    return all.find((n) => n.metadata?.demandeId === demandeId) ?? null;
   }
 
   /**
