@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationEntity } from './notification.entity';
@@ -6,12 +6,21 @@ import { NotificationType } from './dto/receive-notification.dto';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
-export class NotificationService {
+export class NotificationService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(NotificationEntity)
     private notificationRepository: Repository<NotificationEntity>,
     private readonly notificationsGateway: NotificationsGateway,
   ) {}
+
+  /** Au démarrage, nettoie les notifications dupliquées (relance, alertes STAT). */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      await this.deduplicateRappelsEtAlertes();
+    } catch (e) {
+      console.warn('Nettoyage des doublons de notifications échoué:', e);
+    }
+  }
 
   async createNotification(data: {
     type: NotificationType | string;
@@ -71,6 +80,68 @@ export class NotificationService {
       where: { type: NotificationType.NOUVELLE_PRESCRIPTION, read: false },
     });
     return pending.find((n) => n.metadata?.demandeId === demandeId) ?? null;
+  }
+
+  /**
+   * Existe-t-il déjà une notification non lue de ce type pour cet anapathId ?
+   * Utilisé pour éviter les doublons (cron de relance, alertes STAT) : le rappel
+   * n'est recréé que si aucune notification active existe déjà pour l'examen.
+   * `metadataMatch` filtre en plus sur des champs du metadata (ex. phase).
+   */
+  async findActiveByAnapathId(
+    anapathId: string | null | undefined,
+    type?: string,
+    metadataMatch?: Record<string, unknown>,
+  ): Promise<NotificationEntity | null> {
+    if (!anapathId) return null;
+    const active = await this.notificationRepository.find({
+      where: { read: false },
+    });
+    return (
+      active.find(
+        (n) =>
+          n.metadata?.anapathId === anapathId &&
+          (!type || n.type === type) &&
+          Object.entries(metadataMatch ?? {}).every(
+            ([k, v]) => n.metadata?.[k] === v,
+          ),
+      ) ?? null
+    );
+  }
+
+  /**
+   * Supprime les doublons de RAPPEL_VALIDATION / STAT_ALERT en base : pour un
+   * même type + anapathId (et même phase pour STAT_ALERT), seule la notification
+   * la plus récente est conservée. Exécuté au démarrage pour nettoyer le spam
+   * de notifications déjà présent.
+   */
+  async deduplicateRappelsEtAlertes(): Promise<number> {
+    const all = await this.notificationRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+    const seen = new Set<string>();
+    let removed = 0;
+    for (const n of all) {
+      const aid = n.metadata?.anapathId;
+      if (!aid) continue;
+      const isRappel = n.type === NotificationType.RAPPEL_VALIDATION;
+      const isStat = n.type === NotificationType.STAT_ALERT;
+      if (!isRappel && !isStat) continue;
+
+      const key = isStat
+        ? `STAT_ALERT|${aid}|${n.metadata?.phase ?? ''}`
+        : `RAPPEL_VALIDATION|${aid}`;
+      if (seen.has(key)) {
+        await this.notificationRepository.remove(n);
+        removed++;
+      } else {
+        seen.add(key);
+      }
+    }
+    if (removed > 0) {
+      console.log(`🧹 Notifications dédupliquées : ${removed} doublon(s) supprimé(s)`);
+    }
+    return removed;
   }
 
   /** Marque une notification "nouvelle prescription" comme traitée (acceptée/refusée) — jamais supprimée, garde une trace. */

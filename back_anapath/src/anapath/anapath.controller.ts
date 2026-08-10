@@ -11,6 +11,7 @@ import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationClient } from '../common/clients/notification.client';
 import { PrescriptionTokenMonitorService } from '../common/clients/prescription-token-monitor.service';
 import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/dto/receive-notification.dto';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentToken } from '../auth/decorators/current-token.decorator';
@@ -464,6 +465,16 @@ export class AnapathController {
     },
   ) {
     const phase = body.phase === 'arrival' ? 'arrival' : 'remaining';
+    // Dédup : pas de nouvelle alerte STAT si une alerte non lue (même examen,
+    // même phase) existe déjà — évite le spam quand le front poste en boucle.
+    const existante =
+      await this.notificationService.findActiveByAnapathId(
+        body.anapathId,
+        NotificationType.STAT_ALERT,
+        { phase },
+      );
+    if (existante) return { success: true, dejaExistant: true };
+
     const title =
       phase === 'arrival' ? '🚨 NOUVEL EXAMEN STAT' : '🚨 ALERTE STAT';
     const message =

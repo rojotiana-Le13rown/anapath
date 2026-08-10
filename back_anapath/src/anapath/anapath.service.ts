@@ -711,6 +711,16 @@ export class AnapathService {
         continue;
       }
 
+      // Dédup : ne jamais créer un second rappel si une notification de relance
+      // non lue existe déjà pour cet examen (évite le spam en cas d'exécutions
+      // multiples ou concurrentes du cron).
+      const existant =
+        await this.notificationService.findActiveByAnapathId(
+          examen.anapathId,
+          NotificationType.RAPPEL_VALIDATION,
+        );
+      if (existant) continue;
+
       const metadata = examen.metadata as Record<string, unknown> | null;
       const message =
         `⏰ Rappel : Validez l'examen ${examen.anapathId}` +
