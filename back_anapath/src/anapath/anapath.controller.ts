@@ -156,6 +156,26 @@ export class AnapathController {
   }
 
   /**
+   * Nouvelles demandes en attente d'acceptation/refus — indépendant de l'état
+   * « lu » : la page « Nouvelles demandes » doit continuer à les afficher même
+   * après « tout marquer lu » dans la cloche.
+   */
+  @Permissions('anapath:read')
+  @Get('notifications/en-attente')
+  @ApiOperation({ summary: 'Nouvelles demandes en attente d\'acceptation ou de refus (quel que soit l\'état lu)' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  async getEnAttente(
+    @CurrentToken() token: string,
+  ) {
+    const ctx = this.decodeAnapathContext(token);
+    const locales = await this.notificationService.findPending();
+    const enriched = await Promise.all(
+      locales.map(async (n: any) => this.enrichNotification(n, ctx)),
+    );
+    return sortNotifications(enriched);
+  }
+
+  /**
    * Contexte du service Anapath connecté (décodé du JWT de la session) : le CHU de
    * l'utilisateur — source du champ affiché « CHU ». Le « Service demandeur » (le
    * service émetteur de la prescription, serviceIdSource) est résolu via le

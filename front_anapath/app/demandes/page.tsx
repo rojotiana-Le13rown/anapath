@@ -13,9 +13,8 @@ import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/dateFormat
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
 
 /* ---- Helpers (mêmes règles que la cloche de notification) ---- */
-const isLue = (n: any) => n?.enriched?.lu === true || n?.read === true;
 const isPending = (n: any) =>
-  n?.type === 'NOUVELLE_PRESCRIPTION' && !isLue(n);
+  n?.type === 'NOUVELLE_PRESCRIPTION' && !n?.metadata?.outcome;
 
 const getUrgence = (n: any): string =>
   n?.enriched?.urgence ?? n?.metadata?.urgence ?? 'NORMALE';
@@ -156,7 +155,7 @@ export default function DemandesPage() {
 
   const loadOnce = useCallback(async () => {
     const [notifs, acceptees, refusees] = await Promise.all([
-      fetchJson(`${API_BASE}/anapath/notifications/non-lues`),
+      fetchJson(`${API_BASE}/anapath/notifications/en-attente`),
       fetchJson(`${API_BASE}/anapath/notifications/acceptees`),
       fetchJson(`${API_BASE}/anapath/notifications/refusees`),
     ]);

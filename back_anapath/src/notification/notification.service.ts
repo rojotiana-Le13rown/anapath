@@ -61,6 +61,19 @@ export class NotificationService implements OnApplicationBootstrap {
     });
   }
 
+  /**
+   * Prescriptions encore en attente d'acceptation ou de refus — quel que soit
+   * l'état « lu ». Indépendant de la lecture : « tout marquer lu » ne fait pas
+   * disparaître une demande de la page « Nouvelles demandes ».
+   */
+  async findPending(): Promise<NotificationEntity[]> {
+    const all = await this.notificationRepository.find({
+      where: { type: NotificationType.NOUVELLE_PRESCRIPTION },
+      order: { createdAt: 'DESC' },
+    });
+    return all.filter((n) => !n.metadata?.outcome);
+  }
+
   async findOne(id: string): Promise<NotificationEntity | null> {
     return this.notificationRepository.findOne({ where: { id } });
   }
