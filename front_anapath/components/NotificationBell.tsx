@@ -785,13 +785,6 @@ export default function NotificationBell() {
                           📍 {svc}
                         </p>
 
-                        {lue && (
-                          <p className="text-xs
-                            text-green-600 mt-0.5
-                            font-medium">
-                            ✅ Résultat saisi
-                          </p>
-                        )}
                       </div>
 
                       <div
