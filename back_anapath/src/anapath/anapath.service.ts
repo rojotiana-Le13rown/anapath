@@ -21,26 +21,6 @@ import * as crypto from 'crypto';
 const ANAPATH_SERVICE_ID =
   process.env.ANAPATH_SERVICE_ID ?? '9e73904c-71e5-4477-9280-513e4112a468';
 
-// Seuil de déclenchement du rappel de validation (en jours) par type d'examen.
-// Chaque type est paramétré explicitement — il n'y a PAS de défaut : un type
-// absent ne déclenche jamais de rappel générique.
-// EXTEMPORANE_STAT est volontairement absent : il est couvert par l'alerte
-// extemporané existante (25e minute).
-const SEUILS_RAPPEL_JOURS: Record<string, number> = {
-  BIOPSIE: 4, // délai 5 j → rappel au 4e jour
-  FCV_PAP: 2, // délai 3 j → rappel au 2e jour
-  CYT0PONCTION: 2, // délai 3 j → rappel au 2e jour
-  LIQUIDE: 2, // délai 3 j → rappel au 2e jour
-  POC: 2, // délai 3 j → rappel au 2e jour
-  POS: 6, // délai 7 j → rappel au 6e jour
-};
-const DELAI_MIN_ENTRE_RELANCES_MS = 20 * 60 * 60 * 1000;
-
-function formatDelai(delaiJours: number): string {
-  if (delaiJours < 1) return `${Math.round(delaiJours * 24 * 60)} min`;
-  return `${delaiJours} j`;
-}
-
 export type AnapathRequestResponse = AnapathRequest & {
   resultat: { details: string | null; conclusion: string | null };
   validationHash: string | null;
@@ -682,79 +662,6 @@ export class AnapathService {
       console.log('✅ Notification rapport hebdomadaire créée');
     } catch (e) {
       console.warn('Notification rapport hebdomadaire échouée:', e);
-    }
-  }
-
-  @Cron('0 * * * *')
-  async relanceExamensNonValides() {
-    const examens = await this.anapathRepository.find({
-      where: { statut: Statut.RESULTAT_DISPONIBLE },
-    });
-    const maintenant = new Date();
-
-    for (const examen of examens) {
-      // Seuil paramétré par type d'examen — aucun défaut : un type absent ne
-      // déclenche pas de rappel générique (ex. EXTEMPORANE_STAT, déjà couvert
-      // par l'alerte extemporané de la 25e minute).
-      const seuilJours = SEUILS_RAPPEL_JOURS[examen.typeExamen];
-      if (seuilJours == null) continue;
-
-      const seuilMs = seuilJours * 24 * 60 * 60 * 1000;
-      const ageMs = maintenant.getTime() - new Date(examen.createdAt).getTime();
-      if (ageMs < seuilMs) continue;
-
-      const derniereRelance = examen.derniereRelanceAt;
-      if (
-        derniereRelance &&
-        maintenant.getTime() - derniereRelance.getTime() < DELAI_MIN_ENTRE_RELANCES_MS
-      ) {
-        continue;
-      }
-
-      // Dédup : ne jamais créer un second rappel si une notification de relance
-      // non lue existe déjà pour cet examen (évite le spam en cas d'exécutions
-      // multiples ou concurrentes du cron).
-      const existant =
-        await this.notificationService.findActiveByAnapathId(
-          examen.anapathId,
-          NotificationType.RAPPEL_VALIDATION,
-        );
-      if (existant) continue;
-
-      const metadata = examen.metadata as Record<string, unknown> | null;
-      const message =
-        `⏰ Rappel : Validez l'examen ${examen.anapathId}` +
-        ` — ${examen.typeExamen}` +
-        ` — Patient: ${examen.patientId}` +
-        ` — Service: ${metadata?.serviceNom ?? '—'}` +
-        ` — Délai de validation (${formatDelai(seuilJours)}) atteint` +
-        ` — Résultat saisi depuis ${formatTimeSince(examen.updatedAt)}.`;
-
-      try {
-        await this.notificationService.createNotification({
-          type: 'RAPPEL_VALIDATION',
-          title: `Rappel validation — ${examen.anapathId}`,
-          message,
-          priority: 'medium',
-          source: 'Anapath',
-          metadata: {
-            anapathId: examen.anapathId,
-            typeExamen: examen.typeExamen,
-            patientId: examen.patientId,
-            serviceNom: metadata?.serviceNom,
-            isRelance: true,
-            delaiJours: seuilJours,
-          },
-        });
-
-        examen.derniereRelanceAt = maintenant;
-        await this.anapathRepository.save(examen);
-        console.log(
-          `✅ Relance créée : ${examen.anapathId} (délai ${formatDelai(seuilJours)}, âge ${(ageMs / 3600000).toFixed(1)}h)`,
-        );
-      } catch (e) {
-        console.warn(`Relance échouée ${examen.anapathId}:`, e);
-      }
     }
   }
 }

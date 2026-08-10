@@ -309,7 +309,11 @@ export default function NotificationBell() {
       newOnes.forEach(n => {
         scheduleExtemporane(n);
         known.current.add(n.id ?? n._id);
-        if (isStatUrgent(n)) {
+        // Alerte STAT d'arrivée uniquement pour un examen réel (anapathId
+        // présent). Une nouvelle prescription en attente n'a pas encore
+        // d'examen : poster une alerte sans anapathId générerait des doublons
+        // que la dédup backend ne peut pas bloquer.
+        if (isStatUrgent(n) && getAnapathId(n)) {
           void postStatAlert({
             anapathId: getAnapathId(n),
             patientId: getPatientId(n),
@@ -341,7 +345,8 @@ export default function NotificationBell() {
       playUrgenceSound(getUrgence(payload));
     }
     scheduleExtemporane(payload);
-    if (isStatUrgent(payload)) {
+    // Idem : alerte STAT d'arrivée seulement pour un examen réel.
+    if (isStatUrgent(payload) && getAnapathId(payload)) {
       void postStatAlert({
         anapathId: getAnapathId(payload),
         patientId: getPatientId(payload),

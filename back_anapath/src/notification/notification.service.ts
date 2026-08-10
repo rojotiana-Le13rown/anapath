@@ -13,12 +13,12 @@ export class NotificationService implements OnApplicationBootstrap {
     private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
-  /** Au démarrage, nettoie les notifications dupliquées (relance, alertes STAT). */
+  /** Au démarrage, nettoie les notifications indésirables (relances de validation) et les doublons. */
   async onApplicationBootstrap(): Promise<void> {
     try {
-      await this.deduplicateRappelsEtAlertes();
+      await this.nettoyerNotifications();
     } catch (e) {
-      console.warn('Nettoyage des doublons de notifications échoué:', e);
+      console.warn('Nettoyage des notifications échoué:', e);
     }
   }
 
@@ -110,27 +110,37 @@ export class NotificationService implements OnApplicationBootstrap {
   }
 
   /**
-   * Supprime les doublons de RAPPEL_VALIDATION / STAT_ALERT en base : pour un
-   * même type + anapathId (et même phase pour STAT_ALERT), seule la notification
-   * la plus récente est conservée. Exécuté au démarrage pour nettoyer le spam
-   * de notifications déjà présent.
+   * Nettoyage au démarrage : les rappels de validation génériques
+   * (RAPPEL_VALIDATION) sont supprimés en totalité — le service n'en génère
+   * plus (seules les nouvelles demandes, les notifications internes et l'alerte
+   * extemporané STAT restent). Les alertes STAT sont dédupliquées : pour un même
+   * examen et une même phase (arrival/remaining), seule la plus récente est
+   * conservée.
    */
-  async deduplicateRappelsEtAlertes(): Promise<number> {
+  async nettoyerNotifications(): Promise<number> {
     const all = await this.notificationRepository.find({
       order: { createdAt: 'DESC' },
     });
     const seen = new Set<string>();
     let removed = 0;
     for (const n of all) {
-      const aid = n.metadata?.anapathId;
-      if (!aid) continue;
-      const isRappel = n.type === NotificationType.RAPPEL_VALIDATION;
-      const isStat = n.type === NotificationType.STAT_ALERT;
-      if (!isRappel && !isStat) continue;
+      // Plus aucun rappel de validation générique : on supprime tout.
+      if (n.type === NotificationType.RAPPEL_VALIDATION) {
+        await this.notificationRepository.remove(n);
+        removed++;
+        continue;
+      }
+      if (n.type !== NotificationType.STAT_ALERT) continue;
 
-      const key = isStat
-        ? `STAT_ALERT|${aid}|${n.metadata?.phase ?? ''}`
-        : `RAPPEL_VALIDATION|${aid}`;
+      const aid = n.metadata?.anapathId;
+      // Alerte STAT sans examen rattaché = spam sans objet (ex. anciennes
+      // alertes postées pour des prescriptions en attente) : on la supprime.
+      if (!aid) {
+        await this.notificationRepository.remove(n);
+        removed++;
+        continue;
+      }
+      const key = `STAT_ALERT|${aid}|${n.metadata?.phase ?? ''}`;
       if (seen.has(key)) {
         await this.notificationRepository.remove(n);
         removed++;
@@ -139,7 +149,7 @@ export class NotificationService implements OnApplicationBootstrap {
       }
     }
     if (removed > 0) {
-      console.log(`🧹 Notifications dédupliquées : ${removed} doublon(s) supprimé(s)`);
+      console.log(`🧹 Notifications nettoyées : ${removed} suppression(s)`);
     }
     return removed;
   }

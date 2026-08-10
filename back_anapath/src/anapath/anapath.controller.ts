@@ -124,28 +124,19 @@ export class AnapathController {
 
   @Permissions('anapath:read')
   @Get('notifications')
-  @ApiOperation({ summary: 'Notifications du service Anapath' })
+  @ApiOperation({ summary: 'Notifications du service Anapath (nouvelles demandes + notifications internes)' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   async getNotifications(
-    @CurrentUser() user: AuthenticatedUser,
     @CurrentToken() token: string,
   ) {
     const ctx = this.decodeAnapathContext(token);
-    const [notifs, locales] = await Promise.all([
-      this.notificationClient.getNotificationsForUser(
-        user.userId,
-        user.roleName,
-        this.notificationClient.getAnapathServiceId(),
-      ),
-      this.notificationService.findAll(),
-    ]);
-
+    // Uniquement les notifications LOCALES du service (nouvelles prescriptions,
+    // alertes extemporanées, rapports…) : les notifications poussées par le
+    // service Prescription externe ne sont plus affichées (source du spam).
+    const locales = await this.notificationService.findAll();
     const enriched = await Promise.all(
-      [...notifs, ...locales].map(async (n: any) =>
-        this.enrichNotification(n, ctx),
-      ),
+      locales.map(async (n: any) => this.enrichNotification(n, ctx)),
     );
-
     return sortNotifications(enriched);
   }
 
@@ -154,23 +145,12 @@ export class AnapathController {
   @ApiOperation({ summary: 'Notifications non lues' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   async getUnread(
-    @CurrentUser() user: AuthenticatedUser,
     @CurrentToken() token: string,
   ) {
     const ctx = this.decodeAnapathContext(token);
-    const [notifs, locales] = await Promise.all([
-      this.notificationClient.getNotificationsForUser(
-        user.userId,
-        user.roleName,
-        this.notificationClient.getAnapathServiceId(),
-      ),
-      this.notificationService.findUnread(),
-    ]);
-    const unread = notifs.filter((n) => !this.notificationClient.isRead(n));
+    const locales = await this.notificationService.findUnread();
     const enriched = await Promise.all(
-      [...unread, ...locales].map(async (n: any) =>
-        this.enrichNotification(n, ctx),
-      ),
+      locales.map(async (n: any) => this.enrichNotification(n, ctx)),
     );
     return sortNotifications(enriched);
   }
