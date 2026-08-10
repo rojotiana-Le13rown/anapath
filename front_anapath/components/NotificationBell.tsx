@@ -49,7 +49,10 @@ function isLue(n: any): boolean {
 }
 
 function isPrescriptionEnAttente(n: any): boolean {
-  return n.type === 'NOUVELLE_PRESCRIPTION' && !isLue(n);
+  // Reste « en attente » tant qu'elle n'est ni acceptée ni refusée (outcome
+  // absent) — indépendant de l'état « lu » : « tout marquer lu » ne doit pas
+  // rendre la demande inactionnable.
+  return n.type === 'NOUVELLE_PRESCRIPTION' && !n.metadata?.outcome;
 }
 
 // Le service Prescription externe utilise un vocabulaire différent
@@ -458,6 +461,13 @@ export default function NotificationBell() {
     const uuid = getRequestUuid(n);
     const aid = getAnapathId(n);
     setOpen(false);
+    // Examen déjà validé (ou archivé) → page archive ; sinon → saisie/validation.
+    const statut = n.enriched?.statut ?? '';
+    if (statut === 'VALIDE' || statut === 'ARCHIVE') {
+      if (uuid) router.push(`/archives/${uuid}`);
+      else router.push('/archives');
+      return;
+    }
     if (uuid) {
       // Passe par la page de détail : les étapes du workflow doivent être
       // renseignées avant de pouvoir saisir le résultat.
@@ -713,12 +723,11 @@ export default function NotificationBell() {
                 return (
                   <div
                     key={id ?? aid}
-                    onClick={() =>
-                      !lue && handleClick(n)}
+                    onClick={() => handleClick(n)}
                     className={`
                       ${bg} ${border}
                       px-4 py-3
-                      ${!lue ? 'cursor-pointer' : 'cursor-default'}
+                      cursor-pointer
                       transition-colors
                       border-b border-gray-100
                       last:border-b-0
