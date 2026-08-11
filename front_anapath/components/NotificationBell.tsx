@@ -484,9 +484,9 @@ export default function NotificationBell() {
       // renseignées avant de pouvoir saisir le résultat.
       router.push(`/worklist/${uuid}`);
     } else if (aid) {
-      router.push(`/validation?id=${aid}`);
+      router.push(`/worklist/${aid}`);
     } else {
-      router.push('/validation');
+      router.push('/worklist');
     }
   };
 
@@ -549,15 +549,15 @@ export default function NotificationBell() {
   };
 
   // Accès direct à la validation depuis une notification de rappel
-  // (RAPPEL_VALIDATION) : ouvre la page de validation de l'examen concerné.
+  // (RAPPEL_VALIDATION) : ouvre la page de détail de l'examen concerné.
   const handleValidateClick = (n: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setOpen(false);
     const uuid = getRequestUuid(n);
     const aid = getAnapathId(n);
     if (uuid) router.push(`/worklist/${uuid}`);
-    else if (aid) router.push(`/validation?id=${aid}`);
-    else router.push('/validation');
+    else if (aid) router.push(`/worklist/${aid}`);
+    else router.push('/worklist');
   };
 
   const openInlineRefuse = (n: any, e: React.MouseEvent) => {

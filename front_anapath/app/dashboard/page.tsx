@@ -123,7 +123,7 @@ export default function DashboardPage() {
   };
 
   const handleSaisirResultat = (id: string) => {
-    router.push(`/validation?id=${id}`);
+    router.push(`/worklist/${id}`);
   };
 
   if (loading) {
@@ -179,7 +179,7 @@ export default function DashboardPage() {
                 <p className="text-3xl font-extrabold text-primary mt-1">{enValidation}</p>
                 {!isMajor && (
                   <Link
-                    href="/validation"
+                    href="/worklist"
                     className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
                   >
                     Valider maintenant

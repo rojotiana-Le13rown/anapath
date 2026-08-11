@@ -30,7 +30,6 @@ const PROTECTED_ROUTES: Array<{
   { path: '/dashboard',  permission: 'anapath:read',         blockedForMajor: false },
   { path: '/demandes',   permission: 'anapath:update',       blockedForMajor: true, technicienOnly: true },
   { path: '/worklist',   permission: ['anapath:read', 'anapath:update', 'anapath:observation:write'], blockedForMajor: true },
-  { path: '/validation', permission: ['anapath:update', 'anapath:observation:write'], blockedForMajor: true },
   { path: '/archives',   permission: 'anapath:archive:view', blockedForMajor: true },
   { path: '/reports',    permission: 'anapath:report:export', blockedForMajor: false },
 ];

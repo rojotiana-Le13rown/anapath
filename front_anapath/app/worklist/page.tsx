@@ -170,7 +170,7 @@ export default function WorklistPage() {
   };
 
   const handleSaisirResultat = (id: string) => {
-    router.push(`/validation?id=${id}`);
+    router.push(`/worklist/${id}`);
   };
 
   const isFcvPap = (req: AnapathRequest) => req.typeExamen === 'FCV_PAP';

@@ -35,13 +35,6 @@ const ALL_NAVIGATION = [
     allowedForMajor: false,
   },
   {
-    name: 'Validation',
-    href: '/validation',
-    icon: 'fact_check',
-    requiredPermission: [PERMISSIONS.UPDATE, PERMISSIONS.OBSERVATION_WRITE],
-    allowedForMajor: false,
-  },
-  {
     name: 'Archives',
     href: '/archives',
     icon: 'inventory_2',
