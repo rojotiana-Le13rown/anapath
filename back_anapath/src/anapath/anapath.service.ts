@@ -16,6 +16,7 @@ import { AccueilClient } from '../common/clients/accueil.client';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/receive-notification.dto';
 import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
+import { UserServiceClient } from '../common/clients/user-service.client';
 import * as crypto from 'crypto';
 
 const ANAPATH_SERVICE_ID =
@@ -46,6 +47,7 @@ export class AnapathService {
     private readonly chuClient: ChuClient,
     private readonly serviceServiceClient: ServiceServiceClient,
     private readonly accueilClient: AccueilClient,
+    private readonly userServiceClient: UserServiceClient,
   ) {}
 
   /**
@@ -256,13 +258,36 @@ export class AnapathService {
     return this.toResponse(saved);
   }
 
-  /** Enregistre l'examen au spéculum (préalable obligatoire au résultat pour un FCV/Pap test). */
+  /** Enregistre l'examen au spéculum (préalable obligatoire au résultat pour un FCV/Pap test).
+   *  Le prescripteur et le préleveur sont renseignés automatiquement : prescripteur = utilisateur
+   *  demandeur de la prescription (metadata), préleveur = utilisateur connecté. Best-effort. */
   async updateExamenSpeculum(
     id: string,
     dto: UpdateExamenSpeculumDto,
+    token?: string,
   ): Promise<AnapathRequestResponse> {
     const request = await this.findOneEntity(id);
-    request.examenSpeculum = { ...dto, submittedAt: new Date().toISOString() };
+    const metadata = (request.metadata ?? {}) as Record<string, unknown>;
+
+    const [prescripteurNom, preleveurNom] = await Promise.all([
+      typeof metadata.prescripteurNom === 'string'
+        ? metadata.prescripteurNom
+        : this.userServiceClient.getUserNameById(token ?? '', String(metadata.prescripteurId ?? '')),
+      this.userServiceClient.getUserName(token ?? ''),
+    ]);
+
+    const prescripteurSignature =
+      prescripteurNom?.trim() || String(metadata.prescripteurId ?? '');
+    const preleveurSignature = preleveurNom?.trim() || '';
+
+    request.examenSpeculum = {
+      ...dto,
+      typePrelevement: dto.typePrelevement ?? '',
+      fixation: dto.fixation ?? '',
+      prescripteurSignature,
+      preleveurSignature,
+      submittedAt: new Date().toISOString(),
+    };
 
     const saved = await this.anapathRepository.save(request);
     return this.toResponse(saved);
@@ -314,6 +339,7 @@ export class AnapathService {
     demande: PrescriptionDemande,
     chuNom?: string | null,
     serviceNom?: string | null,
+    prescripteurNom?: string | null,
   ): Record<string, unknown> {
     return {
       prescriptionId: prescription.id,
@@ -325,6 +351,7 @@ export class AnapathService {
       serviceIdSource: prescription.serviceIdSource,
       serviceIdDest: prescription.serviceIdDest,
       prescripteurId: prescription.prescripteurId,
+      prescripteurNom: prescripteurNom ?? null,
       urgence: prescription.urgence,
       alertes: prescription.alertes,
       chuNom: prescription.chuNom ?? prescription.chu?.nom ?? chuNom ?? null,
@@ -473,6 +500,7 @@ export class AnapathService {
         serviceIdSource: metadata.serviceIdSource,
         serviceIdDest: metadata.serviceIdDest,
         prescripteurId: metadata.prescripteurId,
+        prescripteurNom: metadata.prescripteurNom ?? null,
         urgence: metadata.urgence,
         alertes: metadata.alertes,
         chuNom: metadata.chuNom ?? null,
@@ -490,9 +518,10 @@ export class AnapathService {
    * c'est le rôle d'accepterPrescription(), déclenché par l'utilisateur depuis la cloche.
    */
   private async creerNotificationsPourNouvellesDemandes(prescription: AnapathPrescription, token?: string): Promise<number> {
-    const [chuNom, serviceNom] = await Promise.all([
+    const [chuNom, serviceNom, prescripteurNom] = await Promise.all([
       this.getChuNom(token, prescription.chuId),
       this.getServiceNom(token, prescription.serviceIdSource, prescription.chuId),
+      this.userServiceClient.getUserNameById(token ?? '', prescription.prescripteurId),
     ]);
     let created = 0;
     for (const demande of prescription.demandes ?? []) {
@@ -508,7 +537,7 @@ export class AnapathService {
         message: `Patient ${prescription.patientId} — ${prescription.urgence ?? 'NORMALE'}`,
         priority: prescription.urgence === 'TRES_URGENT' ? 'high' : 'medium',
         source: 'prescription-pull',
-        metadata: this.buildPendingMetadata(prescription, demande, chuNom, serviceNom),
+        metadata: this.buildPendingMetadata(prescription, demande, chuNom, serviceNom, prescripteurNom),
       });
       created++;
     }

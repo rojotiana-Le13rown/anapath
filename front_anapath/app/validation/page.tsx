@@ -612,7 +612,7 @@ function ValidationPageContent() {
                         <p className="text-sm text-amber-700 mt-1">
                           Pour un FCV / Pap test, l&apos;examen au spéculum doit être soumis avant de pouvoir saisir le résultat.
                         </p>
-                        {canWrite ? (
+                        {canWriteObservation ? (
                           <button
                             type="button"
                             onClick={() => setShowSpeculumModal(true)}
@@ -887,6 +887,11 @@ function ValidationPageContent() {
             requestId={selectedRequest.id}
             anapathId={selectedRequest.anapathId}
             patientName={patientDisplayName(selectedRequest)}
+            prescripteurNom={
+              typeof selectedRequest.metadata?.prescripteurNom === 'string'
+                ? selectedRequest.metadata.prescripteurNom
+                : undefined
+            }
             initialData={selectedRequest.examenSpeculum}
             onClose={() => setShowSpeculumModal(false)}
             onSaved={async () => {

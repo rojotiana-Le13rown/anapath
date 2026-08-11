@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateExamenSpeculumDto {
   @IsOptional()
@@ -14,11 +14,11 @@ export class UpdateExamenSpeculumDto {
   dateExamen?: string;
 
   @IsOptional()
-  @IsIn(['EXOCOL', 'COUPOLE_VAGINALE'])
+  @IsString()
   typePrelevement?: string;
 
   @IsOptional()
-  @IsIn(['ENDOCOL', 'CULS_DE_SAC'])
+  @IsString()
   fixation?: string;
 
   @IsOptional()

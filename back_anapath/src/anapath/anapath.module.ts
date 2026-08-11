@@ -12,6 +12,7 @@ import { PrescriptionClient } from '../common/clients/prescription.client';
 import { PrescriptionRealtimeService } from '../common/clients/prescription-realtime.service';
 import { PrescriptionTokenMonitorService } from '../common/clients/prescription-token-monitor.service';
 import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
+import { UserServiceClient } from '../common/clients/user-service.client';
 import { NotificationModule } from '../notification/notification.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { NotificationModule } from '../notification/notification.module';
     PrescriptionRealtimeService,
     PrescriptionTokenMonitorService,
     AuthServiceTokenService,
+    UserServiceClient,
   ],
   exports: [AnapathService],
 })
