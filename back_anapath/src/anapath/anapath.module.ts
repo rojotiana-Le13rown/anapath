@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
 import { AnapathService } from './anapath.service';
 import { AnapathController } from './anapath.controller';
 import { AnapathRequest } from './entities/anapath-request.entity';
@@ -16,7 +17,11 @@ import { UserServiceClient } from '../common/clients/user-service.client';
 import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AnapathRequest, ReportSettings]), NotificationModule],
+  imports: [
+    TypeOrmModule.forFeature([AnapathRequest, ReportSettings]),
+    NotificationModule,
+    JwtModule.register({}),
+  ],
   controllers: [AnapathController],
   providers: [
     AnapathService,
