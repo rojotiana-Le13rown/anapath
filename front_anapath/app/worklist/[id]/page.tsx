@@ -72,6 +72,9 @@ export default function WorklistDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [showSpeculum, setShowSpeculum] = useState(false);
   const [showTech, setShowTech] = useState(false);
+  // Détail de la prescription affiché par défaut ; le pathologiste peut le
+  // masquer pour se concentrer sur la saisie du résultat.
+  const [showPrescriptionDetails, setShowPrescriptionDetails] = useState(true);
 
   const [resultData, setResultData] = useState({ details: '', conclusion: '' });
   // Transcription vocale en direct : mots provisoires affichés en plus du texte définitif.
@@ -423,12 +426,24 @@ export default function WorklistDetailPage() {
 
         <div className="flex-1 p-6 w-full max-w-5xl mx-auto">
           <div className="mb-6">
-            <PrescriptionDetails
-              request={request}
-              patient={patient}
-              patientLoading={patientLoading}
-              historiqueButton={<PatientHistoriqueButton entries={patientHistorique} />}
-            />
+            <button
+              type="button"
+              onClick={() => setShowPrescriptionDetails((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline mb-3"
+            >
+              <span className="material-symbols-outlined text-sm">
+                {showPrescriptionDetails ? 'visibility_off' : 'visibility'}
+              </span>
+              {showPrescriptionDetails ? 'Masquer le détail de prescription' : 'Afficher le détail de prescription'}
+            </button>
+            {showPrescriptionDetails && (
+              <PrescriptionDetails
+                request={request}
+                patient={patient}
+                patientLoading={patientLoading}
+                historiqueButton={<PatientHistoriqueButton entries={patientHistorique} />}
+              />
+            )}
           </div>
 
           {isWorkflowVisible && (
@@ -491,6 +506,18 @@ export default function WorklistDetailPage() {
                         </button>
                       )}
                     </div>
+
+                    {String(request?.examenTechnique?.compteRendu ?? '').trim() && (
+                      <section className="bg-blue-50 border border-blue-200 rounded-xl shadow-sm p-4">
+                        <p className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-sm">science</span>
+                          Compte rendu de l'examen technique
+                        </p>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                          {String(request.examenTechnique?.compteRendu ?? '')}
+                        </p>
+                      </section>
+                    )}
 
                     <section className="bg-white border border-outline-variant rounded-xl shadow-sm p-4">
                       <div className="flex items-center justify-between mb-2">
