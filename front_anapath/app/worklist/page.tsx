@@ -44,8 +44,9 @@ interface AnapathRequest {
 // en EN_ATTENTE_PATHOLOGUE : l'examen quitte le fil technicien.
 const TECHNICAL_STATUSES = ['EN_COURS'];
 // Fil de travail « Suivre l'examen » (pathologiste) : examens techniques
-// validés, prêts pour l'examen demandé.
-const PATHOLOGIST_STATUSES = ['EN_ATTENTE_PATHOLOGUE'];
+// validés, prêts pour l'examen demandé — et résultats déjà saisis (autosave)
+// encore en attente de validation/signature finale.
+const PATHOLOGIST_STATUSES = ['EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE'];
 
 const TYPE_LABELS: Record<string, string> = {
   BIOPSIE: 'Biopsie',
@@ -187,8 +188,9 @@ export default function WorklistPage() {
   };
 
   const renderActions = (req: AnapathRequest) => {
-    // Phase pathologiste : seul l'examen demandé (le vrai résultat) reste à saisir.
-    if (req.statut === 'EN_ATTENTE_PATHOLOGUE') {
+    // Phase pathologiste : seul l'examen demandé (le vrai résultat) reste à
+    // saisir/valider — y compris un résultat déjà autosauvegardé.
+    if (req.statut === 'EN_ATTENTE_PATHOLOGUE' || req.statut === 'RESULTAT_DISPONIBLE') {
       return canWrite ? (
         <button
           type="button"
@@ -469,7 +471,7 @@ export default function WorklistPage() {
                 }
               />
               <div className="flex flex-col items-center gap-2 mt-6">
-                {selectedRequest.statut === 'EN_ATTENTE_PATHOLOGUE' ? (
+                {selectedRequest.statut === 'EN_ATTENTE_PATHOLOGUE' || selectedRequest.statut === 'RESULTAT_DISPONIBLE' ? (
                   canWrite ? (
                     <button
                       onClick={() => handleSaisirResultat(selectedRequest.id)}
