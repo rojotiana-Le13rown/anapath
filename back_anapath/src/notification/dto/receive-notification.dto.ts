@@ -10,6 +10,9 @@ export enum NotificationType {
   RAPPORT_HEBDOMADAIRE = 'RAPPORT_HEBDOMADAIRE',
   RAPPEL_VALIDATION = 'RAPPEL_VALIDATION',
   NOUVELLE_PRESCRIPTION = 'NOUVELLE_PRESCRIPTION',
+  // Examen technique validé par le technicien — le pathologiste est notifié
+  // qu'un examen est prêt pour l'examen demandé (le vrai examen).
+  EXAMEN_TECHNIQUE_TERMINE = 'EXAMEN_TECHNIQUE_TERMINE',
 }
 
 export class ReceiveNotificationDto {

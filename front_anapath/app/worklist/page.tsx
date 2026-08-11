@@ -9,6 +9,8 @@ import LocalSearchBox from '@/components/LocalSearchBox';
 import FilterButton from '@/components/FilterButton';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
 import PatientHistoriqueButton from '@/components/PatientHistoriqueButton';
+import ExamenSpeculumForm from '@/components/ExamenSpeculumForm';
+import ExamenTechniqueForm from '@/components/ExamenTechniqueForm';
 import { PatientInfo } from '@/components/PatientIdentitySection';
 import { useSearch } from '@/components/SearchContext';
 import { useAuth } from '@/components/AuthProvider';
@@ -18,6 +20,7 @@ import { matchesAnapathSearch } from '@/lib/searchAnapath';
 import { sortByUrgencyThenArrival, getUrgenceLevel, type UrgenceLevel } from '@/lib/urgencySort';
 import { formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { statusLabels, statusColors } from '@/lib/statusLabels';
+import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
   id: string;
@@ -32,10 +35,17 @@ interface AnapathRequest {
   validatedByUserId?: string | null;
   metadata?: Record<string, unknown> | null;
   patientInfo?: PatientInfo | null;
+  examenSpeculum?: Record<string, unknown> | null;
+  examenTechnique?: Record<string, unknown> | null;
 }
 
-/** Une fois validée/archivée, une demande relève de la page Archives, plus du fil de travail. */
-const STATUTS_EN_COURS = ['CREEE', 'EN_ATTENTE', 'EN_COURS', 'RESULTAT_DISPONIBLE'];
+// Le fil de travail technique = les examens en phase d'examen technique
+// (acceptés par le technicien). La validation de l'examen technique bascule
+// en EN_ATTENTE_PATHOLOGUE : l'examen quitte le fil technicien.
+const TECHNICAL_STATUSES = ['EN_COURS'];
+// Fil de travail « Suivre l'examen » (pathologiste) : examens techniques
+// validés, prêts pour l'examen demandé.
+const PATHOLOGIST_STATUSES = ['EN_ATTENTE_PATHOLOGUE'];
 
 const TYPE_LABELS: Record<string, string> = {
   BIOPSIE: 'Biopsie',
@@ -68,10 +78,13 @@ function patientDisplayName(req: { patientInfo?: { nomComplet?: string | null; n
 
 export default function WorklistPage() {
   const router = useRouter();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   // Fil de travail accessible en lecture seule (Histotechnicien, Secrétaire) :
   // seuls UPDATE / OBSERVATION_WRITE peuvent réellement saisir un résultat.
   const canWrite = hasPermission('anapath:update') || hasPermission('anapath:observation:write');
+  // Seul le technicien/histotechnicien traite l'examen technique au quotidien ;
+  // le pathologiste peut aussi le prendre (second onglet) mais PAS le spéculum.
+  const isTechnicien = isTechnicienUser(user);
   const { searchQuery } = useSearch();
   const [localQuery, setLocalQuery] = useState('');
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
@@ -83,13 +96,25 @@ export default function WorklistPage() {
   const [selectedRequest, setSelectedRequest] = useState<AnapathRequest | null>(null);
   const [modalPatient, setModalPatient] = useState<PatientInfo | null>(null);
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
+  const [speculumRequest, setSpeculumRequest] = useState<AnapathRequest | null>(null);
+  const [techRequest, setTechRequest] = useState<AnapathRequest | null>(null);
+  // Le pathologiste a deux onglets : « Suivre l'examen » (défaut) et
+  // « Examen technique » (identique au fil de travail du technicien).
+  const [tab, setTab] = useState<'suivre' | 'technique'>('suivre');
+
+  // Statuts affichés selon le rôle et l'onglet actif.
+  const visibleStatuts = isTechnicien
+    ? TECHNICAL_STATUSES
+    : tab === 'suivre'
+      ? PATHOLOGIST_STATUSES
+      : TECHNICAL_STATUSES;
 
   useEffect(() => {
     fetchData();
   }, []);
 
   useEffect(() => {
-    let filtered = requests.filter((req) => STATUTS_EN_COURS.includes(req.statut));
+    let filtered = requests.filter((req) => visibleStatuts.includes(req.statut));
     if (searchQuery.trim()) {
       filtered = filtered.filter((req) => matchesAnapathSearch(req, searchQuery));
     }
@@ -106,7 +131,7 @@ export default function WorklistPage() {
       filtered = filtered.filter((req) => filterStatuts.includes(req.statut));
     }
     setFilteredRequests(sortByUrgencyThenArrival(filtered));
-  }, [searchQuery, localQuery, filterTypes, filterUrgences, filterStatuts, requests]);
+  }, [searchQuery, localQuery, filterTypes, filterUrgences, filterStatuts, requests, visibleStatuts.join(',')]);
 
   useEffect(() => {
     if (!selectedRequest?.id) return;
@@ -148,6 +173,74 @@ export default function WorklistPage() {
     router.push(`/validation?id=${id}`);
   };
 
+  const isFcvPap = (req: AnapathRequest) => req.typeExamen === 'FCV_PAP';
+  const speculumDone = (req: AnapathRequest) => Boolean(req.examenSpeculum);
+
+  const openSpeculum = (req: AnapathRequest) => {
+    setSelectedRequest(null);
+    setSpeculumRequest(req);
+  };
+
+  const openExamenTechnique = (req: AnapathRequest) => {
+    setSelectedRequest(null);
+    setTechRequest(req);
+  };
+
+  const renderActions = (req: AnapathRequest) => {
+    // Phase pathologiste : seul l'examen demandé (le vrai résultat) reste à saisir.
+    if (req.statut === 'EN_ATTENTE_PATHOLOGUE') {
+      return canWrite ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSaisirResultat(req.id);
+          }}
+          title="Saisir le résultat d'examen"
+          className="p-2 text-primary hover:text-primary/70 transition-colors inline-block"
+        >
+          <span className="material-symbols-outlined text-base">edit_note</span>
+        </button>
+      ) : null;
+    }
+
+    // Phase examen technique.
+    // FCV / Pap test : le spéculum est un préalable obligatoire — tant qu'il
+    // n'est pas validé (par le technicien), pas d'examen technique possible.
+    if (isFcvPap(req) && !speculumDone(req)) {
+      return isTechnicien ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openSpeculum(req);
+          }}
+          title="Examen au spéculum (préalable obligatoire)"
+          className="p-2 text-primary hover:text-primary/70 transition-colors inline-block"
+        >
+          <span className="material-symbols-outlined text-base">visibility</span>
+        </button>
+      ) : (
+        <span className="inline-block px-2 py-1 rounded text-[10px] italic text-slate-400">
+          En attente du spéculum
+        </span>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          openExamenTechnique(req);
+        }}
+        title="Examen technique"
+        className="p-2 text-primary hover:text-primary/70 transition-colors inline-block"
+      >
+        <span className="material-symbols-outlined text-base">science</span>
+      </button>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-transparent">
@@ -167,11 +260,42 @@ export default function WorklistPage() {
         <TopBar />
         <div className="flex-1 p-6 w-full">
           <div className="mb-6">
-            <h2 className="text-2xl font-extrabold text-[#191c21] tracking-tight">Fil de travail</h2>
+            <h2 className="text-2xl font-extrabold text-[#191c21] tracking-tight">
+              {isTechnicien ? 'Fil de travail technique' : 'Fil de travail'}
+            </h2>
             <p className="text-slate-500 text-sm mt-1">
-              Examens en cours, triés par degré d'urgence puis heure d'arrivée — les demandes validées se trouvent dans Archives
+              {isTechnicien
+                ? "Examens en cours d'examen technique — la validation du compte rendu clôt votre travail et notifie le pathologiste"
+                : "Suivez l'examen demandé pour les prélèvements prêts — la saisie du résultat puis la validation s'effectuent dans l'onglet « Suivre l'examen »"}
             </p>
           </div>
+
+          {!isTechnicien && (
+            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 w-fit">
+              <button
+                type="button"
+                onClick={() => setTab('suivre')}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  tab === 'suivre'
+                    ? 'bg-white text-[#00284d] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Suivre l&apos;examen
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('technique')}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  tab === 'technique'
+                    ? 'bg-white text-[#00284d] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Examen technique
+              </button>
+            </div>
+          )}
 
           <UrgenceStatsCards requests={filteredRequests} />
 
@@ -220,7 +344,7 @@ export default function WorklistPage() {
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-2">Statut</p>
                   <div className="flex flex-wrap gap-2">
-                    {STATUTS_EN_COURS.map((statut) => (
+                    {visibleStatuts.map((statut) => (
                       <button
                         key={statut}
                         type="button"
@@ -293,26 +417,20 @@ export default function WorklistPage() {
                           <div className="text-[10px] text-slate-400">{formatRelativeTime(req.createdAt)}</div>
                         </td>
                         <td className="p-4 text-center">
-                          {canWrite && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSaisirResultat(req.id);
-                              }}
-                              title="Saisir le résultat d'examen"
-                              className="p-2 text-primary hover:text-primary/70 transition-colors inline-block"
-                            >
-                              <span className="material-symbols-outlined text-base">edit_note</span>
-                            </button>
-                          )}
+                          <div className="flex items-center justify-center gap-1">{renderActions(req)}</div>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              {filteredRequests.length === 0 && <div className="text-center py-8 text-slate-400">Aucun résultat trouvé</div>}
+              {filteredRequests.length === 0 && (
+                <div className="text-center py-10 text-slate-400">
+                  {isTechnicien || tab === 'technique'
+                    ? 'Le fil de travail technique est vide — aucun examen en cours.'
+                    : 'Aucun examen prêt pour l\'examen demandé.'}
+                </div>
+              )}
             </div>
           </div>
           <div className="mt-6 text-center text-xs text-slate-400">Total: {filteredRequests.length} demande(s)</div>
@@ -350,22 +468,79 @@ export default function WorklistPage() {
                   />
                 }
               />
-              <div className="flex justify-center mt-6">
-                {canWrite ? (
-                  <button
-                    onClick={() => handleSaisirResultat(selectedRequest.id)}
-                    className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                  >
-                    <span className="material-symbols-outlined">edit_note</span>
-                    Saisir le résultat d'examen
-                  </button>
+              <div className="flex flex-col items-center gap-2 mt-6">
+                {selectedRequest.statut === 'EN_ATTENTE_PATHOLOGUE' ? (
+                  canWrite ? (
+                    <button
+                      onClick={() => handleSaisirResultat(selectedRequest.id)}
+                      className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">edit_note</span>
+                      Saisir le résultat d'examen
+                    </button>
+                  ) : (
+                    <p className="text-xs text-slate-400">Consultation en lecture seule</p>
+                  )
                 ) : (
-                  <p className="text-xs text-slate-400">Consultation en lecture seule</p>
+                  <>
+                    {isFcvPap(selectedRequest) && !speculumDone(selectedRequest) ? (
+                      isTechnicien ? (
+                        <button
+                          onClick={() => openSpeculum(selectedRequest)}
+                          className="px-8 py-3 bg-[#00478d] text-white font-bold rounded-full shadow-md hover:opacity-90 transition-colors flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined">visibility</span>
+                          Examen au spéculum (préalable)
+                        </button>
+                      ) : (
+                        <p className="text-xs text-slate-400 italic">
+                          En attente de l'examen au spéculum (réservé au technicien)
+                        </p>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => openExamenTechnique(selectedRequest)}
+                        className="px-8 py-3 bg-[#00284d] text-white font-bold rounded-full shadow-md hover:opacity-90 transition-colors flex items-center gap-2"
+                      >
+                        <span className="material-symbols-outlined">science</span>
+                        Examen technique
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {speculumRequest && isTechnicien && (
+        <ExamenSpeculumForm
+          requestId={speculumRequest.id}
+          anapathId={speculumRequest.anapathId}
+          patientName={patientDisplayName(speculumRequest)}
+          initialData={speculumRequest.examenSpeculum}
+          prescripteurNom={(speculumRequest.metadata?.prescripteurNom as string | undefined) ?? null}
+          onClose={() => setSpeculumRequest(null)}
+          onSaved={async () => {
+            setSpeculumRequest(null);
+            await fetchData();
+          }}
+        />
+      )}
+
+      {techRequest && (
+        <ExamenTechniqueForm
+          requestId={techRequest.id}
+          anapathId={techRequest.anapathId}
+          patientName={patientDisplayName(techRequest)}
+          initialData={techRequest.examenTechnique}
+          onClose={() => setTechRequest(null)}
+          onSaved={async () => {
+            setTechRequest(null);
+            await fetchData();
+          }}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AUTH_COOKIE_NAME } from '@/lib/authCookie';
 import { decodeJwtPayload } from '@/lib/jwt';
+import { isTechnicienRole } from '@/lib/roles';
 
 const LOGIN_URL =
   process.env.NEXT_PUBLIC_AUTH_LOGIN_URL ||
@@ -23,9 +24,11 @@ const PROTECTED_ROUTES: Array<{
   // anapath:read, écriture pour anapath:update / anapath:observation:write).
   permission: string | string[];
   blockedForMajor?: boolean;
+  // Réservé au technicien/histotechnicien (acceptation/refus des prescriptions).
+  technicienOnly?: boolean;
 }> = [
   { path: '/dashboard',  permission: 'anapath:read',         blockedForMajor: false },
-  { path: '/demandes',   permission: 'anapath:update',       blockedForMajor: true },
+  { path: '/demandes',   permission: 'anapath:update',       blockedForMajor: true, technicienOnly: true },
   { path: '/worklist',   permission: ['anapath:read', 'anapath:update', 'anapath:observation:write'], blockedForMajor: true },
   { path: '/validation', permission: ['anapath:update', 'anapath:observation:write'], blockedForMajor: true },
   { path: '/archives',   permission: 'anapath:archive:view', blockedForMajor: true },
@@ -73,6 +76,7 @@ export function middleware(request: NextRequest) {
   );
   const userPermissions: string[] = entry?.permissions ?? [];
   const major = isMajorService(userPermissions);
+  const technicien = isTechnicienRole(entry?.roleName, userPermissions);
 
   const pathname = request.nextUrl.pathname;
 
@@ -81,6 +85,14 @@ export function middleware(request: NextRequest) {
       if (major && route.blockedForMajor) {
         return NextResponse.redirect(
           new URL('/dashboard', APP_BASE_URL || request.url),
+        );
+      }
+      if (route.technicienOnly && !technicien) {
+        // Les nouvelles demandes (acceptation/refus des prescriptions) sont
+        // réservées au technicien/histotechnicien : un pathologiste ne peut
+        // pas les traiter et n'a pas à les voir.
+        return NextResponse.redirect(
+          new URL('/worklist', APP_BASE_URL || request.url),
         );
       }
       const requiredPermissions = Array.isArray(route.permission)

@@ -9,6 +9,8 @@ import { UpdateAnapathDto } from './dto/update-anapath.dto';
 import { ValidateAnapathDto } from './dto/validate-anapath.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
+import { UpdateExamenTechniqueDto } from './dto/update-examen-technique.dto';
+import { UserServiceClient } from '../common/clients/user-service.client';
 import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
 import { ChuClient } from '../common/clients/chu.client';
 import { ServiceServiceClient } from '../common/clients/service.client';
@@ -46,6 +48,7 @@ export class AnapathService {
     private readonly chuClient: ChuClient,
     private readonly serviceServiceClient: ServiceServiceClient,
     private readonly accueilClient: AccueilClient,
+    private readonly userServiceClient: UserServiceClient,
   ) {}
 
   /**
@@ -256,15 +259,109 @@ export class AnapathService {
     return this.toResponse(saved);
   }
 
-  /** Enregistre l'examen au spéculum (préalable obligatoire au résultat pour un FCV/Pap test). */
+  /**
+   * Enregistre l'examen au spéculum (préalable obligatoire au résultat pour un FCV/Pap test).
+   * Le prescripteur et le préleveur sont renseignés AUTOMATIQUEMENT : le prescripteur est
+   * l'auteur de la prescription (résolu via UserService depuis les métadonnées), le préleveur
+   * est l'utilisateur courant qui valide l'examen au spéculum (technicien/histotechnicien).
+   */
   async updateExamenSpeculum(
     id: string,
     dto: UpdateExamenSpeculumDto,
+    token?: string,
   ): Promise<AnapathRequestResponse> {
     const request = await this.findOneEntity(id);
-    request.examenSpeculum = { ...dto, submittedAt: new Date().toISOString() };
+    const metadata = (request.metadata ?? {}) as Record<string, unknown>;
+    const prescripteurId =
+      typeof metadata.prescripteurId === 'string' ? metadata.prescripteurId : undefined;
+
+    const [prescripteurNom, preleveurNom, preleveurUser] = await Promise.all([
+      typeof metadata.prescripteurNom === 'string' && metadata.prescripteurNom.trim()
+        ? metadata.prescripteurNom
+        : this.userServiceClient.getUserNameById(token ?? '', prescripteurId),
+      this.userServiceClient.getUserName(token ?? ''),
+      this.userServiceClient.getUser(token ?? ''),
+    ]);
+
+    request.examenSpeculum = {
+      ...dto,
+      prescripteurId: prescripteurId ?? null,
+      prescripteurSignature:
+        typeof prescripteurNom === 'string' && prescripteurNom.trim()
+          ? prescripteurNom.trim()
+          : (prescripteurId ?? ''),
+      preleveurUserId: preleveurUser?.id ?? preleveurUser?.userId ?? null,
+      preleveurSignature: typeof preleveurNom === 'string' ? preleveurNom : '',
+      submittedAt: new Date().toISOString(),
+    };
 
     const saved = await this.anapathRepository.save(request);
+    return this.toResponse(saved);
+  }
+
+  /**
+   * Valide l'examen technique (technicien/histotechnicien, ou le pathologiste qui
+   * reprend le fil de travail technique) : enregistre le compte rendu libre, bascule
+   * la demande en EN_ATTENTE_PATHOLOGUE (fin du travail du technicien) et notifie le
+   * pathologiste qu'un examen est prêt pour l'examen demandé.
+   */
+  async validerExamenTechnique(
+    id: string,
+    dto: UpdateExamenTechniqueDto,
+    token?: string,
+  ): Promise<AnapathRequestResponse> {
+    const request = await this.findOneEntity(id);
+    if (
+      request.statut === Statut.VALIDE ||
+      request.statut === Statut.ARCHIVE ||
+      request.statut === Statut.ANNULEE
+    ) {
+      throw new BadRequestException('Examen déjà clôturé');
+    }
+    if (request.statut === Statut.EN_ATTENTE_PATHOLOGUE) {
+      throw new BadRequestException('Examen technique déjà validé');
+    }
+    const compteRendu = (dto.compteRendu ?? '').trim();
+    if (!compteRendu) {
+      throw new BadRequestException(
+        "Compte rendu d'examen technique requis avant validation",
+      );
+    }
+    // FCV / Pap test : l'examen au spéculum est un préalable OBLIGATOIRE avant
+    // l'examen technique — le pathologiste ne doit jamais recevoir un prélèvement
+    // dont le spéculum n'a pas été validé par le technicien.
+    if (request.typeExamen === 'FCV_PAP' && !request.examenSpeculum) {
+      throw new BadRequestException(
+        "L'examen au spéculum doit être validé avant l'examen technique pour un FCV / Pap test",
+      );
+    }
+
+    const [technicienNom, technicienUser] = await Promise.all([
+      this.userServiceClient.getUserName(token ?? ''),
+      this.userServiceClient.getUser(token ?? ''),
+    ]);
+    request.examenTechnique = {
+      compteRendu,
+      validatedByUserId: technicienUser?.id ?? technicienUser?.userId ?? null,
+      validatedByName: technicienNom ?? null,
+      validatedAt: new Date().toISOString(),
+    };
+
+    const statutAvant = request.statut;
+    request.statut = Statut.EN_ATTENTE_PATHOLOGUE;
+
+    const saved = await this.anapathRepository.save(request);
+    if (saved.statut !== statutAvant) {
+      await this.propagerStatutVersPrescription(saved, token);
+    }
+    await this.notificationService.createNotification({
+      type: NotificationType.EXAMEN_TECHNIQUE_TERMINE,
+      title: 'Examen technique validé',
+      message: `Examen ${request.anapathId} prêt pour l'examen demandé — passage du pathologiste requis`,
+      priority: 'medium',
+      source: 'Anapath',
+      metadata: { anapathRequestId: saved.id },
+    });
     return this.toResponse(saved);
   }
 
@@ -314,6 +411,7 @@ export class AnapathService {
     demande: PrescriptionDemande,
     chuNom?: string | null,
     serviceNom?: string | null,
+    prescripteurNom?: string | null,
   ): Record<string, unknown> {
     return {
       prescriptionId: prescription.id,
@@ -325,6 +423,7 @@ export class AnapathService {
       serviceIdSource: prescription.serviceIdSource,
       serviceIdDest: prescription.serviceIdDest,
       prescripteurId: prescription.prescripteurId,
+      prescripteurNom: prescripteurNom ?? null,
       urgence: prescription.urgence,
       alertes: prescription.alertes,
       chuNom: prescription.chuNom ?? prescription.chu?.nom ?? chuNom ?? null,
@@ -473,6 +572,7 @@ export class AnapathService {
         serviceIdSource: metadata.serviceIdSource,
         serviceIdDest: metadata.serviceIdDest,
         prescripteurId: metadata.prescripteurId,
+        prescripteurNom: metadata.prescripteurNom ?? null,
         urgence: metadata.urgence,
         alertes: metadata.alertes,
         chuNom: metadata.chuNom ?? null,
@@ -490,9 +590,10 @@ export class AnapathService {
    * c'est le rôle d'accepterPrescription(), déclenché par l'utilisateur depuis la cloche.
    */
   private async creerNotificationsPourNouvellesDemandes(prescription: AnapathPrescription, token?: string): Promise<number> {
-    const [chuNom, serviceNom] = await Promise.all([
+    const [chuNom, serviceNom, prescripteurNom] = await Promise.all([
       this.getChuNom(token, prescription.chuId),
       this.getServiceNom(token, prescription.serviceIdSource, prescription.chuId),
+      this.userServiceClient.getUserNameById(token ?? '', prescription.prescripteurId),
     ]);
     let created = 0;
     for (const demande of prescription.demandes ?? []) {
@@ -508,7 +609,7 @@ export class AnapathService {
         message: `Patient ${prescription.patientId} — ${prescription.urgence ?? 'NORMALE'}`,
         priority: prescription.urgence === 'TRES_URGENT' ? 'high' : 'medium',
         source: 'prescription-pull',
-        metadata: this.buildPendingMetadata(prescription, demande, chuNom, serviceNom),
+        metadata: this.buildPendingMetadata(prescription, demande, chuNom, serviceNom, prescripteurNom),
       });
       created++;
     }
@@ -544,6 +645,10 @@ export class AnapathService {
     const entity = this.anapathRepository.create(
       this.buildRequestFromPendingMetadata(notification.metadata ?? {}),
     );
+    // Dès l'acceptation, la demande entre dans le fil de travail du technicien
+    // (phase examen technique) : l'acceptation d'une nouvelle prescription vaut
+    // passage en examen technique, pas simple création.
+    entity.statut = Statut.EN_COURS;
     const saved = await this.anapathRepository.save(entity);
 
     // Stocke une fois pour toutes l'identité du patient (nom, prénom, dateNaissance…)

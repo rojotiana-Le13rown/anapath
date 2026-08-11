@@ -15,7 +15,7 @@ import {
   API_BASE,
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
-import { PERMISSIONS } from '@/lib/permissions';
+import { isTechnicienUser } from '@/lib/roles';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
 import { generateWeeklyReportPDF } from '@/lib/weeklyReportPdf';
 
@@ -177,11 +177,13 @@ function isRelance(n: any): boolean {
 }
 
 export default function NotificationBell() {
-  const { hasPermission } = useAuth();
-  // Voir une notification de prescription est ouvert à tous (anapath:read) mais
-  // accepter/refuser une demande reste réservé à anapath:update (le major et la
-  // secrétaire, par exemple, n'ont pas ce droit et ne doivent voir aucun bouton d'action).
-  const canActOnPrescriptions = hasPermission(PERMISSIONS.UPDATE);
+  const { user } = useAuth();
+  // Seul le technicien/histotechnicien voit et traite les nouvelles demandes
+  // (acceptation/refus). Un pathologiste/secrétaire garde les notifications
+  // internes mais ne doit pas recevoir les prescriptions (filtrées aussi côté
+  // backend) ni voir aucun bouton d'action.
+  const canActOnPrescriptions = isTechnicienUser(user);
+  const isTechnicien = canActOnPrescriptions;
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [detailNotif, setDetailNotif] = useState<any>(null);
@@ -264,7 +266,13 @@ export default function NotificationBell() {
     const raw = await getNotificationsAnapath();
     if (!Array.isArray(raw)) return;
 
-    const sorted = sortNotifs(raw);
+    // Défense en profondeur : si le backend n'a pas encore filtré (cache, proxy),
+    // on masque côté client les prescriptions pour qui n'est pas technicien.
+    const sorted = isTechnicien
+      ? sortNotifs(raw)
+      : sortNotifs(raw).filter(
+          (n) => n.type !== 'NOUVELLE_PRESCRIPTION',
+        );
 
     // Annuler timers si examen validé/archivé
     sorted.forEach(n => {
@@ -328,7 +336,7 @@ export default function NotificationBell() {
     }
 
     setNotifs(sorted);
-  }, [cancelExtemporaneTimer, scheduleExtemporane]);
+  }, [cancelExtemporaneTimer, scheduleExtemporane, isTechnicien]);
 
   // Notification reçue en temps réel via socket.io (event `notification:new`) :
   // affichage + son immédiats, puis réconciliation avec la version enrichie (REST).
@@ -336,6 +344,9 @@ export default function NotificationBell() {
     if (!payload || typeof payload !== 'object') return;
     const id = payload.id ?? payload._id;
     if (!id || known.current.has(id)) return;
+    // Une prescription n'arrive jamais pour un non-technicien (filtre backend) ;
+    // au cas où, on l'ignore silencieusement.
+    if (payload.type === 'NOUVELLE_PRESCRIPTION' && !isTechnicien) return;
 
     known.current.add(id);
     setNotifs(prev => sortNotifs([
@@ -358,7 +369,7 @@ export default function NotificationBell() {
       });
     }
     void fetchNotifs();
-  }, [fetchNotifs, scheduleExtemporane]);
+  }, [fetchNotifs, scheduleExtemporane, isTechnicien]);
 
   const socketRef = useRef<Socket | null>(null);
   const ticketRef = useRef<string | null>(null);

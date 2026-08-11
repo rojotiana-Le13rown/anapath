@@ -5,6 +5,7 @@ import { UpdateAnapathDto } from './dto/update-anapath.dto';
 import { ValidateAnapathDto } from './dto/validate-anapath.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
+import { UpdateExamenTechniqueDto } from './dto/update-examen-technique.dto';
 import { AnapathRequest, Statut } from './entities/anapath-request.entity';
 import { ChuClient } from '../common/clients/chu.client';
 import { AccueilClient } from '../common/clients/accueil.client';
@@ -25,6 +26,25 @@ function sortNotifications(notifs: any[]): any[] {
     if (pa !== pb) return pa - pb;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+}
+
+/**
+ * Vrai pour un technicien / histotechnicien : soit le rôle du token le dit
+ * explicitement (chef de service, histotechnicien…), soit les permissions le
+ * déduisent (met à jour les demandes mais ne les valide pas et ne rédige pas
+ * les observations — c'est-à-dire ni pathologiste ni secrétaire).
+ * Seul le technicien a accès aux « nouvelles demandes », à l'acceptation/refus
+ * des prescriptions et à l'examen au spéculum.
+ */
+function isTechnicienUser(user?: AuthenticatedUser): boolean {
+  if (!user) return false;
+  if (user.roleName && /technicien/i.test(user.roleName)) return true;
+  const perms = user.permissions ?? [];
+  return (
+    perms.includes('anapath:update') &&
+    !perms.includes('anapath:validate') &&
+    !perms.includes('anapath:observation:write')
+  );
 }
 
 @ApiTags('anapath')
@@ -128,12 +148,17 @@ export class AnapathController {
   @Header('Content-Type', 'application/json; charset=utf-8')
   async getNotifications(
     @CurrentToken() token: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     const ctx = this.decodeAnapathContext(token);
     // Uniquement les notifications LOCALES du service (nouvelles prescriptions,
     // alertes extemporanées, rapports…) : les notifications poussées par le
     // service Prescription externe ne sont plus affichées (source du spam).
-    const locales = await this.notificationService.findAll();
+    let locales = await this.notificationService.findAll();
+    // Les prescriptions (nouvelles demandes) ne concernent que le technicien :
+    // un pathologiste/secrétaire garde les notifications internes mais ne voit
+    // plus les nouvelles demandes (ni la cloche d'acceptation/refus).
+    locales = this.filterNotificationsForUser(locales, user);
     const enriched = await Promise.all(
       locales.map(async (n: any) => this.enrichNotification(n, ctx)),
     );
@@ -146,9 +171,11 @@ export class AnapathController {
   @Header('Content-Type', 'application/json; charset=utf-8')
   async getUnread(
     @CurrentToken() token: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     const ctx = this.decodeAnapathContext(token);
-    const locales = await this.notificationService.findUnread();
+    let locales = await this.notificationService.findUnread();
+    locales = this.filterNotificationsForUser(locales, user);
     const enriched = await Promise.all(
       locales.map(async (n: any) => this.enrichNotification(n, ctx)),
     );
@@ -166,13 +193,28 @@ export class AnapathController {
   @Header('Content-Type', 'application/json; charset=utf-8')
   async getEnAttente(
     @CurrentToken() token: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     const ctx = this.decodeAnapathContext(token);
-    const locales = await this.notificationService.findPending();
+    let locales = await this.notificationService.findPending();
+    // Page réservée au technicien/histotechnicien : sans ça, un pathologiste
+    // verrait des demandes qu'il ne peut ni accepter ni refuser.
+    if (!isTechnicienUser(user)) {
+      locales = locales.filter((n: any) => n.type !== NotificationType.NOUVELLE_PRESCRIPTION);
+    }
     const enriched = await Promise.all(
       locales.map(async (n: any) => this.enrichNotification(n, ctx)),
     );
     return sortNotifications(enriched);
+  }
+
+  /** Masque les notifications de nouvelles prescriptions pour qui n'est pas technicien. */
+  private filterNotificationsForUser(
+    notifs: any[],
+    user?: AuthenticatedUser,
+  ): any[] {
+    if (isTechnicienUser(user)) return notifs;
+    return notifs.filter((n: any) => n.type !== NotificationType.NOUVELLE_PRESCRIPTION);
   }
 
   /**
@@ -441,6 +483,8 @@ export class AnapathController {
   @ApiOperation({ summary: 'Prescriptions refusées (pour affichage dans les rapports)' })
   @Header('Content-Type', 'application/json; charset=utf-8')
   getPrescriptionsRefusees() {
+    // Simple statistique de lecture (page Rapports) : pas d'action possible ici,
+    // donc pas de restriction au technicien — l'acceptation/refus est elle bloquée.
     return this.notificationService.findRefused();
   }
 
@@ -517,10 +561,15 @@ export class AnapathController {
 
   @Permissions('anapath:update')
   @Post('notifications/:id/accepter')
-  @ApiOperation({ summary: 'Accepter une prescription en attente — la fait entrer dans le fil de travail' })
+  @ApiOperation({ summary: 'Accepter une prescription en attente — la fait entrer dans le fil de travail (réservé au technicien)' })
   @ApiParam({ name: 'id', description: 'UUID de la notification "nouvelle prescription"' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  accepterPrescription(@Param('id') id: string, @CurrentToken() token: string) {
+  accepterPrescription(
+    @Param('id') id: string,
+    @CurrentToken() token: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!isTechnicienUser(user)) throw new ForbiddenException('Réservé au technicien / histotechnicien');
     const ctx = this.decodeAnapathContext(token);
     return this.anapathService
       .accepterPrescription(id, token)
@@ -529,7 +578,7 @@ export class AnapathController {
 
   @Permissions('anapath:update')
   @Post('notifications/:id/refuser')
-  @ApiOperation({ summary: 'Refuser une prescription en attente — motif obligatoire' })
+  @ApiOperation({ summary: 'Refuser une prescription en attente — motif obligatoire (réservé au technicien)' })
   @ApiParam({ name: 'id', description: 'UUID de la notification "nouvelle prescription"' })
   @ApiBody({ schema: { type: 'object', properties: { motif: { type: 'string' } }, required: ['motif'] } })
   @Header('Content-Type', 'application/json; charset=utf-8')
@@ -537,7 +586,9 @@ export class AnapathController {
     @Param('id') id: string,
     @Body() body: { motif?: string },
     @CurrentToken() token: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
+    if (!isTechnicienUser(user)) throw new ForbiddenException('Réservé au technicien / histotechnicien');
     if (!body?.motif?.trim()) {
       throw new BadRequestException('Motif de refus requis');
     }
@@ -694,14 +745,37 @@ export class AnapathController {
 
   @Permissions('anapath:update')
   @Patch(':id/examen-speculum')
-  @ApiOperation({ summary: "Enregistrer l'examen au spéculum (préalable au résultat pour un FCV/Pap test)" })
+  @ApiOperation({ summary: "Enregistrer l'examen au spéculum (préalable au résultat pour un FCV/Pap test) — réservé au technicien, prescripteur et préleveur automatiques" })
   @ApiParam({ name: 'id', description: 'UUID de la demande' })
   @ApiBody({ type: UpdateExamenSpeculumDto })
   @ApiResponse({ status: 200, description: 'Examen spéculum enregistré', type: AnapathRequest })
   @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  updateExamenSpeculum(@Param('id') id: string, @Body() dto: UpdateExamenSpeculumDto) {
-    return this.anapathService.updateExamenSpeculum(id, dto);
+  async updateExamenSpeculum(
+    @Param('id') id: string,
+    @Body() dto: UpdateExamenSpeculumDto,
+    @CurrentToken() token: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!isTechnicienUser(user)) throw new ForbiddenException('Réservé au technicien / histotechnicien');
+    return this.anapathService.updateExamenSpeculum(id, dto, token);
+  }
+
+  @Permissions('anapath:update')
+  @Patch(':id/examen-technique')
+  @ApiOperation({ summary: "Valider l'examen technique — enregistre le compte rendu libre, bascule la demande en EN_ATTENTE_PATHOLOGUE et notifie le pathologiste (fin du travail du technicien)" })
+  @ApiParam({ name: 'id', description: 'UUID de la demande' })
+  @ApiBody({ type: UpdateExamenTechniqueDto })
+  @ApiResponse({ status: 200, description: 'Examen technique validé', type: AnapathRequest })
+  @ApiResponse({ status: 400, description: 'Compte rendu requis ou examen technique déjà validé' })
+  @ApiResponse({ status: 404, description: 'Demande non trouvée' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  validerExamenTechnique(
+    @Param('id') id: string,
+    @Body() dto: UpdateExamenTechniqueDto,
+    @CurrentToken() token: string,
+  ) {
+    return this.anapathService.validerExamenTechnique(id, dto, token);
   }
 
   @Permissions('anapath:validate')

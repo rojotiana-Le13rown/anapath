@@ -17,6 +17,7 @@ import { getPatientForExamen, marquerNotifLue, API_BASE } from '@/lib/api';
 import { getTypeLabel } from '@/lib/generatePDF';
 import { sortByUrgencyThenArrival } from '@/lib/urgencySort';
 import { getClinicalNotes, getSuspicion, getTreatmentType } from '@/lib/prescriptionFields';
+import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
   id: string;
@@ -67,10 +68,13 @@ function ValidationPageContent() {
   const toast = useToast();
   const canWrite = hasPermission('anapath:update');
   const canSign  = hasPermission('anapath:validate');
+  // L'examen au spéculum est réservé au technicien/histotechnicien : le
+  // pathologiste ne peut ni le saisir ni le valider.
+  const isTechnicien = isTechnicienUser(user);
   // anapath:observation:write : permission plus étroite que anapath:update,
   // pour un rôle qui peut saisir un résultat provisoire (ex: Interne
   // qualifiant) sans gérer tout le dossier, remplir l'examen au spéculum
-  // (réservé à canWrite ci-dessus) ni valider/signer (canSign).
+  // (réservé à isTechnicien ci-dessus) ni valider/signer (canSign).
   const canWriteObservation = canWrite || hasPermission('anapath:observation:write');
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
@@ -266,9 +270,14 @@ function ValidationPageContent() {
       const response = await axios.get(`${API_BASE}/anapath`);
       const readyForValidation: AnapathRequest[] = response.data.filter(
         (req: AnapathRequest) =>
+          // Examen technique validé par le technicien : prêt pour l'examen
+          // demandé (le vrai examen par le pathologiste).
+          req.statut === 'EN_ATTENTE_PATHOLOGUE' ||
+          // Résultat déjà saisi (en attente de validation/signature).
+          req.statut === 'RESULTAT_DISPONIBLE' ||
+          // Demandes héritées des anciens flux (création directe).
           req.statut === 'CREEE' ||
-          req.statut === 'EN_ATTENTE' ||
-          req.statut === 'RESULTAT_DISPONIBLE',
+          req.statut === 'EN_ATTENTE',
       );
       const pendingRequests = sortByUrgencyThenArrival<AnapathRequest>(readyForValidation);
       setRequests(pendingRequests);
@@ -612,7 +621,7 @@ function ValidationPageContent() {
                         <p className="text-sm text-amber-700 mt-1">
                           Pour un FCV / Pap test, l&apos;examen au spéculum doit être soumis avant de pouvoir saisir le résultat.
                         </p>
-                        {canWrite ? (
+                        {isTechnicien ? (
                           <button
                             type="button"
                             onClick={() => setShowSpeculumModal(true)}
@@ -624,7 +633,7 @@ function ValidationPageContent() {
                         ) : (
                           <p className="mt-4 text-xs text-amber-700 flex items-center justify-center gap-1.5">
                             <span className="material-symbols-outlined text-sm">lock</span>
-                            Cette étape doit être complétée par un technicien, un pathologiste ou un chef de service.
+                            Cette étape est réservée au technicien / histotechnicien.
                           </p>
                         )}
                       </section>
@@ -888,6 +897,7 @@ function ValidationPageContent() {
             anapathId={selectedRequest.anapathId}
             patientName={patientDisplayName(selectedRequest)}
             initialData={selectedRequest.examenSpeculum}
+            prescripteurNom={(selectedRequest.metadata?.prescripteurNom as string | undefined) ?? null}
             onClose={() => setShowSpeculumModal(false)}
             onSaved={async () => {
               setShowSpeculumModal(false);

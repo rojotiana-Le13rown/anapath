@@ -21,6 +21,9 @@ export enum Statut {
   CREEE = 'CREEE',
   EN_ATTENTE = 'EN_ATTENTE',
   EN_COURS = 'EN_COURS',
+  // Examen technique validé par le technicien/histotechnicien — prêt pour le
+  // pathologiste (onglet « Suivre l'examen » du fil de travail pathologiste).
+  EN_ATTENTE_PATHOLOGUE = 'EN_ATTENTE_PATHOLOGUE',
   RESULTAT_DISPONIBLE = 'RESULTAT_DISPONIBLE',
   VALIDE = 'VALIDE',
   ARCHIVE = 'ARCHIVE',
@@ -80,6 +83,11 @@ export class AnapathRequest {
   // Examen au spéculum — préalable obligatoire au résultat pour un FCV/Pap test.
   @Column({ type: 'jsonb', nullable: true })
   examenSpeculum: Record<string, unknown> | null;
+
+  // Compte rendu d'examen technique — rempli et validé par le technicien
+  // (ou histotechnicien) ; la validation bascule la demande en EN_ATTENTE_PATHOLOGUE.
+  @Column({ type: 'jsonb', nullable: true })
+  examenTechnique: Record<string, unknown> | null;
 
   @Column({ type: 'text', nullable: true })
   resultatDetails: string;

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
+import { isTechnicienUser } from '@/lib/roles';
 import ConfirmDialog from './ConfirmDialog';
 
 const ALL_NAVIGATION = [
@@ -21,6 +22,8 @@ const ALL_NAVIGATION = [
     icon: 'inbox',
     requiredPermission: PERMISSIONS.UPDATE,
     allowedForMajor: false,
+    // Réservé au technicien/histotechnicien (acceptation/refus des prescriptions).
+    technicienOnly: true,
   },
   {
     name: 'Fil de travail',
@@ -71,6 +74,9 @@ export default function Sidebar() {
 
   const visibleNavigation = ALL_NAVIGATION.filter((item) => {
     if (isMajor && !item.allowedForMajor) return false;
+    if ('technicienOnly' in item && item.technicienOnly && !isTechnicienUser(user)) {
+      return false;
+    }
     const required = Array.isArray(item.requiredPermission)
       ? item.requiredPermission
       : [item.requiredPermission];

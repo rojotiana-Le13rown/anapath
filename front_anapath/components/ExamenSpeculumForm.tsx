@@ -5,16 +5,13 @@ import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import { renderHtmlToPdf, escapeHtml } from '@/lib/pdfUtils';
 import { formatDateLong } from '@/lib/dateFormat';
-
-type TypePrelevement = 'EXOCOL' | 'COUPOLE_VAGINALE';
-type Fixation = 'ENDOCOL' | 'CULS_DE_SAC';
+import { useAuth } from './AuthProvider';
 
 interface ExamenSpeculumData {
   observations?: string;
   prelevementDetails?: string;
   dateExamen?: string;
-  typePrelevement?: TypePrelevement;
-  fixation?: Fixation;
+  fixation?: string;
   prescripteurSignature?: string;
   preleveurSignature?: string;
 }
@@ -24,69 +21,68 @@ interface ExamenSpeculumFormProps {
   anapathId?: string;
   patientName?: string;
   initialData?: ExamenSpeculumData | null;
+  /** Nom du prescripteur (auteur de la prescription) — renseigné automatiquement. */
+  prescripteurNom?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }
-
-const TYPE_PRELEVEMENT_LABELS: Record<TypePrelevement, string> = {
-  EXOCOL: 'Exocol',
-  COUPOLE_VAGINALE: 'Coupole vaginale',
-};
-
-const FIXATION_LABELS: Record<Fixation, string> = {
-  ENDOCOL: 'Endocol',
-  CULS_DE_SAC: 'Culs de sac',
-};
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-const toggleClass = (active: boolean) =>
-  `flex-1 text-center px-3 h-11 rounded-lg border text-xs font-semibold transition-colors active:scale-95 ${
-    active
-      ? 'bg-primary text-white border-primary'
-      : 'bg-white text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
-  }`;
+function buildNomComplet(user: {
+  firstname?: string;
+  name?: string;
+} | null): string {
+  if (!user) return '';
+  return [user.firstname, user.name].filter(Boolean).join(' ').trim();
+}
 
 export default function ExamenSpeculumForm({
   requestId,
   anapathId,
   patientName,
   initialData,
+  prescripteurNom,
   onClose,
   onSaved,
 }: ExamenSpeculumFormProps) {
+  const { user } = useAuth();
+
   const [observations, setObservations] = useState(initialData?.observations ?? '');
   const [prelevementDetails, setPrelevementDetails] = useState(initialData?.prelevementDetails ?? '');
   const [dateExamen, setDateExamen] = useState(initialData?.dateExamen ?? today());
-  const [typePrelevement, setTypePrelevement] = useState<TypePrelevement | undefined>(initialData?.typePrelevement);
-  const [fixation, setFixation] = useState<Fixation | undefined>(initialData?.fixation);
-  const [prescripteurSignature, setPrescripteurSignature] = useState(initialData?.prescripteurSignature ?? '');
-  const [preleveurSignature, setPreleveurSignature] = useState(initialData?.preleveurSignature ?? '');
+  const [fixation, setFixation] = useState(initialData?.fixation ?? '');
+  // Prescripteur et préleveur sont renseignés AUTOMATIQUEMENT : le prescripteur
+  // est l'auteur de la prescription, le préleveur est l'utilisateur courant
+  // (technicien/histotechnicien) qui valide l'examen au spéculum. Non modifiables.
+  const [prescripteurSignature] = useState(
+    initialData?.prescripteurSignature ?? prescripteurNom ?? '—',
+  );
+  const [preleveurSignature] = useState(
+    (initialData?.preleveurSignature ?? buildNomComplet(user)) || '—',
+  );
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const isValid =
     observations.trim() !== '' &&
     prelevementDetails.trim() !== '' &&
-    Boolean(typePrelevement) &&
-    Boolean(fixation) &&
-    prescripteurSignature.trim() !== '' &&
-    preleveurSignature.trim() !== '';
+    dateExamen.trim() !== '' &&
+    fixation.trim() !== '';
 
   const handleSubmit = async () => {
     if (!isValid) return;
     setSaving(true);
     try {
+      // Le backend re-détermine prescripteur/preleveur depuis les métadonnées et
+      // l'utilisateur du token — on n'envoie donc que les champs libres + la date.
       await axios.patch(`${API_BASE}/anapath/${requestId}/examen-speculum`, {
         observations,
         prelevementDetails,
         dateExamen,
-        typePrelevement,
         fixation,
-        prescripteurSignature,
-        preleveurSignature,
       });
       onSaved();
     } catch (error) {
@@ -135,15 +131,9 @@ export default function ExamenSpeculumForm({
             </div>
           </div>
 
-          <div class="row">
-            <div>
-              <div class="label">Type de prélèvement</div>
-              <div class="value">${typePrelevement ? TYPE_PRELEVEMENT_LABELS[typePrelevement] : '—'}</div>
-            </div>
-            <div>
-              <div class="label">Fixation</div>
-              <div class="value">${fixation ? FIXATION_LABELS[fixation] : '—'}</div>
-            </div>
+          <div>
+            <div class="label">Fixation</div>
+            <div class="value">${escapeHtml(fixation || '—')}</div>
           </div>
 
           <hr/>
@@ -233,19 +223,6 @@ export default function ExamenSpeculumForm({
                 </span>
               </div>
             </div>
-
-            <div className="flex gap-2 pt-1">
-              <button type="button" className={toggleClass(typePrelevement === 'EXOCOL')} onClick={() => setTypePrelevement('EXOCOL')}>
-                Exocol
-              </button>
-              <button
-                type="button"
-                className={toggleClass(typePrelevement === 'COUPOLE_VAGINALE')}
-                onClick={() => setTypePrelevement('COUPOLE_VAGINALE')}
-              >
-                Coupole vaginale
-              </button>
-            </div>
           </div>
 
           <hr className="border-outline-variant/30" />
@@ -254,18 +231,13 @@ export default function ExamenSpeculumForm({
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
               Fixation <span className="text-red-500">*</span>
             </label>
-            <div className="flex gap-2">
-              <button type="button" className={toggleClass(fixation === 'ENDOCOL')} onClick={() => setFixation('ENDOCOL')}>
-                Endocol
-              </button>
-              <button
-                type="button"
-                className={toggleClass(fixation === 'CULS_DE_SAC')}
-                onClick={() => setFixation('CULS_DE_SAC')}
-              >
-                Culs de sac
-              </button>
-            </div>
+            <input
+              type="text"
+              value={fixation}
+              onChange={(e) => setFixation(e.target.value)}
+              placeholder="Mode de fixation..."
+              className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+            />
           </div>
 
           <hr className="border-outline-variant/30" />
@@ -276,9 +248,9 @@ export default function ExamenSpeculumForm({
               <input
                 type="text"
                 value={prescripteurSignature}
-                onChange={(e) => setPrescripteurSignature(e.target.value)}
-                placeholder="Signature"
-                className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+                readOnly
+                title="Renseigné automatiquement"
+                className="w-full h-11 px-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none cursor-not-allowed"
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -286,12 +258,15 @@ export default function ExamenSpeculumForm({
               <input
                 type="text"
                 value={preleveurSignature}
-                onChange={(e) => setPreleveurSignature(e.target.value)}
-                placeholder="Signature"
-                className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+                readOnly
+                title="Renseigné automatiquement"
+                className="w-full h-11 px-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none cursor-not-allowed"
               />
             </div>
           </div>
+          <p className="text-[11px] text-slate-400 -mt-2 text-center">
+            Prescripteur et préleveur sont renseignés automatiquement.
+          </p>
         </div>
 
         <div className="flex justify-end gap-2 p-4 border-t border-outline-variant/30">

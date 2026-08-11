@@ -1,10 +1,11 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateExamenSpeculumDto {
   @IsOptional()
   @IsString()
   observations?: string;
 
+  /** Prélèvement — champ libre (plus de liste de choix). */
   @IsOptional()
   @IsString()
   prelevementDetails?: string;
@@ -13,19 +14,8 @@ export class UpdateExamenSpeculumDto {
   @IsString()
   dateExamen?: string;
 
+  /** Fixation — champ libre (plus de liste de choix). */
   @IsOptional()
-  @IsIn(['EXOCOL', 'COUPOLE_VAGINALE'])
-  typePrelevement?: string;
-
-  @IsOptional()
-  @IsIn(['ENDOCOL', 'CULS_DE_SAC'])
+  @IsString()
   fixation?: string;
-
-  @IsOptional()
-  @IsString()
-  prescripteurSignature?: string;
-
-  @IsOptional()
-  @IsString()
-  preleveurSignature?: string;
 }

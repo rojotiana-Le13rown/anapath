@@ -6,11 +6,14 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import PatientAvatar from '@/components/PatientAvatar';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
+import ExamenSpeculumForm from '@/components/ExamenSpeculumForm';
+import ExamenTechniqueForm from '@/components/ExamenTechniqueForm';
 import { PatientInfo } from '@/components/PatientIdentitySection';
 import { useAuth } from '@/components/AuthProvider';
 import axios from 'axios';
 import { getPatientForExamen, API_BASE } from '@/lib/api';
 import { statusLabels, statusColors } from '@/lib/statusLabels';
+import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
   id: string;
@@ -27,21 +30,27 @@ interface AnapathRequest {
   episodeId?: string | null;
   metadata?: Record<string, unknown> | null;
   patientInfo?: PatientInfo | null;
+  examenSpeculum?: Record<string, unknown> | null;
+  examenTechnique?: Record<string, unknown> | null;
 }
 
 export default function WorklistDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   // Lecture seule pour Histotechnicien/Secrétaire : seuls UPDATE /
   // OBSERVATION_WRITE peuvent réellement saisir un résultat.
   const canWrite = hasPermission('anapath:update') || hasPermission('anapath:observation:write');
+  // Le spéculum reste réservé au technicien/histotechnicien.
+  const isTechnicien = isTechnicienUser(user);
 
   const [request, setRequest] = useState<AnapathRequest | null>(null);
   const [patient, setPatient] = useState<PatientInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [patientLoading, setPatientLoading] = useState(true);
+  const [showSpeculum, setShowSpeculum] = useState(false);
+  const [showTech, setShowTech] = useState(false);
 
   const loadExamen = async () => {
     try {
@@ -75,6 +84,14 @@ export default function WorklistDetailPage() {
     if (!request) return;
     router.push(`/validation?id=${request.id}`);
   };
+
+  const isFcvPap = request?.typeExamen === 'FCV_PAP';
+  const speculumDone = Boolean(request?.examenSpeculum);
+  // La demande est en phase « examen technique » (fil technicien / onglet
+  // Examen technique du pathologiste) quand elle est EN_COURS ; en
+  // EN_ATTENTE_PATHOLOGUE, seul le pathologiste continue (vrai examen).
+  const isTechnicalPhase = request?.statut === 'EN_COURS';
+  const isReadyForPathologist = request?.statut === 'EN_ATTENTE_PATHOLOGUE';
 
   if (loading) {
     return (
@@ -129,15 +146,43 @@ export default function WorklistDetailPage() {
           </div>
 
           {isWorkflowVisible && (
-            <div className="flex justify-center mt-8">
-              {canWrite ? (
-                <button
-                  onClick={handleSaisirResultat}
-                  className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined">edit_note</span>
-                  Saisir le résultat d'examen
-                </button>
+            <div className="flex flex-col items-center gap-2 mt-8">
+              {isReadyForPathologist ? (
+                canWrite ? (
+                  <button
+                    onClick={handleSaisirResultat}
+                    className="px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined">edit_note</span>
+                    Saisir le résultat d'examen
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-400">Consultation en lecture seule</p>
+                )
+              ) : isTechnicalPhase ? (
+                isFcvPap && !speculumDone ? (
+                  isTechnicien ? (
+                    <button
+                      onClick={() => setShowSpeculum(true)}
+                      className="px-8 py-3 bg-[#00478d] text-white font-bold rounded-full shadow-md hover:opacity-90 transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">visibility</span>
+                      Examen au spéculum (préalable)
+                    </button>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">
+                      En attente de l'examen au spéculum (réservé au technicien)
+                    </p>
+                  )
+                ) : (
+                  <button
+                    onClick={() => setShowTech(true)}
+                    className="px-8 py-3 bg-[#00284d] text-white font-bold rounded-full shadow-md hover:opacity-90 transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined">science</span>
+                    Examen technique
+                  </button>
+                )
               ) : (
                 <p className="text-xs text-slate-400">Consultation en lecture seule</p>
               )}
@@ -145,6 +190,35 @@ export default function WorklistDetailPage() {
           )}
         </div>
       </main>
+
+      {showSpeculum && request && isTechnicien && (
+        <ExamenSpeculumForm
+          requestId={request.id}
+          anapathId={request.anapathId}
+          patientName={patient?.nomComplet || patient?.nom || request.patientId}
+          initialData={request.examenSpeculum}
+          prescripteurNom={(request.metadata?.prescripteurNom as string | undefined) ?? null}
+          onClose={() => setShowSpeculum(false)}
+          onSaved={async () => {
+            setShowSpeculum(false);
+            await loadExamen();
+          }}
+        />
+      )}
+
+      {showTech && request && (
+        <ExamenTechniqueForm
+          requestId={request.id}
+          anapathId={request.anapathId}
+          patientName={patient?.nomComplet || patient?.nom || request.patientId}
+          initialData={request.examenTechnique}
+          onClose={() => setShowTech(false)}
+          onSaved={async () => {
+            setShowTech(false);
+            await loadExamen();
+          }}
+        />
+      )}
     </div>
   );
 }
