@@ -692,7 +692,7 @@ export class AnapathController {
     return this.anapathService.updateResultat(id, dto, token);
   }
 
-  @Permissions('anapath:update', 'anapath:observation:write')
+  @Permissions('anapath:update')
   @Patch(':id/examen-speculum')
   @ApiOperation({ summary: "Enregistrer l'examen au spéculum (préalable au résultat pour un FCV/Pap test)" })
   @ApiParam({ name: 'id', description: 'UUID de la demande' })
@@ -700,12 +700,8 @@ export class AnapathController {
   @ApiResponse({ status: 200, description: 'Examen spéculum enregistré', type: AnapathRequest })
   @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   @Header('Content-Type', 'application/json; charset=utf-8')
-  updateExamenSpeculum(
-    @Param('id') id: string,
-    @Body() dto: UpdateExamenSpeculumDto,
-    @CurrentToken() token: string,
-  ) {
-    return this.anapathService.updateExamenSpeculum(id, dto, token);
+  updateExamenSpeculum(@Param('id') id: string, @Body() dto: UpdateExamenSpeculumDto) {
+    return this.anapathService.updateExamenSpeculum(id, dto);
   }
 
   @Permissions('anapath:validate')

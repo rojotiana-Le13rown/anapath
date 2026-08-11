@@ -53,47 +53,6 @@ export class UserServiceClient {
     }
   }
 
-  /** Fiche d'un utilisateur par ID (ex. le prescripteur d'une prescription),
-   *  pas seulement l'utilisateur du token courant. Best-effort : null en échec. */
-  async getUserById(token: string, userId?: string): Promise<any | null> {
-    if (!userId) return null;
-    try {
-      const { data } = await axios.get(`${this.baseUrl}/users/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: this.timeout,
-      });
-      return data ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  /** Nom affichable de l'utilisateur du token courant : "prénom nom" (best-effort). */
-  async getUserName(token: string): Promise<string | null> {
-    return this.getUserNameById(token, this.userIdFromToken(token) ?? undefined);
-  }
-
-  /** Nom affichable d'un utilisateur par ID : "prénom nom" (best-effort). */
-  async getUserNameById(token: string, userId?: string): Promise<string | null> {
-    const user = await this.getUserById(token, userId);
-    const firstname =
-      typeof user?.firstname === 'string'
-        ? user.firstname.trim()
-        : typeof user?.firstName === 'string'
-          ? user.firstName.trim()
-          : '';
-    const lastname =
-      typeof user?.name === 'string'
-        ? user.name.trim()
-        : typeof user?.lastname === 'string'
-          ? user.lastname.trim()
-          : typeof user?.lastName === 'string'
-            ? user.lastName.trim()
-            : '';
-    const full = [firstname, lastname].filter(Boolean).join(' ').trim();
-    return full || null;
-  }
-
   /** N° d'ordre (ex. F26945) et n° d'inscription à l'ordre professionnel (ex. ONM-12345),
    *  gérés par user-services. Un seul appel à /users/{id} pour les deux. */
   async getOrdreInfos(token: string): Promise<{
