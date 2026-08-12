@@ -136,12 +136,29 @@ export class NotificationService implements OnApplicationBootstrap {
    * plus (seules les nouvelles demandes, les notifications internes et l'alerte
    * extemporané STAT restent). Les alertes STAT sont dédupliquées : pour un même
    * examen et une même phase (arrival/remaining), seule la plus récente est
-   * conservée.
+   * conservée. Les notifications "nouvelle prescription" sont aussi dédupliquées
+   * par demande (une seule notification conservée par demandeId, la plus récente) :
+   * des doublons accumulés par d'anciennes versions faisaient échouer
+   * l'acceptation (contrainte UNIQUE sur demandeId → 500).
    */
   async nettoyerNotifications(): Promise<number> {
     const all = await this.notificationRepository.find({
       order: { createdAt: 'DESC' },
     });
+    const latestByDemande = new Map<string, NotificationEntity>();
+    for (const n of all) {
+      if (n.type !== NotificationType.NOUVELLE_PRESCRIPTION) continue;
+      const demandeId = n.metadata?.demandeId as string | undefined;
+      if (!demandeId) continue;
+      const cur = latestByDemande.get(demandeId);
+      const at = n.createdAt?.getTime() ?? 0;
+      if (!cur || at > (cur.createdAt?.getTime() ?? 0)) {
+        latestByDemande.set(demandeId, n);
+      }
+    }
+    const keepIds = new Set(
+      [...latestByDemande.values()].map((n) => n.id),
+    );
     const seen = new Set<string>();
     let removed = 0;
     for (const n of all) {
@@ -149,6 +166,13 @@ export class NotificationService implements OnApplicationBootstrap {
       if (n.type === NotificationType.RAPPEL_VALIDATION) {
         await this.notificationRepository.remove(n);
         removed++;
+        continue;
+      }
+      if (n.type === NotificationType.NOUVELLE_PRESCRIPTION) {
+        if (!n.metadata?.demandeId || !keepIds.has(n.id)) {
+          await this.notificationRepository.remove(n);
+          removed++;
+        }
         continue;
       }
       if (n.type !== NotificationType.STAT_ALERT) continue;

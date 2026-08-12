@@ -742,8 +742,22 @@ export class AnapathService {
       throw new BadRequestException('Cette prescription a déjà été traitée');
     }
 
+    const metadata = (notification.metadata ?? {}) as Record<string, any>;
+
+    if (metadata.demandeId) {
+      const existing = await this.anapathRepository.findOne({
+        where: { demandeId: metadata.demandeId },
+      });
+      if (existing) {
+        await this.notificationService.markResolved(notificationId, 'ACCEPTEE', {
+          anapathRequestId: existing.id,
+        });
+        return this.toResponse(existing);
+      }
+    }
+
     const entity = this.anapathRepository.create(
-      this.buildRequestFromPendingMetadata(notification.metadata ?? {}),
+      this.buildRequestFromPendingMetadata(metadata),
     );
     // Dès l'acceptation, la demande entre dans le fil de travail : EN_COURS
     // (phase examen technique) pour les examens courants, mais pour une
@@ -753,13 +767,31 @@ export class AnapathService {
       entity.typeExamen === ExamenType.CYT0PONCTION
         ? Statut.EN_ATTENTE_DIAGNOSTIC
         : Statut.EN_COURS;
-    const saved = await this.anapathRepository.save(entity);
+    let saved: AnapathRequest;
+    try {
+      saved = await this.anapathRepository.save(entity);
+    } catch (err) {
+      const code =
+        (err as { code?: string } | null)?.code ??
+        (err as { driverError?: { code?: string } } | null)?.driverError?.code;
+      if (code === '23505' && metadata.demandeId) {
+        const existing = await this.anapathRepository.findOne({
+          where: { demandeId: metadata.demandeId },
+        });
+        if (existing) {
+          await this.notificationService.markResolved(notificationId, 'ACCEPTEE', {
+            anapathRequestId: existing.id,
+          });
+          return this.toResponse(existing);
+        }
+      }
+      throw err;
+    }
 
     // Stocke une fois pour toutes l'identité du patient (nom, prénom, dateNaissance…)
     // résolue depuis Accueil : les lectures ultérieures n'ont plus besoin d'appeler
     // Accueil (évite le martelage / rate limit 429) et le détail de prescription
     // peut afficher nom + âge sans dépendre de la disponibilité d'Accueil.
-    const metadata = (notification.metadata ?? {}) as Record<string, any>;
     if (saved.patientId && metadata.chuId) {
       const patient = await this.accueilClient.getPatient(
         saved.patientId,
