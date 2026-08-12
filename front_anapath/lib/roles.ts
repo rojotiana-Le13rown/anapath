@@ -40,3 +40,53 @@ export function isTechnicienUser(user?: {
 export function isMajorRole(roleName?: string | null): boolean {
   return !!roleName && /major/i.test(roleName);
 }
+
+/** Vrai pour un pathologiste : nom du rôle ou permissions (valide et rédige les observations). */
+export function isPathologisteRole(
+  roleName?: string | null,
+  permissions?: string[] | null,
+): boolean {
+  if (roleName && /patholog/i.test(roleName)) return true;
+  if (!permissions) return false;
+  return (
+    permissions.includes('anapath:validate') &&
+    permissions.includes('anapath:observation:write')
+  );
+}
+
+export type RecipientGroup = 'technicien' | 'pathologiste' | 'autre';
+
+/**
+ * Groupe de destinataires effectif d'un utilisateur pour les notifications.
+ * Le major (et tout autre rôle non technique) est « autre » : il ne reçoit
+ * aucune notification destinée au technicien ou au pathologiste.
+ */
+export function userRecipientGroup(user?: {
+  roleName?: string | null;
+  permissions?: string[] | null;
+} | null): RecipientGroup {
+  if (!user) return 'autre';
+  if (isMajorRole(user.roleName)) return 'autre';
+  if (isTechnicienRole(user.roleName, user.permissions)) return 'technicien';
+  if (isPathologisteRole(user.roleName, user.permissions)) return 'pathologiste';
+  return 'autre';
+}
+
+/** Une notification est-elle visible pour un utilisateur de ce groupe ? (miroir du filtre backend) */
+export function notificationVisible(
+  userGroup: RecipientGroup,
+  type?: string | null,
+  recipientRole?: string | null,
+): boolean {
+  const target: RecipientGroup | undefined =
+    recipientRole === 'technicien' || recipientRole === 'pathologiste'
+      ? recipientRole
+      : type === 'NOUVELLE_PRESCRIPTION' ||
+          type === 'PATIENT_PRET_EXAMEN_TECHNIQUE'
+        ? 'technicien'
+        : type === 'EXAMEN_TECHNIQUE_TERMINE'
+          ? 'pathologiste'
+          : undefined;
+  if (!target) return true;
+  return userGroup === target;
+}

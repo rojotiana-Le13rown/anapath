@@ -7,10 +7,14 @@ import {
 import { Server, Socket } from 'socket.io';
 import { AuthClient } from '../auth/clients/auth.client';
 import { getCorsOrigins } from '../common/cors-origins';
+import {
+  notificationRecipientGroup,
+  userRecipientGroup,
+} from '../common/notification-recipients';
 
 /**
  * Gateway WebSocket backend → navigateur : pousse en temps réel chaque
- * notification créée (event `notification:new`) à tous les clients connectés.
+ * notification créée (event `notification:new`) vers les clients concernés.
  *
  * Authentification : le client fournit le MÊME JWT que l'API REST via
  * `auth.token` du handshake (obtenu côté frontend par /api/anapath/notifications/ws-ticket,
@@ -18,8 +22,12 @@ import { getCorsOrigins } from '../common/cors-origins';
  * AuthClient.validateToken — exactement la même logique que JwtAuthGuard.
  * Connexion rejetée (disconnect) si le token est absent, invalide ou expiré.
  *
- * Toutes les notifications étant propres au service (pas par utilisateur),
- * tous les clients authentifiés rejoignent un seul salon « anapath ».
+ * Ciblage par rôle : chaque client rejoint le salon « anapath » (toutes les
+ * notifications) ET un salon de groupe (« anapath:technicien »,
+ * « anapath:pathologiste », « anapath:autre »). Une notification destinée à un
+ * groupe précis (metadata.recipientRole, ex. technicien ou pathologiste) n'est
+ * poussée QUE vers ce groupe — un major ne reçoit jamais la notification d'un
+ * autre rôle.
  */
 @WebSocketGateway({
   namespace: '/anapath',
@@ -53,14 +61,22 @@ export class NotificationsGateway
         return;
       }
       client.data.user = user;
+      const group = userRecipientGroup(user);
+      client.data.recipientGroup = group;
       client.join('anapath');
+      client.join(`anapath:${group}`);
     } catch {
       client.disconnect(true);
     }
   }
 
-  /** Émet `notification:new` à tous les clients connectés. */
+  /** Émet `notification:new` vers le groupe de destinataires (ou tous si aucun). */
   emitNotificationCreated(notification: unknown): void {
+    const group = notificationRecipientGroup(notification);
+    if (group) {
+      this.server?.to(`anapath:${group}`).emit('notification:new', notification);
+      return;
+    }
     this.server?.to('anapath').emit('notification:new', notification);
   }
 }

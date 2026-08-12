@@ -15,7 +15,7 @@ import {
   API_BASE,
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
-import { isTechnicienUser } from '@/lib/roles';
+import { isTechnicienUser, userRecipientGroup, notificationVisible } from '@/lib/roles';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
 import { generateWeeklyReportPDF } from '@/lib/weeklyReportPdf';
 
@@ -185,12 +185,14 @@ function isRelance(n: any): boolean {
 
 export default function NotificationBell() {
   const { user } = useAuth();
-  // Seul le technicien/histotechnicien voit et traite les nouvelles demandes
-  // (acceptation/refus). Un pathologiste/secrétaire garde les notifications
-  // internes mais ne doit pas recevoir les prescriptions (filtrées aussi côté
-  // backend) ni voir aucun bouton d'action.
+  // Ciblage par rôle des notifications (miroir du filtre backend) :
+  // - technicien/histotechnicien : voit et traite les nouvelles demandes ;
+  // - pathologiste : voit « prêt pour l'examen » ;
+  // - le major (ou tout autre rôle) ne reçoit AUCUNE notification destinée à
+  //   un autre rôle — seulement les notifications globales (alertes STAT,
+  //   rapport hebdomadaire, …).
   const canActOnPrescriptions = isTechnicienUser(user);
-  const isTechnicien = canActOnPrescriptions;
+  const userGroup = userRecipientGroup(user);
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [detailNotif, setDetailNotif] = useState<any>(null);
@@ -273,13 +275,12 @@ export default function NotificationBell() {
     const raw = await getNotificationsAnapath();
     if (!Array.isArray(raw)) return;
 
-    // Défense en profondeur : si le backend n'a pas encore filtré (cache, proxy),
-    // on masque côté client les prescriptions pour qui n'est pas technicien.
-    const sorted = isTechnicien
-      ? sortNotifs(raw)
-      : sortNotifs(raw).filter(
-          (n) => n.type !== 'NOUVELLE_PRESCRIPTION',
-        );
+    // Défense en profondeur : même si le backend n'a pas filtré (cache, proxy),
+    // on masque côté client toute notification destinée à un autre groupe de
+    // rôles (nouvelles demandes, patient prêt, examen prêt pour le pathologiste).
+    const sorted = sortNotifs(raw).filter((n) =>
+      notificationVisible(userGroup, n.type, n.metadata?.recipientRole),
+    );
 
     // Annuler timers si examen validé/archivé
     sorted.forEach(n => {
@@ -343,7 +344,7 @@ export default function NotificationBell() {
     }
 
     setNotifs(sorted);
-  }, [cancelExtemporaneTimer, scheduleExtemporane, isTechnicien]);
+  }, [cancelExtemporaneTimer, scheduleExtemporane, userGroup]);
 
   // Notification reçue en temps réel via socket.io (event `notification:new`) :
   // affichage + son immédiats, puis réconciliation avec la version enrichie (REST).
@@ -351,15 +352,9 @@ export default function NotificationBell() {
     if (!payload || typeof payload !== 'object') return;
     const id = payload.id ?? payload._id;
     if (!id || known.current.has(id)) return;
-    // Une prescription n'arrive jamais pour un non-technicien (filtre backend) ;
-    // au cas où, on l'ignore silencieusement.
-    if (payload.type === 'NOUVELLE_PRESCRIPTION' && !isTechnicien) return;
-    // « Patient prêt pour un examen technique » : destinée au technicien/
-    // histotechnicien uniquement (filtre backend identique).
-    if (payload.type === 'PATIENT_PRET_EXAMEN_TECHNIQUE' && !isTechnicien) return;
-    // « Prêt pour passer l'examen » : destinée au pathologiste — le technicien
-    // qui vient de valider l'examen technique ne la reçoit pas.
-    if (payload.type === 'EXAMEN_TECHNIQUE_TERMINE' && isTechnicien) return;
+    // Une notification destinée à un autre groupe de rôles n'arrive jamais ici
+    // (le backend pousse par groupe) ; au cas où, on l'ignore silencieusement.
+    if (!notificationVisible(userGroup, payload.type, payload.metadata?.recipientRole)) return;
 
     known.current.add(id);
     setNotifs(prev => sortNotifs([
@@ -382,7 +377,7 @@ export default function NotificationBell() {
       });
     }
     void fetchNotifs();
-  }, [fetchNotifs, scheduleExtemporane, isTechnicien]);
+  }, [fetchNotifs, scheduleExtemporane, userGroup]);
 
   const socketRef = useRef<Socket | null>(null);
   const ticketRef = useRef<string | null>(null);

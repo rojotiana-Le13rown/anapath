@@ -18,6 +18,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentToken } from '../auth/decorators/current-token.decorator';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { shouldNotifyUser } from '../common/notification-recipients';
 
 function sortNotifications(notifs: any[]): any[] {
   const urgencePriority: Record<string, number> = { STAT: 1, URGENTE: 2, NORMALE: 3 };
@@ -198,11 +199,10 @@ export class AnapathController {
   ) {
     const ctx = this.decodeAnapathContext(token);
     let locales = await this.notificationService.findPending();
-    // Page réservée au technicien/histotechnicien : sans ça, un pathologiste
-    // verrait des demandes qu'il ne peut ni accepter ni refuser.
-    if (!isTechnicienUser(user)) {
-      locales = locales.filter((n: any) => n.type !== NotificationType.NOUVELLE_PRESCRIPTION);
-    }
+    // Ciblage par rôle : les nouvelles prescriptions ne concernent que le
+    // technicien/histotechnicien — sans ça, un pathologiste ou un major verrait
+    // des demandes qu'il ne peut ni accepter ni refuser.
+    locales = locales.filter((n: any) => shouldNotifyUser(n, user));
     const enriched = await Promise.all(
       locales.map(async (n: any) => this.enrichNotification(n, ctx)),
     );
@@ -210,29 +210,16 @@ export class AnapathController {
   }
 
   /**
-   * Masque les notifications par rôle :
-   * - NOUVELLE_PRESCRIPTION et PATIENT_PRET_EXAMEN_TECHNIQUE : technicien/
-   *   histotechnicien uniquement ;
-   * - EXAMEN_TECHNIQUE_TERMINE : réservée au pathologiste (le technicien qui
-   *   vient de valider l'examen technique ne la reçoit pas).
+   * Masque les notifications par rôle (groupe de destinataire : technicien,
+   * pathologiste) : un major/secrétaire ne reçoit aucune notification destinée
+   * au technicien ou au pathologiste. Les notifications sans groupe restent
+   * visibles pour tous (alertes STAT, rapport hebdomadaire…).
    */
   private filterNotificationsForUser(
     notifs: any[],
     user?: AuthenticatedUser,
   ): any[] {
-    const isTech = isTechnicienUser(user);
-    return notifs.filter((n: any) => {
-      if (
-        n.type === NotificationType.NOUVELLE_PRESCRIPTION ||
-        n.type === NotificationType.PATIENT_PRET_EXAMEN_TECHNIQUE
-      ) {
-        return isTech;
-      }
-      if (n.type === NotificationType.EXAMEN_TECHNIQUE_TERMINE) {
-        return !isTech;
-      }
-      return true;
-    });
+    return notifs.filter((n: any) => shouldNotifyUser(n, user));
   }
 
   /**
