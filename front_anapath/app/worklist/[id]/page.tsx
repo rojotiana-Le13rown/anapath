@@ -8,6 +8,7 @@ import PatientAvatar from '@/components/PatientAvatar';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
 import ExamenSpeculumForm from '@/components/ExamenSpeculumForm';
 import ExamenTechniqueForm from '@/components/ExamenTechniqueForm';
+import DiagnosticCytoponctionForm from '@/components/DiagnosticCytoponctionForm';
 import PatientHistoriqueButton, { type HistoriqueEntry } from '@/components/PatientHistoriqueButton';
 import VoiceInputButton from '@/components/VoiceInputButton';
 import { PatientInfo } from '@/components/PatientIdentitySection';
@@ -38,6 +39,13 @@ interface AnapathRequest {
   patientInfo?: PatientInfo | null;
   examenSpeculum?: Record<string, unknown> | null;
   examenTechnique?: Record<string, unknown> | null;
+  diagnosticCytoponction?: {
+    sitePreleve?: string;
+    organe?: string;
+    fixation?: string;
+    validatedByName?: string | null;
+    validatedAt?: string | null;
+  } | null;
 }
 
 /** Colle la transcription en direct au texte définitif, sans dédoubler les séparateurs. */
@@ -72,6 +80,7 @@ export default function WorklistDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [showSpeculum, setShowSpeculum] = useState(false);
   const [showTech, setShowTech] = useState(false);
+  const [showDiag, setShowDiag] = useState(false);
   // Détail de la prescription affiché par défaut ; le pathologiste peut le
   // masquer pour se concentrer sur la saisie du résultat.
   const [showPrescriptionDetails, setShowPrescriptionDetails] = useState(true);
@@ -393,6 +402,10 @@ export default function WorklistDetailPage() {
 
   // Le bouton de saisie est visible tant que l'examen n'est pas validé (Terminé)
   const isWorkflowVisible = request.statut !== 'VALIDE' && request.statut !== 'ARCHIVE';
+  // Cytoponction : diagnostic anticipé (site prélevé, organe, fixation) avant
+  // l'examen technique — réservé au pathologiste.
+  const isDiagnosticPhase =
+    request?.typeExamen === 'CYT0PONCTION' && request.statut === 'EN_ATTENTE_DIAGNOSTIC';
   // Phase où le pathologiste rend son compte rendu (résultat + validation).
   const isResultPhase = RESULT_PHASE_STATUSES.includes(request.statut);
   // Phase « examen technique » (fil technicien / onglet Examen technique du
@@ -458,7 +471,54 @@ export default function WorklistDetailPage() {
 
           {isWorkflowVisible && (
             <>
-              {isResultPhase ? (
+              {request?.diagnosticCytoponction && (
+                <section className="bg-cyan-50 border border-cyan-200 rounded-xl shadow-sm p-4 mb-6">
+                  <p className="text-xs font-bold text-cyan-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">biotech</span>
+                    Diagnostic cytoponction (pathologiste)
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-[11px] text-cyan-800/70 font-semibold uppercase tracking-wider">Site prélevé</p>
+                      <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">{request.diagnosticCytoponction.sitePreleve || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-cyan-800/70 font-semibold uppercase tracking-wider">Organe concerné</p>
+                      <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">{request.diagnosticCytoponction.organe || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-cyan-800/70 font-semibold uppercase tracking-wider">Fixation</p>
+                      <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">{request.diagnosticCytoponction.fixation || '—'}</p>
+                    </div>
+                  </div>
+                  {request.diagnosticCytoponction.validatedByName && (
+                    <p className="text-[11px] text-cyan-800/70 mt-3">
+                      Validé par {request.diagnosticCytoponction.validatedByName}
+                      {request.diagnosticCytoponction.validatedAt
+                        ? ` le ${new Date(request.diagnosticCytoponction.validatedAt).toLocaleDateString('fr-FR')} à ${new Date(request.diagnosticCytoponction.validatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                        : ''}
+                    </p>
+                  )}
+                </section>
+              )}
+
+              {isDiagnosticPhase ? (
+                <div className="flex flex-col items-center gap-2 mt-8">
+                  {canWrite ? (
+                    <button
+                      onClick={() => setShowDiag(true)}
+                      className="px-8 py-3 bg-cyan-700 text-white font-bold rounded-full shadow-md hover:bg-cyan-800 transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">biotech</span>
+                      Remplir le diagnostic
+                    </button>
+                  ) : (
+                    <p className="text-xs text-slate-400">
+                      En attente du diagnostic (réservé au pathologiste)
+                    </p>
+                  )}
+                </div>
+              ) : isResultPhase ? (
                 needsSpeculum ? (
                   <section className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm p-6 text-center">
                     <span className="material-symbols-outlined text-4xl text-amber-600">clinical_notes</span>
@@ -809,6 +869,20 @@ export default function WorklistDetailPage() {
           onClose={() => setShowTech(false)}
           onSaved={async () => {
             setShowTech(false);
+            await loadExamen();
+          }}
+        />
+      )}
+
+      {showDiag && request && (
+        <DiagnosticCytoponctionForm
+          requestId={request.id}
+          anapathId={request.anapathId}
+          patientName={patient?.nomComplet || patient?.nom || request.patientId}
+          initialData={request.diagnosticCytoponction}
+          onClose={() => setShowDiag(false)}
+          onSaved={async () => {
+            setShowDiag(false);
             await loadExamen();
           }}
         />

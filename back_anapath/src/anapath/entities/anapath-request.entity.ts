@@ -21,6 +21,11 @@ export enum Statut {
   CREEE = 'CREEE',
   EN_ATTENTE = 'EN_ATTENTE',
   EN_COURS = 'EN_COURS',
+  // Cytoponction uniquement : après acceptation par le technicien, la demande
+  // va directement chez le pathologiste (avant l'examen technique) pour le
+  // diagnostic (site prélevé, organe, fixation). La validation du diagnostic
+  // bascule en EN_COURS et notifie le technicien.
+  EN_ATTENTE_DIAGNOSTIC = 'EN_ATTENTE_DIAGNOSTIC',
   // Examen technique validé par le technicien/histotechnicien — prêt pour le
   // pathologiste (onglet « Suivre l'examen » du fil de travail pathologiste).
   EN_ATTENTE_PATHOLOGUE = 'EN_ATTENTE_PATHOLOGUE',
@@ -88,6 +93,11 @@ export class AnapathRequest {
   // (ou histotechnicien) ; la validation bascule la demande en EN_ATTENTE_PATHOLOGUE.
   @Column({ type: 'jsonb', nullable: true })
   examenTechnique: Record<string, unknown> | null;
+
+  // Diagnostic cytoponction — rempli et validé par le pathologiste avant
+  // l'examen technique (site prélevé, organe, fixation). Lecture seule ensuite.
+  @Column({ type: 'jsonb', nullable: true })
+  diagnosticCytoponction: Record<string, unknown> | null;
 
   @Column({ type: 'text', nullable: true })
   resultatDetails: string;

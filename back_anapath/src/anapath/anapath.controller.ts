@@ -6,6 +6,7 @@ import { ValidateAnapathDto } from './dto/validate-anapath.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
 import { UpdateExamenTechniqueDto } from './dto/update-examen-technique.dto';
+import { UpdateDiagnosticCytoponctionDto } from './dto/update-diagnostic-cytoponction.dto';
 import { AnapathRequest, Statut } from './entities/anapath-request.entity';
 import { ChuClient } from '../common/clients/chu.client';
 import { AccueilClient } from '../common/clients/accueil.client';
@@ -214,7 +215,13 @@ export class AnapathController {
     user?: AuthenticatedUser,
   ): any[] {
     if (isTechnicienUser(user)) return notifs;
-    return notifs.filter((n: any) => n.type !== NotificationType.NOUVELLE_PRESCRIPTION);
+    // « Patient prêt pour un examen technique » : destinée au technicien/
+    // histotechnicien — invisible pour le pathologiste et les autres rôles.
+    return notifs.filter(
+      (n: any) =>
+        n.type !== NotificationType.NOUVELLE_PRESCRIPTION &&
+        n.type !== NotificationType.PATIENT_PRET_EXAMEN_TECHNIQUE,
+    );
   }
 
   /**
@@ -776,6 +783,23 @@ export class AnapathController {
     @CurrentToken() token: string,
   ) {
     return this.anapathService.validerExamenTechnique(id, dto, token);
+  }
+
+  @Permissions('anapath:observation:write')
+  @Patch(':id/diagnostic-cytoponction')
+  @ApiOperation({ summary: "Valider le diagnostic cytoponction (pathologiste) — site prélevé, organe, fixation ; bascule la demande en EN_COURS et notifie le technicien que le patient est prêt pour un examen technique" })
+  @ApiParam({ name: 'id', description: 'UUID de la demande' })
+  @ApiBody({ type: UpdateDiagnosticCytoponctionDto })
+  @ApiResponse({ status: 200, description: 'Diagnostic cytoponction validé', type: AnapathRequest })
+  @ApiResponse({ status: 400, description: 'Site/organe/fixation requis ou diagnostic déjà validé' })
+  @ApiResponse({ status: 404, description: 'Demande non trouvée' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  validerDiagnosticCytoponction(
+    @Param('id') id: string,
+    @Body() dto: UpdateDiagnosticCytoponctionDto,
+    @CurrentToken() token: string,
+  ) {
+    return this.anapathService.validerDiagnosticCytoponction(id, dto, token);
   }
 
   @Permissions('anapath:validate')

@@ -44,6 +44,13 @@ interface AnapathRequest {
   episodeId?: string | null;
   metadata?: Record<string, unknown> | null;
   patientInfo?: PatientInfo | null;
+  diagnosticCytoponction?: {
+    sitePreleve?: string;
+    organe?: string;
+    fixation?: string;
+    validatedByName?: string | null;
+    validatedAt?: string | null;
+  } | null;
 }
 
 export default function ArchiveDetailPage() {
@@ -224,6 +231,37 @@ export default function ArchiveDetailPage() {
               </div>
             </div>
           </div>
+
+          {request?.diagnosticCytoponction && (
+            <div className="bg-cyan-50 p-6 rounded-xl border border-cyan-200 mb-6">
+              <h4 className="font-bold text-cyan-800 mb-3 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base">biotech</span>
+                Diagnostic cytoponction (pathologiste)
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-cyan-800/70 font-semibold uppercase">Site prélevé</p>
+                  <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">{request.diagnosticCytoponction.sitePreleve || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-cyan-800/70 font-semibold uppercase">Organe concerné</p>
+                  <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">{request.diagnosticCytoponction.organe || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-cyan-800/70 font-semibold uppercase">Fixation</p>
+                  <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">{request.diagnosticCytoponction.fixation || '—'}</p>
+                </div>
+              </div>
+              {request.diagnosticCytoponction.validatedByName && (
+                <p className="text-[11px] text-cyan-800/70 mt-3">
+                  Validé par {request.diagnosticCytoponction.validatedByName}
+                  {request.diagnosticCytoponction.validatedAt
+                    ? ` le ${new Date(request.diagnosticCytoponction.validatedAt).toLocaleDateString('fr-FR')}`
+                    : ''}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="bg-green-50 p-6 rounded-xl border border-green-200 mb-6">
             <h4 className="font-bold text-green-700 mb-3">✅ Demande validée</h4>

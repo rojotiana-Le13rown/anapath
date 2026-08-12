@@ -71,6 +71,19 @@ export async function generatePDF(
     ?? examen?.resultatDetails ?? '';
   const conclusion = examen?.resultat?.conclusion
     ?? examen?.resultatConclusion ?? '';
+  const diag = examen?.diagnosticCytoponction;
+  const diagnosticHTML =
+    diag?.sitePreleve || diag?.organe || diag?.fixation
+      ? `
+    <div style="border:1px solid #999;background:#eef7f7;padding:8px 10px;margin-bottom:10px;">
+      <div class="box-title">DIAGNOSTIC ANTICIPÉ — CYTOPONCTION :</div>
+      <div style="font-size:10.5px;line-height:1.5;">
+        Site prélevé : <b>${escapeHtml(diag.sitePreleve ?? '—')}</b><br/>
+        Organe concerné : <b>${escapeHtml(diag.organe ?? '—')}</b><br/>
+        Fixation : <b>${escapeHtml(diag.fixation ?? '—')}</b>
+      </div>
+    </div>`
+      : '';
   const signature = examen?.validatedBySignature ?? '';
   const numOrdre = examen?.validatedByUserId ?? '';
   const anapathId = examen?.anapathId ?? examen?.id ?? '—';
@@ -210,6 +223,7 @@ body{
       ${personnelHTML}
     </div>
     <div class="col-right">
+      ${diagnosticHTML}
       <div class="box-resultat-conclusion">
         <div class="box-resultat-section">
           <div class="box-title">RESULTAT :</div>

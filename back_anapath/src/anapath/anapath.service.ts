@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
-import { AnapathRequest, Statut } from './entities/anapath-request.entity';
+import { AnapathRequest, Statut, ExamenType } from './entities/anapath-request.entity';
 import { ReportSettings } from './entities/report-settings.entity';
 import { CreateAnapathDto } from './dto/create-anapath.dto';
 import { UpdateAnapathDto } from './dto/update-anapath.dto';
@@ -10,6 +10,7 @@ import { ValidateAnapathDto } from './dto/validate-anapath.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
 import { UpdateExamenSpeculumDto } from './dto/update-examen-speculum.dto';
 import { UpdateExamenTechniqueDto } from './dto/update-examen-technique.dto';
+import { UpdateDiagnosticCytoponctionDto } from './dto/update-diagnostic-cytoponction.dto';
 import { UserServiceClient } from '../common/clients/user-service.client';
 import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '../common/clients/prescription.client';
 import { ChuClient } from '../common/clients/chu.client';
@@ -365,6 +366,76 @@ export class AnapathService {
     return this.toResponse(saved);
   }
 
+  /**
+   * Valide le diagnostic cytoponction (pathologiste) : enregistre le site
+   * prélevé, l'organe concerné et le type de fixateur, bascule la demande en
+   * EN_COURS (elle entre dans le fil de travail du technicien) et notifie le
+   * technicien qu'un patient est prêt pour un examen technique.
+   */
+  async validerDiagnosticCytoponction(
+    id: string,
+    dto: UpdateDiagnosticCytoponctionDto,
+    token?: string,
+  ): Promise<AnapathRequestResponse> {
+    const request = await this.findOneEntity(id);
+    if (request.typeExamen !== ExamenType.CYT0PONCTION) {
+      throw new BadRequestException('Le diagnostic anticipé est réservé aux cytoponctions');
+    }
+    if (
+      request.statut === Statut.VALIDE ||
+      request.statut === Statut.ARCHIVE ||
+      request.statut === Statut.ANNULEE
+    ) {
+      throw new BadRequestException('Examen déjà clôturé');
+    }
+    if (request.statut !== Statut.EN_ATTENTE_DIAGNOSTIC) {
+      throw new BadRequestException('Diagnostic déjà validé');
+    }
+    const sitePreleve = (dto.sitePreleve ?? '').trim();
+    const organe = (dto.organe ?? '').trim();
+    const fixation = (dto.fixation ?? '').trim();
+    if (!sitePreleve || !organe || !fixation) {
+      throw new BadRequestException(
+        'Site prélevé, organe et type de fixation sont requis avant validation',
+      );
+    }
+
+    const [pathologisteNom, pathologisteUser] = await Promise.all([
+      this.userServiceClient.getUserName(token ?? ''),
+      this.userServiceClient.getUser(token ?? ''),
+    ]);
+    request.diagnosticCytoponction = {
+      sitePreleve,
+      organe,
+      fixation,
+      validatedByUserId: pathologisteUser?.id ?? pathologisteUser?.userId ?? null,
+      validatedByName: pathologisteNom ?? null,
+      validatedAt: new Date().toISOString(),
+    };
+
+    const statutAvant = request.statut;
+    request.statut = Statut.EN_COURS;
+
+    const saved = await this.anapathRepository.save(request);
+    if (saved.statut !== statutAvant) {
+      await this.propagerStatutVersPrescription(saved, token);
+    }
+    await this.notificationService.createNotification({
+      type: NotificationType.PATIENT_PRET_EXAMEN_TECHNIQUE,
+      title: 'Patient prêt pour un examen technique',
+      message: `Cytoponction ${request.anapathId} — diagnostic validé par le pathologiste, patient prêt pour un examen technique`,
+      priority: 'medium',
+      source: 'Anapath',
+      metadata: {
+        anapathRequestId: saved.id,
+        anapathId: saved.anapathId,
+        // Destinée au technicien/histotechnicien (filtrée pour les autres rôles).
+        recipientRole: 'technicien',
+      },
+    });
+    return this.toResponse(saved);
+  }
+
   async validate(
     id: string,
     dto: ValidateAnapathDto,
@@ -645,10 +716,14 @@ export class AnapathService {
     const entity = this.anapathRepository.create(
       this.buildRequestFromPendingMetadata(notification.metadata ?? {}),
     );
-    // Dès l'acceptation, la demande entre dans le fil de travail du technicien
-    // (phase examen technique) : l'acceptation d'une nouvelle prescription vaut
-    // passage en examen technique, pas simple création.
-    entity.statut = Statut.EN_COURS;
+    // Dès l'acceptation, la demande entre dans le fil de travail : EN_COURS
+    // (phase examen technique) pour les examens courants, mais pour une
+    // CYTOPONCTION elle va d'abord chez le pathologiste (EN_ATTENTE_DIAGNOSTIC)
+    // qui remplit le diagnostic AVANT l'examen technique.
+    entity.statut =
+      entity.typeExamen === ExamenType.CYT0PONCTION
+        ? Statut.EN_ATTENTE_DIAGNOSTIC
+        : Statut.EN_COURS;
     const saved = await this.anapathRepository.save(entity);
 
     // Stocke une fois pour toutes l'identité du patient (nom, prénom, dateNaissance…)

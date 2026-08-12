@@ -11,6 +11,7 @@ import PrescriptionDetails from '@/components/PrescriptionDetails';
 import PatientHistoriqueButton from '@/components/PatientHistoriqueButton';
 import ExamenSpeculumForm from '@/components/ExamenSpeculumForm';
 import ExamenTechniqueForm from '@/components/ExamenTechniqueForm';
+import DiagnosticCytoponctionForm from '@/components/DiagnosticCytoponctionForm';
 import { PatientInfo } from '@/components/PatientIdentitySection';
 import { useSearch } from '@/components/SearchContext';
 import { useAuth } from '@/components/AuthProvider';
@@ -37,16 +38,24 @@ interface AnapathRequest {
   patientInfo?: PatientInfo | null;
   examenSpeculum?: Record<string, unknown> | null;
   examenTechnique?: Record<string, unknown> | null;
+  diagnosticCytoponction?: {
+    sitePreleve?: string;
+    organe?: string;
+    fixation?: string;
+    validatedByName?: string | null;
+    validatedAt?: string | null;
+  } | null;
 }
 
 // Le fil de travail technique = les examens en phase d'examen technique
 // (acceptés par le technicien). La validation de l'examen technique bascule
 // en EN_ATTENTE_PATHOLOGUE : l'examen quitte le fil technicien.
 const TECHNICAL_STATUSES = ['EN_COURS'];
-// Fil de travail « Commencer l'examen » (pathologiste) : examens techniques
-// validés, prêts pour l'examen demandé — et résultats déjà saisis (autosave)
-// encore en attente de validation/signature finale.
-const PATHOLOGIST_STATUSES = ['EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE'];
+// Fil de travail « Commencer l'examen » (pathologiste) : cytoponctions en
+// attente de diagnostic anticipé, examens techniques validés prêts pour
+// l'examen demandé — et résultats déjà saisis (autosave) encore en attente
+// de validation/signature finale.
+const PATHOLOGIST_STATUSES = ['EN_ATTENTE_DIAGNOSTIC', 'EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE'];
 
 const TYPE_LABELS: Record<string, string> = {
   BIOPSIE: 'Biopsie',
@@ -99,6 +108,7 @@ export default function WorklistPage() {
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
   const [speculumRequest, setSpeculumRequest] = useState<AnapathRequest | null>(null);
   const [techRequest, setTechRequest] = useState<AnapathRequest | null>(null);
+  const [diagRequest, setDiagRequest] = useState<AnapathRequest | null>(null);
   // Le pathologiste a deux onglets : « Commencer l'examen » (défaut) et
   // « Examen technique » (identique au fil de travail du technicien).
   const [tab, setTab] = useState<'suivre' | 'technique'>('suivre');
@@ -187,7 +197,30 @@ export default function WorklistPage() {
     setTechRequest(req);
   };
 
+  const openDiagnosticCytoponction = (req: AnapathRequest) => {
+    setSelectedRequest(null);
+    setDiagRequest(req);
+  };
+
   const renderActions = (req: AnapathRequest) => {
+    // Cytoponction : diagnostic anticipé par le pathologiste avant l'examen technique.
+    if (req.statut === 'EN_ATTENTE_DIAGNOSTIC') {
+      return canWrite ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openDiagnosticCytoponction(req);
+          }}
+          title="Remplir le diagnostic"
+          className="px-3 py-1.5 rounded-full bg-cyan-50 text-cyan-700 text-[10px] font-bold hover:bg-cyan-100 transition-colors inline-flex items-center gap-1 whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined text-xs">biotech</span>
+          Remplir le diagnostic
+        </button>
+      ) : null;
+    }
+
     // Phase pathologiste : seul l'examen demandé (le vrai résultat) reste à
     // saisir/valider — y compris un résultat déjà autosauvegardé.
     if (req.statut === 'EN_ATTENTE_PATHOLOGUE' || req.statut === 'RESULTAT_DISPONIBLE') {
@@ -471,7 +504,19 @@ export default function WorklistPage() {
                 }
               />
               <div className="flex flex-col items-center gap-2 mt-6">
-                {selectedRequest.statut === 'EN_ATTENTE_PATHOLOGUE' || selectedRequest.statut === 'RESULTAT_DISPONIBLE' ? (
+                {selectedRequest.statut === 'EN_ATTENTE_DIAGNOSTIC' ? (
+                  canWrite ? (
+                    <button
+                      onClick={() => openDiagnosticCytoponction(selectedRequest)}
+                      className="px-8 py-3 bg-cyan-700 text-white font-bold rounded-full shadow-md hover:bg-cyan-800 transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">biotech</span>
+                      Remplir le diagnostic
+                    </button>
+                  ) : (
+                    <p className="text-xs text-slate-400">Consultation en lecture seule</p>
+                  )
+                ) : selectedRequest.statut === 'EN_ATTENTE_PATHOLOGUE' || selectedRequest.statut === 'RESULTAT_DISPONIBLE' ? (
                   canWrite ? (
                     <button
                       onClick={() => handleSaisirResultat(selectedRequest.id)}
@@ -540,6 +585,20 @@ export default function WorklistPage() {
           onClose={() => setTechRequest(null)}
           onSaved={async () => {
             setTechRequest(null);
+            await fetchData();
+          }}
+        />
+      )}
+
+      {diagRequest && (
+        <DiagnosticCytoponctionForm
+          requestId={diagRequest.id}
+          anapathId={diagRequest.anapathId}
+          patientName={patientDisplayName(diagRequest)}
+          initialData={diagRequest.diagnosticCytoponction}
+          onClose={() => setDiagRequest(null)}
+          onSaved={async () => {
+            setDiagRequest(null);
             await fetchData();
           }}
         />

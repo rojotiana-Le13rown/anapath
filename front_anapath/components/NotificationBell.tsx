@@ -347,6 +347,9 @@ export default function NotificationBell() {
     // Une prescription n'arrive jamais pour un non-technicien (filtre backend) ;
     // au cas où, on l'ignore silencieusement.
     if (payload.type === 'NOUVELLE_PRESCRIPTION' && !isTechnicien) return;
+    // « Patient prêt pour un examen technique » : destinée au technicien/
+    // histotechnicien uniquement (filtre backend identique).
+    if (payload.type === 'PATIENT_PRET_EXAMEN_TECHNIQUE' && !isTechnicien) return;
 
     known.current.add(id);
     setNotifs(prev => sortNotifs([

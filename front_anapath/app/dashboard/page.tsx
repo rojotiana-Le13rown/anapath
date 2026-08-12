@@ -97,6 +97,15 @@ export default function DashboardPage() {
   };
 
   const totalExamens = filteredRequests.length;
+  const arrivesAujourdhui = filteredRequests.filter((r) => {
+    const d = new Date(r.createdAt);
+    const now = new Date();
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    );
+  }).length;
   const enAttenteSTAT = filteredRequests.filter(r => r.statut === 'CREEE' || r.statut === 'EN_ATTENTE').length;
   const enValidation = filteredRequests.filter(r => r.statut === 'RESULTAT_DISPONIBLE').length;
   const valides = filteredRequests.filter(r => r.statut === 'VALIDE').length;
@@ -155,6 +164,10 @@ export default function DashboardPage() {
               <div className="relative z-10">
                 <p className="text-xs font-bold uppercase tracking-wider text-white/80">Total examens</p>
                 <p className="text-5xl font-extrabold mt-1">{totalExamens}</p>
+                <p className="text-xs font-semibold text-white/70 mt-2 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">today</span>
+                  {arrivesAujourdhui} arrivé{arrivesAujourdhui > 1 ? 's' : ''} aujourd&apos;hui
+                </p>
               </div>
               <span className="material-symbols-outlined text-white/15 text-8xl absolute -right-3 -bottom-4">biotech</span>
             </div>

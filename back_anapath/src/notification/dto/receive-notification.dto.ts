@@ -13,6 +13,9 @@ export enum NotificationType {
   // Examen technique validé par le technicien — le pathologiste est notifié
   // qu'un examen est prêt pour l'examen demandé (le vrai examen).
   EXAMEN_TECHNIQUE_TERMINE = 'EXAMEN_TECHNIQUE_TERMINE',
+  // Diagnostic cytoponction validé par le pathologiste — le technicien est
+  // notifié qu'un patient est prêt pour passer un examen technique.
+  PATIENT_PRET_EXAMEN_TECHNIQUE = 'PATIENT_PRET_EXAMEN_TECHNIQUE',
 }
 
 export class ReceiveNotificationDto {
