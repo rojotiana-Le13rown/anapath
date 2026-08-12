@@ -209,19 +209,30 @@ export class AnapathController {
     return sortNotifications(enriched);
   }
 
-  /** Masque les notifications de nouvelles prescriptions pour qui n'est pas technicien. */
+  /**
+   * Masque les notifications par rôle :
+   * - NOUVELLE_PRESCRIPTION et PATIENT_PRET_EXAMEN_TECHNIQUE : technicien/
+   *   histotechnicien uniquement ;
+   * - EXAMEN_TECHNIQUE_TERMINE : réservée au pathologiste (le technicien qui
+   *   vient de valider l'examen technique ne la reçoit pas).
+   */
   private filterNotificationsForUser(
     notifs: any[],
     user?: AuthenticatedUser,
   ): any[] {
-    if (isTechnicienUser(user)) return notifs;
-    // « Patient prêt pour un examen technique » : destinée au technicien/
-    // histotechnicien — invisible pour le pathologiste et les autres rôles.
-    return notifs.filter(
-      (n: any) =>
-        n.type !== NotificationType.NOUVELLE_PRESCRIPTION &&
-        n.type !== NotificationType.PATIENT_PRET_EXAMEN_TECHNIQUE,
-    );
+    const isTech = isTechnicienUser(user);
+    return notifs.filter((n: any) => {
+      if (
+        n.type === NotificationType.NOUVELLE_PRESCRIPTION ||
+        n.type === NotificationType.PATIENT_PRET_EXAMEN_TECHNIQUE
+      ) {
+        return isTech;
+      }
+      if (n.type === NotificationType.EXAMEN_TECHNIQUE_TERMINE) {
+        return !isTech;
+      }
+      return true;
+    });
   }
 
   /**

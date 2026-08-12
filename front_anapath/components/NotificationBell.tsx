@@ -350,6 +350,9 @@ export default function NotificationBell() {
     // « Patient prêt pour un examen technique » : destinée au technicien/
     // histotechnicien uniquement (filtre backend identique).
     if (payload.type === 'PATIENT_PRET_EXAMEN_TECHNIQUE' && !isTechnicien) return;
+    // « Prêt pour passer l'examen » : destinée au pathologiste — le technicien
+    // qui vient de valider l'examen technique ne la reçoit pas.
+    if (payload.type === 'EXAMEN_TECHNIQUE_TERMINE' && isTechnicien) return;
 
     known.current.add(id);
     setNotifs(prev => sortNotifs([

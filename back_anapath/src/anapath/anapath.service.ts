@@ -24,6 +24,16 @@ import * as crypto from 'crypto';
 const ANAPATH_SERVICE_ID =
   process.env.ANAPATH_SERVICE_ID ?? '9e73904c-71e5-4477-9280-513e4112a468';
 
+const TYPE_EXAMEN_LABELS: Record<string, string> = {
+  BIOPSIE: 'Biopsie',
+  FCV_PAP: 'FCV / Pap test',
+  CYT0PONCTION: 'Cytoponction',
+  LIQUIDE: 'Liquide',
+  EXTEMPORANE_STAT: 'Extemporané',
+  POS: 'POS',
+  POC: 'POC',
+};
+
 export type AnapathRequestResponse = AnapathRequest & {
   resultat: { details: string | null; conclusion: string | null };
   validationHash: string | null;
@@ -355,13 +365,32 @@ export class AnapathService {
     if (saved.statut !== statutAvant) {
       await this.propagerStatutVersPrescription(saved, token);
     }
+    // Notification destinée au pathologiste : nom du patient, type d'examen et
+    // service demandeur, avec le message « Prêt pour passer l'examen ».
+    const info = (request.patientInfo ?? {}) as Record<string, any>;
+    const nomPatient =
+      this.accueilClient.buildNomComplet(info) ||
+      (typeof info.nom === 'string' ? info.nom : '') ||
+      request.patientId;
+    const typeExamen =
+      TYPE_EXAMEN_LABELS[request.typeExamen] ?? request.typeExamen;
+    const serviceDemandeur =
+      (request.metadata?.serviceNom as string) ||
+      (request.metadata?.serviceIdDest as string) ||
+      (request.metadata?.serviceIdSource as string) ||
+      'Service inconnu';
     await this.notificationService.createNotification({
       type: NotificationType.EXAMEN_TECHNIQUE_TERMINE,
-      title: 'Examen technique validé',
-      message: `Examen ${request.anapathId} prêt pour l'examen demandé — passage du pathologiste requis`,
+      title: `Prêt pour passer l'examen — ${nomPatient}`,
+      message: `${typeExamen} · Service demandeur : ${serviceDemandeur}`,
       priority: 'medium',
       source: 'Anapath',
-      metadata: { anapathRequestId: saved.id },
+      metadata: {
+        anapathRequestId: saved.id,
+        anapathId: saved.anapathId,
+        // Destinée au pathologiste (masquée pour le technicien qui a validé).
+        recipientRole: 'pathologiste',
+      },
     });
     return this.toResponse(saved);
   }
