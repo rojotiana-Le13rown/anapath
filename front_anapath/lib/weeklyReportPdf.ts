@@ -4,7 +4,7 @@ import {
   isDateInWeek,
   getDailyVolumeForWeek,
 } from './weekUtils';
-import { statusLabels } from './statusLabels';
+import { statusLabels, PENDING_STATUSES } from './statusLabels';
 import { getServiceDisplayName } from './serviceDisplay';
 import { getTypeLabel } from './generatePDF';
 import { generateReportPDF, type ReportPdfData } from './reportPDF';
@@ -59,9 +59,7 @@ export async function generateWeeklyReportPDF(
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const weeklyValidated = weeklyRequests.filter((r) => r.statut === 'VALIDE');
-  const weeklyPending = weeklyRequests.filter(
-    (r) => r.statut === 'CREEE' || r.statut === 'EN_ATTENTE' || r.statut === 'EN_COURS',
-  );
+  const weeklyPending = weeklyRequests.filter((r) => PENDING_STATUSES.includes(r.statut));
   let weeklyAvgDelay = 0;
   if (weeklyValidated.length > 0) {
     const totalDays = weeklyValidated.reduce((sum, req) => {

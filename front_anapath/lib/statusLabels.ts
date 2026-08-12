@@ -9,6 +9,21 @@ export const statusLabels: Record<string, string> = {
     ARCHIVE: 'Archivé',
     ANNULEE: 'Annulé',
   };
+
+  // Statuts « en attente » (non clôturés) pour les indicateurs des rapports.
+  // Couvre tout le flux de travail actuel (EN_COURS, EN_ATTENTE_DIAGNOSTIC,
+  // EN_ATTENTE_PATHOLOGUE, RESULTAT_DISPONIBLE) et pas seulement l'ancien CREEE.
+  export const PENDING_STATUSES = [
+    'CREEE',
+    'EN_ATTENTE',
+    'EN_COURS',
+    'EN_ATTENTE_DIAGNOSTIC',
+    'EN_ATTENTE_PATHOLOGUE',
+    'RESULTAT_DISPONIBLE',
+  ];
+
+  /** Statuts clôturés (terminé/archivé/annulé). */
+  export const CLOSED_STATUSES = ['VALIDE', 'ARCHIVE', 'ANNULEE'];
   
   export const statusColors: Record<string, string> = {
     CREEE: 'bg-gray-100 text-gray-700',

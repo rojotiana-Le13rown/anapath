@@ -8,9 +8,11 @@ import { Server, Socket } from 'socket.io';
 import { AuthClient } from '../auth/clients/auth.client';
 import { getCorsOrigins } from '../common/cors-origins';
 import {
+  isMajorRole,
   notificationRecipientGroup,
   userRecipientGroup,
 } from '../common/notification-recipients';
+import { NotificationType } from '../notification/dto/receive-notification.dto';
 
 /**
  * Gateway WebSocket backend → navigateur : pousse en temps réel chaque
@@ -63,6 +65,7 @@ export class NotificationsGateway
       client.data.user = user;
       const group = userRecipientGroup(user);
       client.data.recipientGroup = group;
+      client.data.isMajor = isMajorRole(user.roleName);
       client.join('anapath');
       client.join(`anapath:${group}`);
     } catch {
@@ -71,12 +74,23 @@ export class NotificationsGateway
   }
 
   /** Émet `notification:new` vers le groupe de destinataires (ou tous si aucun). */
-  emitNotificationCreated(notification: unknown): void {
+  async emitNotificationCreated(notification: unknown): Promise<void> {
     const group = notificationRecipientGroup(notification);
     if (group) {
       this.server?.to(`anapath:${group}`).emit('notification:new', notification);
       return;
     }
-    this.server?.to('anapath').emit('notification:new', notification);
+    // Notification générique : tout le monde SAUF le major — qui ne reçoit que
+    // la notification du rapport hebdomadaire (et pas les alertes STAT).
+    const type =
+      (notification as any)?.type ?? (notification as any)?.metadata?.type;
+    const includeMajor =
+      type === NotificationType.RAPPORT_HEBDOMADAIRE || type === 'RAPPORT';
+    const sockets = await this.server?.in('anapath').fetchSockets();
+    if (!sockets) return;
+    for (const socket of sockets) {
+      if (!includeMajor && socket.data?.isMajor) continue;
+      socket.emit('notification:new', notification);
+    }
   }
 }

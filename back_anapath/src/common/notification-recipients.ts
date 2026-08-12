@@ -75,6 +75,14 @@ export function shouldNotifyUser(
   notification: any,
   user?: AuthenticatedUser | null,
 ): boolean {
+  // Le major ne reçoit QUE la notification du rapport hebdomadaire : pas les
+  // alertes STAT ni les notifications internes du service.
+  if (isMajorRole(user?.roleName)) {
+    const type = notification?.type ?? notification?.metadata?.type;
+    return (
+      type === NotificationType.RAPPORT_HEBDOMADAIRE || type === 'RAPPORT'
+    );
+  }
   const group = notificationRecipientGroup(notification);
   if (!group) return true;
   return userRecipientGroup(user) === group;

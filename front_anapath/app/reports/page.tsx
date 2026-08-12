@@ -15,11 +15,21 @@ import {
   getDailyVolumeForWeek,
 } from '@/lib/weekUtils';
 import { statusLabels } from '@/lib/statusLabels';
+import { PENDING_STATUSES } from '@/lib/statusLabels';
 import { getServiceDisplayName } from '@/lib/serviceDisplay';
 import { generateReportPDF, type ReportPdfData } from '@/lib/reportPDF';
 import { getTypeLabel } from '@/lib/generatePDF';
 import { isMajorRole } from '@/lib/roles';
 import { getPrescriptionsRefusees } from '@/lib/api';
+import {
+  buildTableau1,
+  buildTableau2,
+  tableau1Total,
+  ACTIVITE_HEADERS,
+  PRISE_EN_CHARGE_HEADERS,
+  exportMajorReportExcel,
+  exportMajorReportPDF,
+} from '@/lib/majorReport';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -48,7 +58,14 @@ interface AnapathRequest {
   createdAt: string;
   validatedAt: string | null;
   episodeId?: string | null;
-  patientInfo?: { nomComplet?: string | null; nom?: string | null; prenom?: string | null } | null;
+  patientInfo?: {
+    nomComplet?: string | null;
+    nom?: string | null;
+    prenom?: string | null;
+    sexe?: string | null;
+    age?: number | null;
+    dateNaissance?: string | null;
+  } | null;
 }
 
 interface Statistics {
@@ -97,6 +114,22 @@ function getDailyVolumeForMonth(data: AnapathRequest[], year: number, month: num
   return volumes;
 }
 
+/** Date au format aaaa-mm-jj pour un champ <input type="date">. */
+function toInputDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+const AGE_BUCKETS = [
+  { label: '0-14', min: 0, max: 14 },
+  { label: '15-29', min: 15, max: 29 },
+  { label: '30-44', min: 30, max: 44 },
+  { label: '45-59', min: 45, max: 59 },
+  { label: '60+', min: 60, max: 200 },
+];
+
 export default function ReportsPage() {
   const { searchQuery } = useSearch();
   const { user } = useAuth();
@@ -121,6 +154,10 @@ export default function ReportsPage() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [generatingCustom, setGeneratingCustom] = useState(false);
+  // Plage de dates du « Rapport hebdomadaire du service (modèle CHU) » :
+  // par défaut la semaine en cours (lundi → aujourd'hui).
+  const [majorStart, setMajorStart] = useState(() => toInputDate(getMondayOfWeek(new Date())));
+  const [majorEnd, setMajorEnd] = useState(() => toInputDate(new Date()));
 
   useEffect(() => {
     fetchData();
@@ -205,9 +242,7 @@ export default function ReportsPage() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const weeklyValidated = weeklyRequests.filter((r) => r.statut === 'VALIDE');
-  const weeklyPending = weeklyRequests.filter(
-    (r) => r.statut === 'CREEE' || r.statut === 'EN_ATTENTE' || r.statut === 'EN_COURS',
-  );
+  const weeklyPending = weeklyRequests.filter((r) => PENDING_STATUSES.includes(r.statut));
   let weeklyAvgDelay = 0;
   if (weeklyValidated.length > 0) {
     const totalDays = weeklyValidated.reduce((sum, req) => {
@@ -250,6 +285,45 @@ export default function ReportsPage() {
     { name: 'Terminé', value: termineCount, color: '#10b981' },
     { name: 'Non terminé', value: nonTermineCount, color: '#f59e0b' },
   ];
+
+  // ===== Rapport hebdomadaire du service (modèle CHU) : 2 tableaux =====
+  const majorRangeRequests = requests.filter((r) => {
+    if (!majorStart || !majorEnd) return false;
+    const d = new Date(r.createdAt);
+    const s = new Date(majorStart);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(majorEnd);
+    e.setHours(23, 59, 59, 999);
+    return d >= s && d <= e;
+  });
+  const tableau1 = buildTableau1(majorRangeRequests);
+  const t1Total = tableau1Total(tableau1);
+  const tableau2 = buildTableau2(majorRangeRequests);
+  const majorPeriodeLabel =
+    `${new Date(majorStart).toLocaleDateString('fr-FR')} au ` +
+    `${new Date(majorEnd).toLocaleDateString('fr-FR')}`;
+
+  const pecVsEnCours = tableau1
+    .filter((r) => r.pec > 0 || r.enCours > 0)
+    .map((r) => ({
+      name: r.label,
+      'Prise en charge (PEC)': r.pec,
+      'Résultats en cours': r.enCours,
+    }));
+
+  const sexeData = [
+    { name: 'Féminin', value: tableau2.filter((r) => r.sexe === 'F').length, color: '#ec4899' },
+    { name: 'Masculin', value: tableau2.filter((r) => r.sexe === 'M').length, color: '#00478d' },
+    { name: 'Non renseigné', value: tableau2.filter((r) => r.sexe !== 'M' && r.sexe !== 'F').length, color: '#94a3b8' },
+  ].filter((d) => d.value > 0);
+
+  const ageData = AGE_BUCKETS.map((b) => ({
+    label: b.label,
+    count: tableau2.filter((r) => {
+      const a = Number(r.age);
+      return !Number.isNaN(a) && a >= b.min && a <= b.max;
+    }).length,
+  }));
 
   const chartBtn = (active: boolean) =>
     `px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
@@ -353,6 +427,22 @@ export default function ReportsPage() {
     }
   };
 
+  const handleExportMajorExcel = async () => {
+    try {
+      await exportMajorReportExcel(majorRangeRequests, majorPeriodeLabel);
+    } catch {
+      alert("Erreur lors de l'export Excel du rapport.");
+    }
+  };
+
+  const handleExportMajorPDF = async () => {
+    try {
+      await exportMajorReportPDF(majorRangeRequests, majorPeriodeLabel);
+    } catch {
+      alert("Erreur lors de l'export PDF du rapport.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-transparent">
@@ -414,7 +504,7 @@ export default function ReportsPage() {
             </div>
             <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20">
               <div className="flex justify-between items-start mb-2"><span className="material-symbols-outlined text-tertiary text-2xl">speed</span><span className="text-xs font-bold text-tertiary bg-tertiary/10 px-2 py-0.5 rounded-full">TRES URGENT</span></div>
-              <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">En attente</p><p className="text-3xl font-extrabold text-tertiary">{stats.byStatus['CREEE'] || 0}</p>
+              <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">En attente</p><p className="text-3xl font-extrabold text-tertiary">{Object.entries(stats.byStatus).filter(([s]) => PENDING_STATUSES.includes(s)).reduce((sum, [, c]) => sum + c, 0)}</p>
             </div>
             <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20">
               <span className="material-symbols-outlined text-primary text-2xl mb-2">schedule</span>
@@ -585,6 +675,205 @@ export default function ReportsPage() {
               })}
               </div>
             </div>
+
+          {/* Rapport hebdomadaire officiel du service (modèle CHU) : les 2 tableaux + représentation statistique + export Excel/PDF. */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-outline-variant/20 mb-8">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
+              <div>
+                <h3 className="font-bold text-lg">Rapport hebdomadaire du service (modèle CHU)</h3>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  VOLET ACTIVITÉ et PRISE EN CHARGE — colonnes auto remplies, le reste à compléter par le major.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <label className="text-slate-500 font-medium">Du</label>
+                  <input
+                    type="date"
+                    value={majorStart}
+                    onChange={(e) => setMajorStart(e.target.value)}
+                    className="border border-outline-variant rounded-lg px-2 py-1.5 text-sm"
+                  />
+                  <label className="text-slate-500 font-medium">Au</label>
+                  <input
+                    type="date"
+                    value={majorEnd}
+                    onChange={(e) => setMajorEnd(e.target.value)}
+                    className="border border-outline-variant rounded-lg px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportMajorExcel}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#107c41] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all"
+                >
+                  <span className="material-symbols-outlined text-base">table_chart</span>
+                  Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportMajorPDF}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#00478d] to-[#005eb8] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all"
+                >
+                  <span className="material-symbols-outlined text-base">picture_as_pdf</span>
+                  PDF
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">
+              Période sélectionnée : <strong className="text-on-surface">{majorPeriodeLabel}</strong>
+            </p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Tableau 1 — VOLET ACTIVITÉ */}
+              <div className="overflow-x-auto">
+                <h4 className="font-bold mb-2">VOLET ACTIVITÉ</h4>
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr>
+                      {ACTIVITE_HEADERS.map((h) => (
+                        <th key={h} className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-left font-bold">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableau1.map((row, i) => (
+                      <tr key={row.label}>
+                        <td className="border border-slate-200 px-2 py-1.5 font-medium">{row.label}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">{row.externe}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">{row.hosp}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">{row.pec > 0 ? row.pec : ''}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">{row.demuni}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">{row.positifs}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">{row.enCours > 0 ? row.enCours : ''}</td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">{row.recette}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50 font-bold">
+                      <td className="border border-slate-200 px-2 py-1.5">TOTAL</td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center"></td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center"></td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center">{t1Total.pec > 0 ? t1Total.pec : ''}</td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center"></td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center"></td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center">{t1Total.enCours > 0 ? t1Total.enCours : ''}</td>
+                      <td className="border border-slate-200 px-2 py-1.5 text-center"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tableau 2 — PRISE EN CHARGE */}
+              <div className="overflow-x-auto">
+                <h4 className="font-bold mb-2">PRISE EN CHARGE (PIVOT, ASSOCIATION MANAMPY…….)</h4>
+                {tableau2.length > 0 ? (
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr>
+                        {PRISE_EN_CHARGE_HEADERS.map((h) => (
+                          <th key={h} className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-left font-bold">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableau2.map((row, i) => (
+                        <tr key={i}>
+                          <td className="border border-slate-200 px-2 py-1.5">{row.service}</td>
+                          <td className="border border-slate-200 px-2 py-1.5">{row.numero}</td>
+                          <td className="border border-slate-200 px-2 py-1.5 font-medium">{row.nom}</td>
+                          <td className="border border-slate-200 px-2 py-1.5 text-center">{row.age}</td>
+                          <td className="border border-slate-200 px-2 py-1.5 text-center">{row.sexe}</td>
+                          <td className="border border-slate-200 px-2 py-1.5 text-center">{row.dateReception}</td>
+                          <td className="border border-slate-200 px-2 py-1.5">{row.examen}</td>
+                          <td className="border border-slate-200 px-2 py-1.5">{row.resultatsPathologiques}</td>
+                          <td className="border border-slate-200 px-2 py-1.5">{row.resultatsEnCours}</td>
+                          <td className="border border-slate-200 px-2 py-1.5">{row.observation}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-10">Aucun examen sur la période sélectionnée</p>
+                )}
+              </div>
+            </div>
+
+            <h4 className="font-bold mb-3">Représentation statistique des tableaux</h4>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* PEC vs Résultats en cours par type (données du tableau 1) */}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <h5 className="text-sm font-bold mb-3">Prise en charge vs résultats en cours (par type)</h5>
+                {pecVsEnCours.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={pecVsEnCours}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 8 }} interval={0} />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: 10 }} />
+                      <Bar dataKey="Prise en charge (PEC)" fill="#00478d" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Résultats en cours" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-10">Aucune donnée sur la période</p>
+                )}
+              </div>
+
+              {/* Répartition par sexe (données du tableau 2) */}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <h5 className="text-sm font-bold mb-3">Répartition par sexe (tableau 2)</h5>
+                {sexeData.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={190}>
+                      <PieChart>
+                        <Pie data={sexeData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                          {sexeData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-2 space-y-1.5">
+                      {sexeData.map((entry) => {
+                        const pct = tableau2.length > 0 ? Math.round((entry.value / tableau2.length) * 100) : 0;
+                        return (
+                          <div key={entry.name} className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                              {entry.name}
+                            </span>
+                            <span className="font-bold">{entry.value} ({pct}%)</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-10">Aucune donnée sur la période</p>
+                )}
+              </div>
+
+              {/* Tranches d'âge (données du tableau 2) */}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <h5 className="text-sm font-bold mb-3">Répartition par tranche d&apos;âge (tableau 2)</h5>
+                {ageData.some((d) => d.count > 0) ? (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={ageData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Patients" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-10">Aucune donnée sur la période</p>
+                )}
+              </div>
+            </div>
+          </div>
 
           {canManageAutoReport && (
             <div className="flex justify-end mb-4">

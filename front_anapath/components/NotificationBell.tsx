@@ -15,9 +15,10 @@ import {
   API_BASE,
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
-import { isTechnicienUser, userRecipientGroup, notificationVisible } from '@/lib/roles';
+import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole } from '@/lib/roles';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
-import { generateWeeklyReportPDF } from '@/lib/weeklyReportPdf';
+import { exportMajorReportPDF } from '@/lib/majorReport';
+import { getMondayOfWeek, formatWeekLabel } from '@/lib/weekUtils';
 
 // URL de la Gateway socket.io du backend (namespace /anapath). En local :
 // http://localhost:3334. Sur Render : https://anapath-backend-ar7u-uj8n.onrender.com.
@@ -193,6 +194,7 @@ export default function NotificationBell() {
   //   rapport hebdomadaire, …).
   const canActOnPrescriptions = isTechnicienUser(user);
   const userGroup = userRecipientGroup(user);
+  const isMajor = isMajorRole(user?.roleName);
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [detailNotif, setDetailNotif] = useState<any>(null);
@@ -279,7 +281,7 @@ export default function NotificationBell() {
     // on masque côté client toute notification destinée à un autre groupe de
     // rôles (nouvelles demandes, patient prêt, examen prêt pour le pathologiste).
     const sorted = sortNotifs(raw).filter((n) =>
-      notificationVisible(userGroup, n.type, n.metadata?.recipientRole),
+      notificationVisible(userGroup, n.type, n.metadata?.recipientRole, isMajor),
     );
 
     // Annuler timers si examen validé/archivé
@@ -344,7 +346,7 @@ export default function NotificationBell() {
     }
 
     setNotifs(sorted);
-  }, [cancelExtemporaneTimer, scheduleExtemporane, userGroup]);
+  }, [cancelExtemporaneTimer, scheduleExtemporane, userGroup, isMajor]);
 
   // Notification reçue en temps réel via socket.io (event `notification:new`) :
   // affichage + son immédiats, puis réconciliation avec la version enrichie (REST).
@@ -354,7 +356,7 @@ export default function NotificationBell() {
     if (!id || known.current.has(id)) return;
     // Une notification destinée à un autre groupe de rôles n'arrive jamais ici
     // (le backend pousse par groupe) ; au cas où, on l'ignore silencieusement.
-    if (!notificationVisible(userGroup, payload.type, payload.metadata?.recipientRole)) return;
+    if (!notificationVisible(userGroup, payload.type, payload.metadata?.recipientRole, isMajor)) return;
 
     known.current.add(id);
     setNotifs(prev => sortNotifs([
@@ -377,7 +379,7 @@ export default function NotificationBell() {
       });
     }
     void fetchNotifs();
-  }, [fetchNotifs, scheduleExtemporane, userGroup]);
+  }, [fetchNotifs, scheduleExtemporane, userGroup, isMajor]);
 
   const socketRef = useRef<Socket | null>(null);
   const ticketRef = useRef<string | null>(null);
@@ -459,7 +461,21 @@ export default function NotificationBell() {
         const res = await fetch(`${API_BASE}/anapath`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          await generateWeeklyReportPDF(Array.isArray(data) ? data : []);
+          const requests = Array.isArray(data) ? data : [];
+          // Semaine en cours : lundi → dimanche (le rapport du major suit le
+          // modèle CHU : VOLET ACTIVITÉ + PRISE EN CHARGE).
+          const monday = getMondayOfWeek(new Date());
+          const sunday = new Date(monday);
+          sunday.setDate(sunday.getDate() + 6);
+          sunday.setHours(23, 59, 59, 999);
+          const weekRequests = requests.filter((r: any) => {
+            const d = new Date(r.createdAt ?? r.date ?? 0);
+            return d >= monday && d <= sunday;
+          });
+          await exportMajorReportPDF(
+            weekRequests,
+            formatWeekLabel(monday),
+          );
         }
       } catch (e) {
         console.error('Erreur génération rapport hebdomadaire:', e);

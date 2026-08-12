@@ -77,7 +77,13 @@ export function notificationVisible(
   userGroup: RecipientGroup,
   type?: string | null,
   recipientRole?: string | null,
+  isMajor?: boolean,
 ): boolean {
+  // Le major ne reçoit QUE la notification du rapport hebdomadaire : ni les
+  // alertes STAT, ni les notifications destinées au technicien/pathologiste.
+  if (isMajor) {
+    return type === 'RAPPORT_HEBDOMADAIRE' || type === 'RAPPORT';
+  }
   const target: RecipientGroup | undefined =
     recipientRole === 'technicien' || recipientRole === 'pathologiste'
       ? recipientRole

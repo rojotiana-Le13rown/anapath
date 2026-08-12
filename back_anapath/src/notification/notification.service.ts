@@ -43,7 +43,7 @@ export class NotificationService implements OnApplicationBootstrap {
     // Push temps réel vers les navigateurs connectés (event `notification:new`).
     // Jamais bloquant : si la Gateway est indisponible, l'event est simplement perdu.
     try {
-      this.notificationsGateway.emitNotificationCreated(saved);
+      await this.notificationsGateway.emitNotificationCreated(saved);
     } catch (e) {
       console.warn('Notification push temps réel échoué:', e);
     }

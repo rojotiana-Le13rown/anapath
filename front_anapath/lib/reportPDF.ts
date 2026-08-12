@@ -1,6 +1,7 @@
 import { formatDate, formatDateTime } from './dateFormat';
 import { getTypeLabel } from './generatePDF';
 import { escapeHtml, renderHtmlToPdf } from './pdfUtils';
+import { PENDING_STATUSES } from './statusLabels';
 
 export interface ReportPdfRequestRow {
   anapathId: string;
@@ -62,10 +63,10 @@ function buildReportHtml(data: ReportPdfData): string {
     return [getTypeLabel(type), `${count}`, `${pct}%`];
   });
 
-  const pending =
-    (stats.byStatus['CREEE'] || 0)
-    + (stats.byStatus['EN_ATTENTE'] || 0)
-    + (stats.byStatus['EN_COURS'] || 0);
+  const pending = PENDING_STATUSES.reduce(
+    (sum, status) => sum + (stats.byStatus[status] || 0),
+    0,
+  );
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
 <style>
