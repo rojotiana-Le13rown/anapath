@@ -429,12 +429,22 @@ export default function WorklistDetailPage() {
             <button
               type="button"
               onClick={() => setShowPrescriptionDetails((v) => !v)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline mb-3"
+              aria-pressed={showPrescriptionDetails}
+              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border font-bold text-xs shadow-sm transition-all mb-4 ${
+                showPrescriptionDetails
+                  ? 'bg-gradient-to-r from-[#00284d] to-[#00478d] text-white border-[#00478d] hover:opacity-90'
+                  : 'bg-white text-[#00478d] border-[#00478d]/50 hover:bg-[#00478d]/5'
+              }`}
             >
-              <span className="material-symbols-outlined text-sm">
+              <span className="material-symbols-outlined text-base">
                 {showPrescriptionDetails ? 'visibility_off' : 'visibility'}
               </span>
               {showPrescriptionDetails ? 'Masquer le détail de prescription' : 'Afficher le détail de prescription'}
+              <span
+                className={`ml-1 w-2 h-2 rounded-full transition-colors ${
+                  showPrescriptionDetails ? 'bg-white/80' : 'bg-[#00478d]'
+                }`}
+              />
             </button>
             {showPrescriptionDetails && (
               <PrescriptionDetails

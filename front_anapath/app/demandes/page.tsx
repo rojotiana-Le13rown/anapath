@@ -387,7 +387,7 @@ export default function DemandesPage() {
               onChange={setLocalQuery}
               placeholder="Rechercher dans les nouvelles demandes..."
             />
-            <FilterButton active={hasActiveFilters}>
+            <FilterButton active={hasActiveFilters} count={filterUrgences.length + filterTypes.length}>
               <div className="space-y-4">
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-2">Urgence</p>

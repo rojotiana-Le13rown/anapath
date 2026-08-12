@@ -196,7 +196,7 @@ export default function ArchivesPage() {
 
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
             <LocalSearchBox value={localQuery} onChange={setLocalQuery} placeholder="Rechercher dans les archives..." />
-            <FilterButton active={filterTypes.length > 0}>
+            <FilterButton active={filterTypes.length > 0} count={filterTypes.length}>
               <div className="space-y-4">
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-2">Type d'examen</p>

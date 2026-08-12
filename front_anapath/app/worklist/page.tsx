@@ -43,7 +43,7 @@ interface AnapathRequest {
 // (acceptés par le technicien). La validation de l'examen technique bascule
 // en EN_ATTENTE_PATHOLOGUE : l'examen quitte le fil technicien.
 const TECHNICAL_STATUSES = ['EN_COURS'];
-// Fil de travail « Suivre l'examen » (pathologiste) : examens techniques
+// Fil de travail « Commencer l'examen » (pathologiste) : examens techniques
 // validés, prêts pour l'examen demandé — et résultats déjà saisis (autosave)
 // encore en attente de validation/signature finale.
 const PATHOLOGIST_STATUSES = ['EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE'];
@@ -99,7 +99,7 @@ export default function WorklistPage() {
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
   const [speculumRequest, setSpeculumRequest] = useState<AnapathRequest | null>(null);
   const [techRequest, setTechRequest] = useState<AnapathRequest | null>(null);
-  // Le pathologiste a deux onglets : « Suivre l'examen » (défaut) et
+  // Le pathologiste a deux onglets : « Commencer l'examen » (défaut) et
   // « Examen technique » (identique au fil de travail du technicien).
   const [tab, setTab] = useState<'suivre' | 'technique'>('suivre');
 
@@ -268,7 +268,7 @@ export default function WorklistPage() {
             <p className="text-slate-500 text-sm mt-1">
               {isTechnicien
                 ? "Examens en cours d'examen technique — la validation du compte rendu clôt votre travail et notifie le pathologiste"
-                : "Suivez l'examen demandé pour les prélèvements prêts — la saisie du résultat puis la validation s'effectuent dans l'onglet « Suivre l'examen »"}
+                : "Commencez l'examen demandé pour les prélèvements prêts — la saisie du résultat puis la validation s'effectuent dans l'onglet « Commencer l'examen »"}
             </p>
           </div>
 
@@ -283,7 +283,7 @@ export default function WorklistPage() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Suivre l&apos;examen
+                Commencer l&apos;examen
               </button>
               <button
                 type="button"
@@ -303,7 +303,7 @@ export default function WorklistPage() {
 
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
             <LocalSearchBox value={localQuery} onChange={setLocalQuery} placeholder="Rechercher dans le fil de travail..." />
-            <FilterButton active={hasActiveFilters}>
+            <FilterButton active={hasActiveFilters} count={filterTypes.length + filterUrgences.length + filterStatuts.length}>
               <div className="space-y-4">
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-2">Urgence</p>

@@ -13,31 +13,45 @@ const TYPE_LABELS: Record<string, string> = {
 export interface AnapathSearchable {
   anapathId?: string;
   patientId?: string;
+  episodeId?: string | null;
   typeExamen?: string;
   statut?: string;
   validatedByUserId?: string | null;
   createdAt?: string;
-  prelevement?: { site?: string; description?: string } | null;
+  validatedAt?: string | null;
+  prelevement?: {
+    site?: string;
+    description?: string;
+    clinicalData?: { treatmentType?: string; suspicion?: string; clinicalNotes?: string } | null;
+  } | null;
   resultat?: { conclusion?: string; details?: string } | null;
   patientInfo?: { nomComplet?: string | null; nom?: string | null; prenom?: string | null } | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 function collectSearchableText(req: AnapathSearchable): string {
   const parts = [
     req.anapathId,
     req.patientId,
+    req.episodeId,
     req.typeExamen,
     TYPE_LABELS[req.typeExamen ?? ''],
     req.statut,
     statusLabels[req.statut ?? ''],
     req.validatedByUserId,
+    req.createdAt,
+    req.validatedAt,
     req.prelevement?.site,
     req.prelevement?.description,
+    req.prelevement?.clinicalData?.clinicalNotes,
+    req.prelevement?.clinicalData?.suspicion,
+    req.prelevement?.clinicalData?.treatmentType,
     req.resultat?.conclusion,
     req.resultat?.details,
     req.patientInfo?.nomComplet,
     req.patientInfo?.nom,
     req.patientInfo?.prenom,
+    req.metadata ? JSON.stringify(req.metadata) : '',
   ];
   return parts.filter(Boolean).join(' ').toLowerCase();
 }

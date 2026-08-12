@@ -18,6 +18,7 @@ import { statusLabels } from '@/lib/statusLabels';
 import { getServiceDisplayName } from '@/lib/serviceDisplay';
 import { generateReportPDF, type ReportPdfData } from '@/lib/reportPDF';
 import { getTypeLabel } from '@/lib/generatePDF';
+import { isMajorRole } from '@/lib/roles';
 import { getPrescriptionsRefusees } from '@/lib/api';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -98,8 +99,11 @@ function getDailyVolumeForMonth(data: AnapathRequest[], year: number, month: num
 
 export default function ReportsPage() {
   const { searchQuery } = useSearch();
-  const { isMajor } = useAuth();
-  const canManageAutoReport = isMajor;
+  const { user } = useAuth();
+  // L'importation du rapport (paramétrage du rapport automatique hebdomadaire)
+  // est réservée au major du service ; le chef de service consulte les rapports
+  // mais ne peut pas importer.
+  const canManageAutoReport = isMajorRole(user?.roleName);
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
   const [refusedCount, setRefusedCount] = useState(0);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
@@ -377,7 +381,7 @@ export default function ReportsPage() {
             </span>
 
             <div className="flex items-center gap-3 ml-auto">
-              <FilterButton active={period !== 'week'}>
+              <FilterButton active={period !== 'week'} count={period !== 'week' ? 1 : 0}>
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-2">Période</p>
                   <div className="flex flex-col gap-1.5">

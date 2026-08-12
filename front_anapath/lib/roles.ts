@@ -30,3 +30,13 @@ export function isTechnicienUser(user?: {
 } | null): boolean {
   return isTechnicienRole(user?.roleName, user?.permissions);
 }
+
+/**
+ * Le « major du service » est le SEUL profil autorisé à gérer l'importation du
+ * rapport (rapport automatique hebdomadaire). Détection par le nom du rôle du
+ * JWT (« Major ») : l'heuristique par permissions (isMajorService) détecterait
+ * aussi le chef de service, qui consulte les rapports sans pouvoir importer.
+ */
+export function isMajorRole(roleName?: string | null): boolean {
+  return !!roleName && /major/i.test(roleName);
+}

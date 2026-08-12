@@ -38,8 +38,8 @@ const ALL_NAVIGATION = [
     name: 'Archives',
     href: '/archives',
     icon: 'inventory_2',
-    requiredPermission: PERMISSIONS.ARCHIVE_VIEW,
-    allowedForMajor: false,
+    requiredPermission: PERMISSIONS.READ,
+    allowedForMajor: true,
   },
   {
     name: 'Rapports',
