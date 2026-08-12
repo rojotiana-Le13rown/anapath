@@ -382,7 +382,7 @@ export class AnapathService {
     await this.notificationService.createNotification({
       type: NotificationType.EXAMEN_TECHNIQUE_TERMINE,
       title: `Prêt pour passer l'examen — ${nomPatient}`,
-      message: `${typeExamen} · Service demandeur : ${serviceDemandeur}`,
+      message: `Patient prêt pour l'examen — ${nomPatient} · ${typeExamen} · Service demandeur : ${serviceDemandeur}`,
       priority: 'medium',
       source: 'Anapath',
       metadata: {

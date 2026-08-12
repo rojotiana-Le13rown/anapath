@@ -403,7 +403,7 @@ export default function DemandesPage() {
           </div>
 
           {/* Liste des demandes en attente */}
-          <div className="bg-white rounded-[12px] shadow-sm overflow-hidden border border-slate-200">
+          <div className="bg-white rounded-[12px] shadow-sm overflow-hidden border-2 border-[#00478d] mx-[30px]">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-[#1E293B]">
                 <thead className="bg-[#1E293B] text-[11px] font-bold text-white/90 uppercase">
@@ -416,7 +416,7 @@ export default function DemandesPage() {
                     <th className="p-4 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[#00478d]/40">
                   {filtered.map((n) => {
                     const id = n.id ?? n._id;
                     const urg = getUrgence(n);
@@ -430,7 +430,7 @@ export default function DemandesPage() {
                             ? 'bg-red-50 hover:bg-red-100/60'
                             : urg === 'URGENTE'
                               ? 'bg-orange-50 hover:bg-orange-100/60'
-                              : 'hover:bg-slate-50'
+                              : 'hover:bg-[#00478d]/5'
                         }`}
                       >
                         <td className="p-4">

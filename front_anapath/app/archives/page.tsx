@@ -206,7 +206,7 @@ export default function ArchivesPage() {
             />
           </div>
 
-          <div className="bg-white rounded-[12px] shadow-sm overflow-hidden border border-slate-200">
+          <div className="bg-white rounded-[12px] shadow-sm overflow-hidden border-2 border-[#00478d] mx-[30px]">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-[#1E293B]">
                 <thead className="bg-[#1E293B] text-[11px] font-bold text-white/90 uppercase">
@@ -219,12 +219,12 @@ export default function ArchivesPage() {
                     <th className="p-4 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[#00478d]/40">
                   {filteredRequests.map((req) => (
                     <tr
                       key={req.id}
                       onClick={() => setSelectedRequest(req)}
-                      className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                      className="hover:bg-[#00478d]/5 transition-colors group cursor-pointer"
                     >
                       <td className="p-4 font-medium">{patientDisplayName(req)}</td>
                       <td className="p-4">

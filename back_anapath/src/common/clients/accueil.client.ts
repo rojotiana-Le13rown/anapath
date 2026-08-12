@@ -229,6 +229,9 @@ export class AccueilClient {
 
   buildNomComplet(patient: any): string {
     if (!patient) return '';
+    if (typeof patient.nomComplet === 'string' && patient.nomComplet.trim()) {
+      return patient.nomComplet.trim();
+    }
     const nom = patient.nom ?? '';
     const prenom = patient.prenom ?? '';
     return [nom, prenom].filter(Boolean).join(' ').trim();

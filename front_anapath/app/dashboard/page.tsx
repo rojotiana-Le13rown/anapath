@@ -225,7 +225,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden border border-outline-variant/20">
+            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden border-2 border-[#00478d] mx-[30px]">
               <div className="p-5 border-b border-outline-variant/20 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary bg-primary/10 rounded-full p-1.5 text-lg">history</span>
@@ -239,16 +239,16 @@ export default function DashboardPage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-[#f2f3fb] text-[11px] font-bold text-slate-500 uppercase">
+                  <thead className="bg-[#1E293B] text-[11px] font-bold text-white/90 uppercase">
                     <tr><th className="p-4 text-left">Patient</th><th className="p-4 text-left">Type examen</th><th className="p-4 text-left">Statut</th><th className="p-4 text-left">Date</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-outline-variant/10">
+                  <tbody className="divide-y divide-[#00478d]/40">
                     {filteredRequests.slice(0, 10).map((req) => (
                       <tr
                         key={req.id}
                         className={`transition-colors ${
                           canClickWorklist
-                            ? 'hover:bg-slate-50/80 cursor-pointer'
+                            ? 'hover:bg-[#00478d]/5 cursor-pointer'
                             : 'cursor-default'
                         } ${req.isExtemporane && !isTerminee(req.statut) ? 'bg-red-50' : ''}`}
                         onClick={() => {

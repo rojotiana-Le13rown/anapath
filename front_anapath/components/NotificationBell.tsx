@@ -124,6 +124,13 @@ function getServiceNom(n: any): string {
     ?? '—';
 }
 
+function getMessage(n: any): string {
+  return n.message
+    ?? n.enriched?.message
+    ?? n.metadata?.message
+    ?? '';
+}
+
 function getPatientId(n: any): string {
   return n.enriched?.patientId
     ?? n.metadata?.patientId
@@ -810,6 +817,14 @@ export default function NotificationBell() {
                           font-medium">
                           📍 {svc}
                         </p>
+
+                        {getMessage(n) && (
+                          <p className="text-xs
+                            text-slate-700 mt-1
+                            leading-snug">
+                            {getMessage(n)}
+                          </p>
+                        )}
 
                       </div>
 
