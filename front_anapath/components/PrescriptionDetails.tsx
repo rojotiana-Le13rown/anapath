@@ -59,6 +59,113 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Champs cliniques par type d'examen : libellés et ordre exacts du service Prescription.
+ *  Clés de lecture : préfixées (fcv, cyto, liq, bio, ext) puis champs plats du DTO. */
+const TYPE_FIELDS: Record<string, { label: string; keys: string[] }[]> = {
+  FCV_PAP: [
+    { label: 'GPA', keys: ['fcvGPA', 'gpa'] },
+    { label: 'DDR', keys: ['fcvDDR', 'ddr'] },
+    { label: 'Ménopause', keys: ['fcvMeno', 'menopause'] },
+    { label: 'Ménarche', keys: ['fcvMenarche', 'menarche'] },
+    { label: 'Rapports', keys: ['fcvRapport', 'rapport'] },
+    { label: 'Contraception', keys: ['fcvContraception', 'contraception'] },
+    { label: 'Traitement', keys: ['fcvTraitement', 'traitement'] },
+    { label: 'ATCD', keys: ['fcvAtcd', 'atcd'] },
+    { label: 'Méthode', keys: ['fcvMethode', 'methode'] },
+    { label: 'État du col', keys: ['etat_col'] },
+    { label: 'Résultat du dernier frottis / PAP', keys: ['papResultat', 'fcvPapRes', 'papRes'] },
+    { label: 'Date PAP', keys: ['fcvPapDate', 'papDate'] },
+    { label: 'Nb PAP', keys: ['fcvPapNb', 'papNb'] },
+    { label: 'Lieu PAP', keys: ['fcvPapLieu', 'papLieu'] },
+    { label: 'Note', keys: ['fcvNote'] },
+  ],
+  CYT0PONCTION: [
+    { label: 'Organe', keys: ['cytoOrgane', 'organe'] },
+    { label: 'Siège', keys: ['cytoSiege', 'siege'] },
+    { label: 'Fixateur', keys: ['cytoFix', 'fixateur'] },
+    { label: 'Fixateur (autre)', keys: ['cytoFixAutre', 'fixateurAutre'] },
+    { label: 'Note', keys: ['cytoNotes'] },
+  ],
+  LIQUIDE: [
+    { label: 'Nature du liquide', keys: ['liqNat', 'type_liquide', 'nature', 'bioNature'] },
+    { label: 'Unité', keys: ['liqUnite', 'unite'] },
+    { label: 'Volume (ml)', keys: ['liqVolume', 'volume'] },
+    { label: 'Nature (autre)', keys: ['liqNatAutre', 'natureAutre'] },
+    { label: 'Note', keys: ['liqNotes'] },
+  ],
+  BIOPSIE: [
+    { label: 'Organe', keys: ['bioOrgane', 'organe'] },
+    { label: 'Localisation', keys: ['bioLocalisation', 'localisation'] },
+    { label: 'Nature', keys: ['bioNature', 'nature'] },
+    { label: 'Nature (autre)', keys: ['bioNatureAutre', 'natureAutre'] },
+    { label: 'Examen antérieur', keys: ['bioExamAnt', 'examAnt'] },
+    { label: 'Résultat antérieur', keys: ['bioResAnt', 'resAnt'] },
+    { label: 'GPA', keys: ['bioGPA', 'gpa'] },
+    { label: 'DDR', keys: ['bioDDR', 'ddr'] },
+    { label: 'Ménopause', keys: ['bioMeno', 'menopause'] },
+    { label: 'ATCD', keys: ['bioAtcd', 'atcd'] },
+    { label: 'Date prélèvement', keys: ['bioDatePrelev', 'datePrelev'] },
+    { label: 'Fixateur', keys: ['bioFixateur', 'fixateur'] },
+    { label: 'Suspicion', keys: ['bioSuspicion', 'suspicion'] },
+    { label: 'Prélèvement fait à', keys: ['bioFaitA', 'faitA'] },
+    { label: 'Prélèvement fait le', keys: ['bioFaitLe', 'faitLe'] },
+    { label: 'Note', keys: ['bioNote'] },
+  ],
+  POS: [
+    { label: 'Organe', keys: ['bioOrgane', 'organe'] },
+    { label: 'Localisation', keys: ['bioLocalisation', 'localisation'] },
+    { label: 'Nature', keys: ['bioNature', 'nature'] },
+    { label: 'Nature (autre)', keys: ['bioNatureAutre', 'natureAutre'] },
+    { label: 'Examen antérieur', keys: ['bioExamAnt', 'examAnt'] },
+    { label: 'Résultat antérieur', keys: ['bioResAnt', 'resAnt'] },
+    { label: 'GPA', keys: ['bioGPA', 'gpa'] },
+    { label: 'DDR', keys: ['bioDDR', 'ddr'] },
+    { label: 'Ménopause', keys: ['bioMeno', 'menopause'] },
+    { label: 'ATCD', keys: ['bioAtcd', 'atcd'] },
+    { label: 'Date prélèvement', keys: ['bioDatePrelev', 'datePrelev'] },
+    { label: 'Fixateur', keys: ['bioFixateur', 'fixateur'] },
+    { label: 'Suspicion', keys: ['bioSuspicion', 'suspicion'] },
+    { label: 'Prélèvement fait à', keys: ['bioFaitA', 'faitA'] },
+    { label: 'Prélèvement fait le', keys: ['bioFaitLe', 'faitLe'] },
+    { label: 'Note', keys: ['bioNote'] },
+  ],
+  POC: [
+    { label: 'Organe', keys: ['bioOrgane', 'organe'] },
+    { label: 'Localisation', keys: ['bioLocalisation', 'localisation'] },
+    { label: 'Nature', keys: ['bioNature', 'nature'] },
+    { label: 'Nature (autre)', keys: ['bioNatureAutre', 'natureAutre'] },
+    { label: 'Examen antérieur', keys: ['bioExamAnt', 'examAnt'] },
+    { label: 'Résultat antérieur', keys: ['bioResAnt', 'resAnt'] },
+    { label: 'GPA', keys: ['bioGPA', 'gpa'] },
+    { label: 'DDR', keys: ['bioDDR', 'ddr'] },
+    { label: 'Ménopause', keys: ['bioMeno', 'menopause'] },
+    { label: 'ATCD', keys: ['bioAtcd', 'atcd'] },
+    { label: 'Date prélèvement', keys: ['bioDatePrelev', 'datePrelev'] },
+    { label: 'Fixateur', keys: ['bioFixateur', 'fixateur'] },
+    { label: 'Suspicion', keys: ['bioSuspicion', 'suspicion'] },
+    { label: 'Prélèvement fait à', keys: ['bioFaitA', 'faitA'] },
+    { label: 'Prélèvement fait le', keys: ['bioFaitLe', 'faitLe'] },
+    { label: 'Note', keys: ['bioNote'] },
+  ],
+  EXTEMPORANE_STAT: [
+    { label: 'Chirurgien', keys: ['extChirurgien', 'chirurgien'] },
+    { label: 'Intervention', keys: ['extIntervention', 'intervention'] },
+    { label: 'Organe', keys: ['extOrgane', 'organe'] },
+    { label: 'Question posée', keys: ['extQuestion', 'question'] },
+    { label: 'Date prévue', keys: ['extDatePrevue', 'datePrevue'] },
+    { label: 'Heure', keys: ['extHeure', 'heure'] },
+    { label: 'Nature du prélèvement', keys: ['extNature', 'nature'] },
+    { label: 'Urgence chirurgicale', keys: ['urgence_chirurgicale'] },
+    { label: 'Note', keys: ['extNote'] },
+  ],
+};
+
+function clinicalFields(request: PrescriptionRequest): { label: string; value: string }[] {
+  return (TYPE_FIELDS[request.typeExamen] ?? [])
+    .map((field) => ({ label: field.label, value: val(request, field.keys) }))
+    .filter((field) => field.value !== '');
+}
+
 /** Détails d'une prescription (identité patient, type d'examen, motif, infos cliniques par type). */
 export default function PrescriptionDetails({ request, patient, patientLoading, historiqueButton }: PrescriptionDetailsProps) {
   const suspicion = getSuspicion(request);
@@ -156,76 +263,11 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
               <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Informations cliniques</h5>
             </div>
 
-            {request.typeExamen === 'FCV_PAP' && (
+            {clinicalFields(request).length > 0 && (
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field label="GPA" value={val(request, ['fcvGPA', 'gpa'])} />
-                <Field label="DDR" value={val(request, ['fcvDDR', 'ddr'])} />
-                <Field label="Ménopause" value={val(request, ['fcvMeno', 'menopause'])} />
-                <Field label="Ménarche" value={val(request, ['fcvMenarche', 'menarche'])} />
-                <Field label="Rapports" value={val(request, ['rapport'])} />
-                <Field label="Contraception" value={val(request, ['contraception'])} />
-                <Field label="Traitement" value={val(request, ['traitement'])} />
-                <Field label="ATCD" value={val(request, ['bioAtcd', 'atcd'])} />
-                <Field label="Méthode" value={val(request, ['methode'])} />
-                <Field label="État du col" value={val(request, ['etat_col'])} />
-                <Field label="Dernier PAP" value={val(request, ['papResultat', 'papRes'])} />
-                <Field label="Date PAP" value={val(request, ['papDate'])} />
-                <Field label="Nb PAP" value={val(request, ['papNb'])} />
-                <Field label="Lieu PAP" value={val(request, ['papLieu'])} />
-                <Field label="Notes" value={val(request, ['bioNote', 'note'])} />
-              </div>
-            )}
-
-            {request.typeExamen === 'CYT0PONCTION' && (
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field label="Siège" value={val(request, ['siege'])} />
-                <Field label="Organe" value={val(request, ['organe', 'bioOrgane'])} />
-                <Field label="Fixateur" value={val(request, ['fixateur', 'bioFixateur'])} />
-                <Field label="Fixateur (autre)" value={val(request, ['fixateurAutre'])} />
-                <Field label="Notes" value={val(request, ['bioNote', 'note'])} />
-              </div>
-            )}
-
-            {request.typeExamen === 'LIQUIDE' && (
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field label="Nature du liquide" value={val(request, ['type_liquide', 'nature', 'bioNature'])} />
-                <Field label="Unité" value={val(request, ['unite'])} />
-                <Field label="Volume (ml)" value={val(request, ['volume'])} />
-                <Field label="Nature (autre)" value={val(request, ['natureAutre'])} />
-                <Field label="Notes" value={val(request, ['bioNote', 'note'])} />
-              </div>
-            )}
-
-            {(request.typeExamen === 'BIOPSIE' || request.typeExamen === 'POS' || request.typeExamen === 'POC') && (
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field label="GPA" value={val(request, ['bioGPA', 'gpa'])} />
-                <Field label="DDR" value={val(request, ['bioDDR', 'ddr'])} />
-                <Field label="ATCD" value={val(request, ['bioAtcd', 'atcd'])} />
-                <Field label="Ménopause" value={val(request, ['bioMeno', 'menopause'])} />
-                <Field label="Organe" value={val(request, ['bioOrgane', 'organe'])} />
-                <Field label="Localisation" value={val(request, ['bioLocalisation', 'localisation'])} />
-                <Field label="Nature" value={val(request, ['bioNature', 'nature'])} />
-                <Field label="Nature (autre)" value={val(request, ['natureAutre'])} />
-                <Field label="Fixateur" value={val(request, ['bioFixateur', 'fixateur'])} />
-                <Field label="Suspicion" value={val(request, ['bioSuspicion', 'suspicion'])} />
-                <Field label="Examen antérieur" value={val(request, ['bioExamAnt', 'examAnt'])} />
-                <Field label="Résultat antérieur" value={val(request, ['bioResAnt', 'resAnt'])} />
-                <Field label="Date prélèvement" value={val(request, ['bioDatePrelev', 'datePrelev'])} />
-                <Field label="Prélèvement fait à" value={val(request, ['bioFaitA', 'faitA'])} />
-                <Field label="Prélèvement fait le" value={val(request, ['bioFaitLe', 'faitLe'])} />
-              </div>
-            )}
-
-            {request.typeExamen === 'EXTEMPORANE_STAT' && (
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field label="Chirurgien" value={val(request, ['chirurgien'])} />
-                <Field label="Intervention" value={val(request, ['intervention'])} />
-                <Field label="Organe" value={val(request, ['organe', 'bioOrgane'])} />
-                <Field label="Nature" value={val(request, ['bioNature', 'nature'])} />
-                <Field label="Question posée" value={val(request, ['question'])} />
-                <Field label="Urgence chirurgicale" value={val(request, ['urgence_chirurgicale'])} />
-                <Field label="Date prévue" value={val(request, ['extDatePrevue', 'datePrevue'])} />
-                <Field label="Heure" value={val(request, ['heure'])} />
+                {clinicalFields(request).map((field) => (
+                  <Field key={field.label} label={field.label} value={field.value} />
+                ))}
               </div>
             )}
           </div>
