@@ -106,6 +106,12 @@ function formatDate(iso: string): string {
   }
 }
 
+/** Libellé du type d'examen tel qu'affiché dans le modèle CHU (tableaux 1 et 2). */
+export function getExamenLabel(typeExamen: string): string {
+  const row = ACTIVITE_ROWS.find((r) => r.types.includes(typeExamen));
+  return row?.label ?? typeExamen;
+}
+
 /** Construit les lignes du tableau 1 pour une période donnée. */
 export function buildTableau1(requests: MajorRequest[]): Tableau1Row[] {
   return ACTIVITE_ROWS.map((row) => {
@@ -153,7 +159,7 @@ export function buildTableau2(requests: MajorRequest[]): Tableau2Row[] {
         age: info.age != null ? String(info.age) : '',
         sexe: formatSexe(info.sexe),
         dateReception: formatDate(r.createdAt),
-        examen: '',
+        examen: getExamenLabel(r.typeExamen),
         resultatsPathologiques: '',
         resultatsEnCours: '',
         observation: '',
@@ -210,30 +216,153 @@ export function tableau2Grid(rows: Tableau2Row[]): string[][] {
   return grid;
 }
 
-/** Exporte le rapport (2 tableaux) en fichier Excel (.xlsx). */
+/**
+ * Exporte le rapport (2 tableaux) en fichier Excel (.xlsx), stylé comme le PDF
+ * (titre, volets, en-têtes colorés, bordures) et entièrement modifiable ensuite.
+ */
 export async function exportMajorReportExcel(
   requests: MajorRequest[],
   periodeLabel: string,
 ): Promise<void> {
-  const XLSX = await import('xlsx');
-  const ws1 = XLSX.utils.aoa_to_sheet(tableau1Grid(buildTableau1(requests)));
-  ws1['!cols'] = [
-    { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 6 },
-    { wch: 10 }, { wch: 24 }, { wch: 18 }, { wch: 12 },
-  ];
-  const ws2 = XLSX.utils.aoa_to_sheet(tableau2Grid(buildTableau2(requests)));
-  ws2['!cols'] = [
-    { wch: 14 }, { wch: 10 }, { wch: 28 }, { wch: 9 },
-    { wch: 6 }, { wch: 16 }, { wch: 26 }, { wch: 20 },
-    { wch: 16 }, { wch: 24 },
-  ];
+  const mod = await import('exceljs');
+  const ExcelJS = (mod as any).default ?? mod;
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, 'VOLET ACTIVITÉ');
-  XLSX.utils.book_append_sheet(wb, ws2, 'PRISE EN CHARGE');
+  const t1 = buildTableau1(requests);
+  const t2 = buildTableau2(requests);
+  const total = tableau1Total(t1);
+
+  const FONT = 'Times New Roman';
+  const BORDER: any = {
+    top: { style: 'thin', color: { argb: 'FF8C8C8C' } },
+    left: { style: 'thin', color: { argb: 'FF8C8C8C' } },
+    bottom: { style: 'thin', color: { argb: 'FF8C8C8C' } },
+    right: { style: 'thin', color: { argb: 'FF8C8C8C' } },
+  };
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Service d’Anatomie et Cytologie Pathologiques';
+  workbook.created = new Date();
+  const ws = workbook.addWorksheet('Rapport hebdomadaire');
+
+  [32, 13, 26, 9, 11, 21, 18, 14, 16, 20].forEach((w, i) => {
+    ws.getColumn(i + 1).width = w;
+  });
+
+  // Titre
+  ws.mergeCells('A1:H1');
+  const title = ws.getCell('A1');
+  title.value = 'RAPPORT HEBDOMADAIRE DU SERVICE ANATOMIE ET CYTOLOGIE PATHOLOGIQUES';
+  title.font = { name: FONT, size: 14, bold: true };
+  title.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getRow(1).height = 26;
+
+  ws.mergeCells('A2:H2');
+  const sub = ws.getCell('A2');
+  sub.value = 'CHU Andrainjato Fianarantsoa';
+  sub.font = { name: FONT, size: 11 };
+  sub.alignment = { horizontal: 'center' };
+
+  ws.mergeCells('A3:H3');
+  const dateCell = ws.getCell('A3');
+  dateCell.value = `DATE : ${periodeLabel}`;
+  dateCell.font = { name: FONT, size: 11, bold: true };
+  dateCell.alignment = { horizontal: 'center' };
+
+  /** Applique le style d'une ligne de grille (en-tête, données ou TOTAL). */
+  const writeGrid = (
+    grid: string[][],
+    nbCols: number,
+    centerCols: number[],
+  ) => {
+    grid.forEach((rowArr, idx) => {
+      const row = ws.addRow(rowArr);
+      const isHeader = idx === 0;
+      const isTotal = idx === grid.length - 1;
+      row.eachCell((cell: any) => {
+        cell.border = BORDER;
+        cell.font = { name: FONT, size: 10, bold: isHeader || isTotal };
+        const col = cell.col;
+        cell.alignment = {
+          horizontal: centerCols.includes(col) ? 'center' : 'left',
+          vertical: 'middle',
+          wrapText: true,
+        };
+        if (isHeader) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE8EDF5' },
+          };
+        } else if (isTotal) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF2F2F2' },
+          };
+        }
+      });
+      row.height = isHeader ? 24 : 18;
+    });
+  };
+
+  const sectionTitle = (text: string, nbCols: number) => {
+    const r = ws.rowCount + 1;
+    ws.mergeCells(r, 1, r, nbCols);
+    const cell = ws.getCell(r, 1);
+    cell.value = text;
+    cell.font = { name: FONT, size: 12, bold: true };
+    return r;
+  };
+
+  const mutedNote = (text: string, nbCols: number) => {
+    const r = ws.rowCount + 1;
+    ws.mergeCells(r, 1, r, nbCols);
+    const cell = ws.getCell(r, 1);
+    cell.value = text;
+    cell.font = { name: FONT, size: 9, italic: true, color: { argb: 'FF808080' } };
+    return r;
+  };
+
+  // ===== VOLET ACTIVITÉ =====
+  sectionTitle('VOLET ACTIVITÉ', 8);
+  writeGrid(tableau1Grid(t1), 8, [2, 3, 4, 5, 6, 7, 8]);
+  mutedNote(
+    `TOTAL (auto) : PEC = ${total.pec} · RÉSULTATS EN COURS = ${total.enCours}. ` +
+      'Les colonnes vides (EXTERNE, HOSP, DÉMUNI, POSITIFS, RECETTE DAAF) sont à compléter par le major.',
+    8,
+  );
+
+  // ===== PRISE EN CHARGE =====
+  sectionTitle('PRISE EN CHARGE (PIVOT, ASSOCIATION MANAMPY…….)', 10);
+  writeGrid(tableau2Grid(t2), 10, [2, 4, 5, 6]);
+  mutedNote(
+    'Patients de la période. Colonnes vides à compléter par le major (SERVICE, N°/NOMBRE, RÉSULTATS, OBSERVATION).',
+    10,
+  );
+
+  // Pied de page (même mention que le PDF)
+  const footRow = ws.rowCount + 2;
+  ws.mergeCells(footRow, 1, footRow, 10);
+  const foot = ws.getCell(footRow, 1);
+  foot.value =
+    `Document généré le ${new Date().toLocaleString('fr-FR', { hour12: false })}` +
+    " — Service d'Anatomie et Cytologie Pathologiques — CHU Andrainjato";
+  foot.font = { name: FONT, size: 8, color: { argb: 'FF808080' } };
+  foot.alignment = { horizontal: 'center' };
 
   const safe = periodeLabel.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-');
-  XLSX.writeFile(wb, `Rapport-ANAPATH-${safe}.xlsx`);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Rapport-ANAPATH-${safe}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /** Exporte le rapport (2 tableaux) en PDF (modèle CHU). */
@@ -301,7 +430,7 @@ th{background:#e8edf5;font-weight:bold;}
     <thead><tr>${PRISE_EN_CHARGE_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
     <tbody>${t2Rows}</tbody>
   </table>
-  <div class="muted">Patients de la période. Colonnes vides à compléter par le major (SERVICE, N°/NOMBRE, EXAMEN, RÉSULTATS, OBSERVATION).</div>
+  <div class="muted">Patients de la période. Colonnes vides à compléter par le major (SERVICE, N°/NOMBRE, RÉSULTATS, OBSERVATION).</div>
 
   <div style="margin-top:16px;text-align:center;font-size:8px;color:#666;border-top:1px solid #ccc;padding-top:6px;">
     Document généré le ${escapeHtml(new Date().toLocaleString('fr-FR', { hour12: false }))}
