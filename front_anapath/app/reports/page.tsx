@@ -365,8 +365,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-transparent text-[#191c21]">
-      <div className="fixed inset-0 grain-overlay z-[60] pointer-events-none"></div>
+    <div className="flex min-h-screen bg-[#F8FAFC] text-[#191c21]">
       <Sidebar />
 
       <main className="flex-1 ml-64 min-h-screen flex flex-col w-[calc(100%-256px)]">
@@ -381,25 +380,22 @@ export default function ReportsPage() {
             </span>
 
             <div className="flex items-center gap-3 ml-auto">
-              <FilterButton active={period !== 'week'} count={period !== 'week' ? 1 : 0}>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">Période</p>
-                  <div className="flex flex-col gap-1.5">
-                    {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPeriod(p)}
-                        className={`text-left px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                          period === p ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {PERIOD_LABELS[p]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </FilterButton>
+              <FilterButton
+                activeCount={period !== 'week' ? 1 : 0}
+                sections={[
+                  {
+                    key: 'period',
+                    label: 'Période',
+                    placeholder: 'Toutes les périodes',
+                    options: (Object.keys(PERIOD_LABELS) as Period[]).map((p) => ({
+                      value: p,
+                      label: PERIOD_LABELS[p],
+                    })),
+                    value: [period],
+                    onChange: (v) => setPeriod(v[0] ? (v[0] as Period) : 'week'),
+                  },
+                ]}
+              />
               <button
                 type="button"
                 onClick={() => setShowCustomReportModal(true)}

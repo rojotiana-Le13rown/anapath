@@ -121,10 +121,6 @@ const URGENCE_OPTIONS: Record<UrgenceLevel, string> = {
   NORMALE: 'Normal',
 };
 
-function toggleValue<T>(arr: T[], v: T): T[] {
-  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
-}
-
 export default function DemandesPage() {
   const { searchQuery } = useSearch();
   const toast = useToast();
@@ -233,12 +229,6 @@ export default function DemandesPage() {
       .toLowerCase()
       .includes(q);
 
-  const hasActiveFilters = filterUrgences.length > 0 || filterTypes.length > 0;
-  const resetFilters = () => {
-    setFilterUrgences([]);
-    setFilterTypes([]);
-  };
-
   const filtered = useMemo(() => {
     let result = pendingList;
     const q = searchQuery.trim().toLowerCase();
@@ -314,8 +304,7 @@ export default function DemandesPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-transparent text-[#191c21]">
-      <div className="fixed inset-0 grain-overlay z-[60] pointer-events-none"></div>
+    <div className="flex min-h-screen bg-[#F8FAFC] text-[#191c21]">
       <Sidebar />
       <main className="flex-1 ml-64 min-h-screen flex flex-col w-[calc(100%-256px)]">
         <TopBar />
@@ -387,60 +376,37 @@ export default function DemandesPage() {
               onChange={setLocalQuery}
               placeholder="Rechercher dans les nouvelles demandes..."
             />
-            <FilterButton active={hasActiveFilters} count={filterUrgences.length + filterTypes.length}>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">Urgence</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.keys(URGENCE_OPTIONS) as UrgenceLevel[]).map((lvl) => (
-                      <button
-                        key={lvl}
-                        type="button"
-                        onClick={() => setFilterUrgences(toggleValue(filterUrgences, lvl))}
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                          filterUrgences.includes(lvl)
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-slate-50 text-slate-600 border-outline-variant/30 hover:bg-slate-100'
-                        }`}
-                      >
-                        {URGENCE_OPTIONS[lvl]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">Type d&apos;examen</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(TYPE_OPTIONS).map(([code, label]) => (
-                      <button
-                        key={code}
-                        type="button"
-                        onClick={() => setFilterTypes(toggleValue(filterTypes, code))}
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                          filterTypes.includes(code)
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-slate-50 text-slate-600 border-outline-variant/30 hover:bg-slate-100'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {hasActiveFilters && (
-                  <button type="button" onClick={resetFilters} className="text-xs text-primary font-semibold hover:underline">
-                    Réinitialiser les filtres
-                  </button>
-                )}
-              </div>
-            </FilterButton>
+            <FilterButton
+              sections={[
+                {
+                  key: 'urgence',
+                  label: 'Urgence',
+                  placeholder: 'Toutes les urgences',
+                  options: (Object.keys(URGENCE_OPTIONS) as UrgenceLevel[]).map((lvl) => ({
+                    value: lvl,
+                    label: URGENCE_OPTIONS[lvl],
+                  })),
+                  value: filterUrgences,
+                  onChange: (v) => setFilterUrgences(v as UrgenceLevel[]),
+                },
+                {
+                  key: 'type',
+                  label: "Type d'examen",
+                  placeholder: 'Tous les examens',
+                  multiple: true,
+                  options: Object.entries(TYPE_OPTIONS).map(([code, label]) => ({ value: code, label })),
+                  value: filterTypes,
+                  onChange: setFilterTypes,
+                },
+              ]}
+            />
           </div>
 
           {/* Liste des demandes en attente */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-outline-variant/20">
+          <div className="bg-white rounded-[12px] shadow-sm overflow-hidden border border-slate-200">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gradient-to-r from-[#00284d] to-[#00478d] text-[11px] font-bold text-white/90 uppercase">
+              <table className="w-full text-sm text-[#1E293B]">
+                <thead className="bg-[#1E293B] text-[11px] font-bold text-white/90 uppercase">
                   <tr>
                     <th className="p-4 text-left">Patient</th>
                     <th className="p-4 text-left">Type examen</th>
@@ -450,8 +416,8 @@ export default function DemandesPage() {
                     <th className="p-4 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-outline-variant/10">
-                  {filtered.map((n, i) => {
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.map((n) => {
                     const id = n.id ?? n._id;
                     const urg = getUrgence(n);
                     const busy = busyId === id;
@@ -459,17 +425,16 @@ export default function DemandesPage() {
                       <tr
                         key={id}
                         onClick={() => openDetail(n)}
-                        className={`card-rise cursor-pointer transition-colors ${
+                        className={`cursor-pointer transition-colors ${
                           urg === 'STAT' || urg === 'TRES_URGENT'
-                            ? 'bg-red-50/60'
+                            ? 'bg-red-50 hover:bg-red-100/60'
                             : urg === 'URGENTE'
-                            ? 'bg-orange-50/60'
-                            : 'hover:bg-[#00478d]/[0.03]'
+                              ? 'bg-orange-50 hover:bg-orange-100/60'
+                              : 'hover:bg-slate-50'
                         }`}
-                        style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
                       >
                         <td className="p-4">
-                          <p className="font-medium text-[#191c21]">
+                          <p className="font-medium text-[#1E293B]">
                             {getPatientName(n) || '—'}
                           </p>
                         </td>
