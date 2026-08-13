@@ -241,6 +241,24 @@ export default function ReportsPage() {
     .filter((req) => isDateInWeek(req.createdAt, weekStart))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  // Variation hebdomadaire réelle du total d'examens (semaine en cours vs
+  // semaine précédente) pour le badge « Total examens ».
+  const prevWeekStart = new Date(weekStart);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+  const currentWeekCount = weeklyRequests.length;
+  const prevWeekCount = requests.filter((req) => isDateInWeek(req.createdAt, prevWeekStart)).length;
+  const weekChangePct = prevWeekCount === 0
+    ? (currentWeekCount > 0 ? 100 : 0)
+    : Math.round(((currentWeekCount - prevWeekCount) / prevWeekCount) * 100);
+  const weekChangeBadgeClass = weekChangePct > 0
+    ? 'text-emerald-600 bg-emerald-50'
+    : weekChangePct < 0
+      ? 'text-red-600 bg-red-50'
+      : 'text-slate-500 bg-slate-100';
+  const weekChangeBadgeText = weekChangePct > 0
+    ? `+${weekChangePct}% cette semaine`
+    : `${weekChangePct}% cette semaine`;
+
   const weeklyValidated = weeklyRequests.filter((r) => r.statut === 'VALIDE');
   const weeklyPending = weeklyRequests.filter((r) => PENDING_STATUSES.includes(r.statut));
   let weeklyAvgDelay = 0;
@@ -499,7 +517,7 @@ export default function ReportsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
             <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20">
-              <div className="flex justify-between items-start mb-2"><span className="material-symbols-outlined text-primary text-2xl">analytics</span><span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+{Math.floor(Math.random() * 20)}%</span></div>
+              <div className="flex justify-between items-start mb-2"><span className="material-symbols-outlined text-primary text-2xl">analytics</span><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${weekChangeBadgeClass}`}>{weekChangeBadgeText}</span></div>
               <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total examens</p><p className="text-3xl font-extrabold text-primary">{stats.total}</p>
             </div>
             <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20">
