@@ -10,7 +10,8 @@ import ExamenSpeculumForm from '@/components/ExamenSpeculumForm';
 import ExamenTechniqueForm from '@/components/ExamenTechniqueForm';
 import DiagnosticCytoponctionForm from '@/components/DiagnosticCytoponctionForm';
 import PatientHistoriqueButton, { type HistoriqueEntry } from '@/components/PatientHistoriqueButton';
-import VoiceInputButton from '@/components/VoiceInputButton';
+import VoiceRecorder from '@/components/VoiceRecorder';
+import { appendFinalSegment } from '@/lib/formatTranscript';
 import { PatientInfo } from '@/components/PatientIdentitySection';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/components/ToastContext';
@@ -593,14 +594,16 @@ export default function WorklistDetailPage() {
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">RÉSULTAT : <span className="text-red-500">*</span></p>
                         {canWrite && (
-                          <VoiceInputButton
-                            onResult={(text) =>
+                          <VoiceRecorder
+                            hideTextArea
+                            statusIdleText="Dicter (transcription vocale)"
+                            onTranscriptChange={(data) => setInterimDetails(data.interim ?? '')}
+                            onFinalTranscript={(text, meta) =>
                               setResultData((prev) => ({
                                 ...prev,
-                                details: prev.details.trim() ? `${prev.details} ${text}` : text,
+                                details: appendFinalSegment(prev.details, text, meta?.startsAfterPause ?? false),
                               }))
                             }
-                            onInterim={(t) => setInterimDetails(t ?? '')}
                           />
                         )}
                       </div>
@@ -622,14 +625,16 @@ export default function WorklistDetailPage() {
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">CONCLUSION : <span className="text-red-500">*</span></p>
                         {canWrite && (
-                          <VoiceInputButton
-                            onResult={(text) =>
+                          <VoiceRecorder
+                            hideTextArea
+                            statusIdleText="Dicter (transcription vocale)"
+                            onTranscriptChange={(data) => setInterimConclusion(data.interim ?? '')}
+                            onFinalTranscript={(text, meta) =>
                               setResultData((prev) => ({
                                 ...prev,
-                                conclusion: prev.conclusion.trim() ? `${prev.conclusion} ${text}` : text,
+                                conclusion: appendFinalSegment(prev.conclusion, text, meta?.startsAfterPause ?? false),
                               }))
                             }
-                            onInterim={(t) => setInterimConclusion(t ?? '')}
                           />
                         )}
                       </div>
@@ -812,9 +817,17 @@ export default function WorklistDetailPage() {
             </div>
             <div className="p-4 overflow-y-auto">
               <div className="flex justify-end mb-2">
-                <VoiceInputButton
-                  onResult={(text) => updateNoteText(noteText.trim() ? `${noteText} ${text}` : text)}
-                  onInterim={(t) => setNoteInterim(t ?? '')}
+                <VoiceRecorder
+                  hideTextArea
+                  statusIdleText="Dicter votre brouillon"
+                  onTranscriptChange={(data) => setNoteInterim(data.interim ?? '')}
+                  onFinalTranscript={(text, meta) => {
+                    setNoteText((prev) => {
+                      const next = appendFinalSegment(prev, text, meta?.startsAfterPause ?? false);
+                      if (request) localStorage.setItem(`anapath_note_${request.id}`, next);
+                      return next;
+                    });
+                  }}
                 />
               </div>
               <textarea
