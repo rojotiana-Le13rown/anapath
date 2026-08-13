@@ -61,13 +61,16 @@ export default function VoiceRecorder({ onTranscriptChange, onFinalTranscript, o
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
 
-      // MediaRecorder
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      // MediaRecorder — on sélectionne un conteneur réellement supporté par le
+      // navigateur (webm sur Chromium, sinon le défaut) pour éviter NotSupportedError.
+      const webmSupported =
+        typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm');
+      const mr = new MediaRecorder(stream, webmSupported ? { mimeType: 'audio/webm' } : undefined);
       mr.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
       };
       mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, { type: webmSupported ? "audio/webm" : "" });
         chunksRef.current = [];
         onAudio?.(blob);
       };
@@ -125,7 +128,10 @@ export default function VoiceRecorder({ onTranscriptChange, onFinalTranscript, o
         }
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
+        // « no-speech » survient après un silence — pas une vraie erreur, onend
+        // va suivre. « aborted » = arrêt volontaire. On ignore les deux.
+        if (event?.error === 'no-speech' || event?.error === 'aborted') return;
         setStatus("error");
       };
 

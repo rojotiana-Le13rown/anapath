@@ -706,7 +706,7 @@ export class AnapathService {
       await this.notificationService.createNotification({
         type: NotificationType.NOUVELLE_PRESCRIPTION,
         title: `Nouvelle prescription — ${demande.typeExamen}`,
-        message: `Patient ${prescription.patientId} — ${prescription.urgence ?? 'NORMALE'}`,
+        message: '',
         priority: prescription.urgence === 'TRES_URGENT' ? 'high' : 'medium',
         source: 'prescription-pull',
         metadata: this.buildPendingMetadata(prescription, demande, chuNom, serviceNom, prescripteurNom),
