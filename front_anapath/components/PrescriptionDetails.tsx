@@ -3,11 +3,11 @@
 import PatientIdentitySection, { PatientInfo } from '@/components/PatientIdentitySection';
 import { formatDateLong } from '@/lib/dateFormat';
 import {
-  getClinicalNotes,
-  rawDataOf,
-  detailsOf,
-  type PrescriptionLike,
-} from '@/lib/prescriptionFields';
+  contentEntriesOf,
+  siteOf,
+  type FieldEntry,
+} from '@/lib/prescriptionContent';
+import { type PrescriptionLike } from '@/lib/prescriptionFields';
 
 interface PrescriptionRequest extends PrescriptionLike {
   typeExamen: string;
@@ -20,16 +20,6 @@ interface PrescriptionDetailsProps {
   patient: PatientInfo | null;
   patientLoading?: boolean;
   historiqueButton?: React.ReactNode;
-}
-
-/** Motif lisible : priorité aux renseignements cliniques réellement reçus (payload stocké),
- *  repli sur la description dérivée au moment de l'acceptation. */
-function motif(request: PrescriptionRequest): string {
-  const clinicalNotes = getClinicalNotes(request);
-  if (clinicalNotes) return clinicalNotes;
-  const description = request.prelevement?.description;
-  if (description && !description.startsWith('{')) return description;
-  return 'Non renseigné';
 }
 
 function display(value: string): string {
@@ -45,32 +35,31 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Affiche dynamiquement chaque champ réellement reçu du service Prescription
- *  (metadata.rawData et son bag details) — clé par clé, sans libellé en dur :
- *  l'affichage reflète exactement l'objet stocké, quel que soit le type d'examen. */
-function StoredFields({ request }: { request: PrescriptionRequest }) {
-  const raw = rawDataOf(request);
-  const details = detailsOf(raw);
-  const entries: { key: string; value: string }[] = [];
-  const add = (key: string, value: unknown) => {
-    if (value === null || value === undefined) return;
-    if (typeof value === 'boolean') entries.push({ key, value: value ? 'Oui' : 'Non' });
-    else if (typeof value === 'number') entries.push({ key, value: String(value) });
-    else if (typeof value === 'string' && value.trim()) entries.push({ key, value: value.trim() });
-  };
-  for (const [key, value] of Object.entries(details)) add(key, value);
-  for (const [key, value] of Object.entries(raw)) {
-    if (key === 'details') continue;
-    add(key, value);
-  }
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <div className="col-span-full mt-1">
+      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-outline-variant/40 pb-1">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+/** Contenu de la prescription affiché dans l'ordre du formulaire du service
+ *  Prescription, avec les libellés du formulaire et les valeurs telles que reçues. */
+function ContentFields({ entries }: { entries: FieldEntry[] }) {
   if (entries.length === 0) {
     return <p className="text-sm text-slate-400 italic">Aucun champ reçu du service Prescription.</p>;
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {entries.map((entry) => (
-        <Field key={entry.key} label={entry.key} value={entry.value} />
-      ))}
+      {entries.map((entry, index) =>
+        entry.group ? (
+          <GroupHeader key={`group-${entry.group}`} label={entry.group} />
+        ) : (
+          <Field key={index} label={entry.label} value={entry.value} />
+        ),
+      )}
     </div>
   );
 }
@@ -97,10 +86,12 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
                 <p className="text-xs text-slate-400">Date de réception</p>
                 <p className="font-medium text-on-surface">{formatDateLong(request.createdAt)}</p>
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Site de prélèvement</p>
-                <p className="font-medium text-on-surface">{request.prelevement?.site || '—'}</p>
-              </div>
+              {siteOf(request) && (
+                <div>
+                  <p className="text-xs text-slate-400">Site de prélèvement</p>
+                  <p className="font-medium text-on-surface">{siteOf(request)}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -139,24 +130,8 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
             </div>
           )}
 
-          {/* Motif de prescription : résumé lisible des données reçues */}
-          <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-4">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
-              <span className="material-symbols-outlined text-sm">medical_services</span>
-              Motif de prescription
-            </label>
-            <p className="text-base font-medium text-on-surface leading-relaxed">
-              {motif(request)}
-            </p>
-          </div>
-
-          {/* Champs reçus du service Prescription, affichés tels quels */}
-          <div className="space-y-4">
-            <div className="border-b border-outline-variant/30 pb-2">
-              <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Champs reçus du service Prescription</h5>
-            </div>
-            <StoredFields request={request} />
-          </div>
+          {/* Contenu de la prescription, dans l'ordre du formulaire du service Prescription */}
+          <ContentFields entries={contentEntriesOf(request)} />
         </div>
       </div>
     </div>
