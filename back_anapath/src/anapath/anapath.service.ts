@@ -519,6 +519,13 @@ export class AnapathService {
       patientId: prescription.patientId,
       typeExamen: demande.typeExamen,
       data: demande.data ?? {},
+      // Champs de niveau prescription — préservés tels quels (le GET externe les renvoie).
+      renseignements: prescription.renseignements ?? null,
+      nomMedecinPrescripteur: prescription.nomMedecinPrescripteur ?? null,
+      numeroONM: prescription.numeroONM ?? null,
+      prescriptionStatut: prescription.statut ?? null,
+      // Renseignements cliniques éventuellement portés directement par la demande.
+      demandeRenseignementsCliniques: demande.renseignementsCliniques ?? null,
       chuId: prescription.chuId,
       serviceIdSource: prescription.serviceIdSource,
       serviceIdDest: prescription.serviceIdDest,
@@ -627,21 +634,40 @@ export class AnapathService {
   private buildRequestFromPendingMetadata(metadata: Record<string, any>): Partial<AnapathRequest> {
     const data = (metadata.data ?? {}) as Record<string, unknown>;
     const details = (data.details ?? {}) as Record<string, unknown>;
+    // Lecture d'une valeur dans data.details (clés préfixées du service Prescription) puis
+    // data (champs plats) — sans transformation, repli booléen/nombre conservés.
     const pick = (...keys: string[]): string => {
       for (const key of keys) {
         const value = details[key] ?? data[key];
         if (typeof value === 'string' && value.trim()) return value.trim();
+        if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
         if (typeof value === 'number') return String(value);
       }
       return '';
     };
 
-    const site = pick('organe', 'localisation', 'siege');
+    const typeExamen = String(metadata.typeExamen ?? '');
+    // Clés du site anatomique par type d'examen, alignées sur le payload réel du service
+    // Prescription (clés préfixées dans data.details, puis champs plats du DTO).
+    const SITE_KEYS: Record<string, string[]> = {
+      FCV_PAP: [],
+      CYT0PONCTION: ['cytoSiege', 'siege', 'cytoOrgane', 'organe'],
+      LIQUIDE: [],
+      BIOPSIE: ['bioOrgane', 'organe', 'bioLocalisation', 'localisation'],
+      POS: ['bioOrgane', 'organe', 'bioLocalisation', 'localisation'],
+      POC: ['bioOrgane', 'organe', 'bioLocalisation', 'localisation'],
+      EXTEMPORANE_STAT: ['extOrgane', 'organe'],
+    };
+    const site = pick(...(SITE_KEYS[typeExamen] ?? ['organe', 'localisation', 'siege']));
+
     const motif =
-      pick('renseignementsCliniques', 'renseign', 'note', 'bioNote') ||
+      pick('renseignementsCliniques') ||
+      String(metadata.renseignements ?? '').trim() ||
+      String(metadata.demandeRenseignementsCliniques ?? '').trim() ||
+      // Anciens payloads sans renseignementsCliniques : composition sans perte des champs reçus.
       [
         pick('bioNature', 'nature'),
-        pick('bioOrgane', 'organe'),
+        pick('bioOrgane', 'organe', 'cytoOrgane'),
         pick('bioSuspicion', 'suspicion'),
         pick('bioAtcd', 'atcd'),
         pick('bioExamAnt', 'examAnt'),
@@ -656,8 +682,8 @@ export class AnapathService {
       patientId: metadata.patientId,
       prescriptionId: metadata.prescriptionId,
       demandeId: metadata.demandeId,
-      typeExamen: metadata.typeExamen as AnapathRequest['typeExamen'],
-      isExtemporane: metadata.typeExamen === 'EXTEMPORANE_STAT',
+      typeExamen: typeExamen as AnapathRequest['typeExamen'],
+      isExtemporane: typeExamen === 'EXTEMPORANE_STAT',
       prelevement: {
         site,
         description: motif,
@@ -677,6 +703,11 @@ export class AnapathService {
         alertes: metadata.alertes,
         chuNom: metadata.chuNom ?? null,
         serviceNom: metadata.serviceNom ?? null,
+        renseignements: metadata.renseignements ?? null,
+        nomMedecinPrescripteur: metadata.nomMedecinPrescripteur ?? null,
+        numeroONM: metadata.numeroONM ?? null,
+        prescriptionStatut: metadata.prescriptionStatut ?? null,
+        // Le payload complet de la demande est conservé tel quel — aucune perte de champ.
         rawData: data,
       },
       statut: Statut.CREEE,
