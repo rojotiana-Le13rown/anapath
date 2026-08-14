@@ -5,7 +5,9 @@ import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import { renderHtmlToPdf, escapeHtml } from '@/lib/pdfUtils';
 import { formatDateLong } from '@/lib/dateFormat';
+import { appendFinalSegment } from '@/lib/formatTranscript';
 import { useAuth } from './AuthProvider';
+import VoiceRecorder from './VoiceRecorder';
 
 interface ExamenSpeculumData {
   observations?: string;
@@ -51,6 +53,7 @@ export default function ExamenSpeculumForm({
   const { user } = useAuth();
 
   const [observations, setObservations] = useState(initialData?.observations ?? '');
+  const [observationsInterim, setObservationsInterim] = useState('');
   const [prelevementDetails, setPrelevementDetails] = useState(initialData?.prelevementDetails ?? '');
   const [dateExamen, setDateExamen] = useState(initialData?.dateExamen ?? today());
   const [fixation, setFixation] = useState(initialData?.fixation ?? '');
@@ -65,6 +68,13 @@ export default function ExamenSpeculumForm({
   );
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Colle la transcription en direct au texte définitif, sans dédoubler les séparateurs.
+  const withInterim = (committed: string, interimText: string): string => {
+    if (!interimText) return committed;
+    if (interimText.startsWith('\n')) return committed + interimText;
+    return committed.trim() ? `${committed} ${interimText}` : interimText;
+  };
 
   const isValid =
     observations.trim() !== '' &&
@@ -184,9 +194,26 @@ export default function ExamenSpeculumForm({
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
               Examen spéculum <span className="text-red-500">*</span>
             </label>
+            <div className="flex justify-end">
+              <VoiceRecorder
+                hideTextArea
+                statusIdleText="Dicter les observations"
+                onTranscriptChange={(data) => setObservationsInterim(data.interim ?? '')}
+                onRestart={() => {
+                  setObservations('');
+                  setObservationsInterim('');
+                }}
+                onFinalTranscript={(text, meta) =>
+                  setObservations((prev) => appendFinalSegment(prev, text, meta?.startsAfterPause ?? false))
+                }
+              />
+            </div>
             <textarea
-              value={observations}
-              onChange={(e) => setObservations(e.target.value)}
+              value={withInterim(observations, observationsInterim)}
+              onChange={(e) => {
+                setObservations(e.target.value);
+                setObservationsInterim('');
+              }}
               placeholder="Observations cliniques..."
               rows={5}
               className="w-full p-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface resize-none focus:ring-2 focus:ring-primary/20 outline-none"

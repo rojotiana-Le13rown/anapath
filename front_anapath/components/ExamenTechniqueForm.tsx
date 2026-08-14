@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { API_BASE } from '@/lib/api';
+import { appendFinalSegment } from '@/lib/formatTranscript';
+import VoiceRecorder from '@/components/VoiceRecorder';
 
 interface ExamenTechniqueData {
   compteRendu?: string;
@@ -29,9 +31,17 @@ export default function ExamenTechniqueForm({
 }: ExamenTechniqueFormProps) {
   const alreadyValidated = Boolean(initialData?.compteRendu);
   const [compteRendu, setCompteRendu] = useState(initialData?.compteRendu ?? '');
+  const [interim, setInterim] = useState('');
   const [saving, setSaving] = useState(false);
 
   const isValid = compteRendu.trim() !== '';
+
+  // Colle la transcription en direct au texte définitif, sans dédoubler les séparateurs.
+  const withInterim = (committed: string, interimText: string): string => {
+    if (!interimText) return committed;
+    if (interimText.startsWith('\n')) return committed + interimText;
+    return committed.trim() ? `${committed} ${interimText}` : interimText;
+  };
 
   const handleSubmit = async () => {
     if (!isValid || alreadyValidated) return;
@@ -75,9 +85,28 @@ export default function ExamenTechniqueForm({
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
               Compte rendu d&apos;examen technique <span className="text-red-500">*</span>
             </label>
+            {!alreadyValidated && (
+              <div className="flex justify-end">
+                <VoiceRecorder
+                  hideTextArea
+                  statusIdleText="Dicter le compte rendu"
+                  onTranscriptChange={(data) => setInterim(data.interim ?? '')}
+                  onRestart={() => {
+                    setCompteRendu('');
+                    setInterim('');
+                  }}
+                  onFinalTranscript={(text, meta) =>
+                    setCompteRendu((prev) => appendFinalSegment(prev, text, meta?.startsAfterPause ?? false))
+                  }
+                />
+              </div>
+            )}
             <textarea
-              value={compteRendu}
-              onChange={(e) => setCompteRendu(e.target.value)}
+              value={withInterim(compteRendu, interim)}
+              onChange={(e) => {
+                setCompteRendu(e.target.value);
+                setInterim('');
+              }}
               readOnly={alreadyValidated}
               placeholder="Techniques réalisées, qualité du matériel, macro/micro... (champ libre)"
               rows={8}

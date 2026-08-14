@@ -598,6 +598,10 @@ export default function WorklistDetailPage() {
                             hideTextArea
                             statusIdleText="Dicter (transcription vocale)"
                             onTranscriptChange={(data) => setInterimDetails(data.interim ?? '')}
+                            onRestart={() => {
+                              setResultData((prev) => ({ ...prev, details: '' }));
+                              setInterimDetails('');
+                            }}
                             onFinalTranscript={(text, meta) =>
                               setResultData((prev) => ({
                                 ...prev,
@@ -629,6 +633,10 @@ export default function WorklistDetailPage() {
                             hideTextArea
                             statusIdleText="Dicter (transcription vocale)"
                             onTranscriptChange={(data) => setInterimConclusion(data.interim ?? '')}
+                            onRestart={() => {
+                              setResultData((prev) => ({ ...prev, conclusion: '' }));
+                              setInterimConclusion('');
+                            }}
                             onFinalTranscript={(text, meta) =>
                               setResultData((prev) => ({
                                 ...prev,
@@ -821,6 +829,10 @@ export default function WorklistDetailPage() {
                   hideTextArea
                   statusIdleText="Dicter votre brouillon"
                   onTranscriptChange={(data) => setNoteInterim(data.interim ?? '')}
+                  onRestart={() => {
+                    updateNoteText('');
+                    setNoteInterim('');
+                  }}
                   onFinalTranscript={(text, meta) => {
                     setNoteText((prev) => {
                       const next = appendFinalSegment(prev, text, meta?.startsAfterPause ?? false);

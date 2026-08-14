@@ -8,6 +8,7 @@ type Props = {
   onTranscriptChange?: (data: { final?: string; interim?: string }) => void;
   onFinalTranscript?: (text: string, meta?: { startsAfterPause?: boolean }) => void;
   onManualPause?: () => void;
+  onRestart?: () => void;
   onAudio?: (blob: Blob) => void;
   lang?: string;
   exposeControls?: (controls: { start: () => void; stop: () => void; restart: () => void; pause: () => void; resume: () => void }) => void;
@@ -15,7 +16,7 @@ type Props = {
   statusIdleText?: string;
 };
 
-export default function VoiceRecorder({ onTranscriptChange, onFinalTranscript, onManualPause, onAudio, lang = "fr-FR", exposeControls, hideTextArea = false, statusIdleText = "Prêt" }: Props) {
+export default function VoiceRecorder({ onTranscriptChange, onFinalTranscript, onManualPause, onRestart, onAudio, lang = "fr-FR", exposeControls, hideTextArea = false, statusIdleText = "Prêt" }: Props) {
   const [isSupported, setIsSupported] = useState(() => {
     if (typeof window === "undefined") return false;
     const SpeechRecognitionCtor = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
@@ -199,10 +200,29 @@ export default function VoiceRecorder({ onTranscriptChange, onFinalTranscript, o
   };
 
   const restart = () => {
-    // clear transcript and chunks and start fresh
-    setTranscript("");
+    // Arrête d'abord toute prise/écoute en cours : sinon l'ancienne
+    // reconnaissance continue de pousser des segments dans le texte après
+    // le reset (l'audio et la transcription n'auraient pas été réellement
+    // « recommencés »).
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {}
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+
+    // Efface tout l'état interne…
+    finalSegmentsRef.current = [];
+    finalBreaksRef.current = [];
     chunksRef.current = [];
     forceBreakBeforeNextFinalRef.current = false;
+    setTranscript("");
+    setDuration(0);
+    // …et prévient le parent (qui accumule les segments finaux dans son
+    // champ) pour qu'il vide lui aussi le champ dicté.
+    onRestart?.();
     start(false);
   };
 
