@@ -18,6 +18,9 @@ export interface ContentField {
   label: string;
   /** Formater la valeur en jj/mm/aaaa si elle est au format ISO (AAAA-MM-JJ). */
   date?: boolean;
+  /** Clés du champ de précision (ex. « Préciser le fixateur ») : quand la valeur
+   *  principale vaut « Autre », on affiche la valeur saisie dans ce champ. */
+  otherKeys?: string[];
 }
 
 export type ContentBlock =
@@ -33,11 +36,10 @@ export interface FieldEntry {
 
 const BIOPSIE_CONFIG: ContentBlock[] = [
   { type: 'field', field: { keys: ['bioDatePrelev'], label: 'Date du prélèvement', date: true } },
-  { type: 'field', field: { keys: ['bioFixateur', 'fixateur'], label: 'Fixateur' } },
+  { type: 'field', field: { keys: ['bioFixateur', 'fixateur'], label: 'Fixateur', otherKeys: ['bioFixateurAutre'] } },
   { type: 'field', field: { keys: ['bioOrgane', 'organe'], label: 'Organe(s) / site anatomique' } },
   { type: 'field', field: { keys: ['localisation'], label: 'Localisation' } },
-  { type: 'field', field: { keys: ['bioNature', 'nature'], label: 'Nature du prélèvement' } },
-  { type: 'field', field: { keys: ['bioNatureAutre'], label: 'Préciser la nature du prélèvement' } },
+  { type: 'field', field: { keys: ['bioNature', 'nature'], label: 'Nature du prélèvement', otherKeys: ['bioNatureAutre'] } },
   { type: 'field', field: { keys: ['bioSuspicion', 'suspicion'], label: 'Suspicion diagnostique' } },
   { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
   { type: 'field', field: { keys: ['bioNote', 'note'], label: 'Note complémentaire' } },
@@ -78,15 +80,13 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
   CYT0PONCTION: [
     { type: 'field', field: { keys: ['cytoSiege', 'siege'], label: 'Siège de la ponction' } },
     { type: 'field', field: { keys: ['cytoOrgane', 'organe'], label: 'Organe' } },
-    { type: 'field', field: { keys: ['cytoFix', 'fixateur'], label: 'Fixateur' } },
-    { type: 'field', field: { keys: ['cytoFixAutre'], label: 'Préciser le fixateur' } },
+    { type: 'field', field: { keys: ['cytoFix', 'fixateur'], label: 'Fixateur', otherKeys: ['cytoFixAutre'] } },
     { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
     { type: 'field', field: { keys: ['cytoNotes', 'note'], label: 'Note complémentaire' } },
   ],
 
   LIQUIDE: [
-    { type: 'field', field: { keys: ['liqNat', 'type_liquide'], label: 'Nature du liquide' } },
-    { type: 'field', field: { keys: ['liqNatAutre'], label: 'Préciser la nature du liquide' } },
+    { type: 'field', field: { keys: ['liqNat', 'type_liquide'], label: 'Nature du liquide', otherKeys: ['liqNatAutre'] } },
     { type: 'field', field: { keys: ['volume'], label: 'Volume (ml)' } },
     { type: 'field', field: { keys: ['liqNotes', 'note'], label: 'Note complémentaire' } },
     { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
@@ -139,6 +139,14 @@ function readValue(raw: Record<string, any>, details: Record<string, any>, field
   return '';
 }
 
+function readOtherValue(raw: Record<string, any>, details: Record<string, any>, keys: string[]): string {
+  for (const key of keys) {
+    const value = details[key] ?? raw[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
 /** Champs du contenu de la prescription, dans l'ordre du formulaire, libellés en clair. */
 export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
   const raw = rawDataOf(request);
@@ -158,8 +166,15 @@ export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
         out.push(...groupFields);
       }
     } else {
-      const value = readValue(raw, details, block.field);
-      if (value !== '') out.push({ label: block.field.label, value });
+      let value = readValue(raw, details, block.field);
+      if (value !== '') {
+        // Sélect « Autre » : on affiche la valeur saisie dans le champ de précision.
+        if (block.field.otherKeys && value.toLowerCase() === 'autre') {
+          const other = readOtherValue(raw, details, block.field.otherKeys);
+          if (other) value = other;
+        }
+        out.push({ label: block.field.label, value });
+      }
     }
   }
   return out;
