@@ -121,6 +121,18 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
               </div>
             )}
           </div>
+
+          {(request.metadata?.alertes as string)?.trim() && (
+            <div className="bg-white border border-outline-variant/30 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-red-500">warning</span>
+                <div>
+                  <p className="text-xs text-slate-400">Précautions & alertes</p>
+                  <p className="font-medium text-on-surface">{request.metadata?.alertes as string}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-5">

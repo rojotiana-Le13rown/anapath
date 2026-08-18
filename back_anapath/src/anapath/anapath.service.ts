@@ -734,10 +734,11 @@ export class AnapathService {
       const existingNotif = await this.notificationService.findPendingByDemandeId(demande.id);
       if (existingNotif) continue;
 
+      const alertesTexte = (prescription.alertes ?? '').trim();
       await this.notificationService.createNotification({
         type: NotificationType.NOUVELLE_PRESCRIPTION,
         title: `Nouvelle prescription — ${demande.typeExamen}`,
-        message: '',
+        message: alertesTexte ? `Précautions & alertes : ${alertesTexte}` : '',
         priority: prescription.urgence === 'TRES_URGENT' ? 'high' : 'medium',
         source: 'prescription-pull',
         metadata: this.buildPendingMetadata(prescription, demande, chuNom, serviceNom, prescripteurNom),
