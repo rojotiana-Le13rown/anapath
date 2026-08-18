@@ -14,7 +14,7 @@ import {
   isDateInWeek,
   getDailyVolumeForWeek,
 } from '@/lib/weekUtils';
-import { statusLabels } from '@/lib/statusLabels';
+import { statusLabel } from '@/lib/statusLabels';
 import { PENDING_STATUSES } from '@/lib/statusLabels';
 import { getServiceDisplayName } from '@/lib/serviceDisplay';
 import { generateReportPDF, type ReportPdfData } from '@/lib/reportPDF';
@@ -356,7 +356,7 @@ export default function ReportsPage() {
     typeExamen: req.typeExamen,
     typeLabel: getTypeLabel(req.typeExamen),
     statut: req.statut,
-    statutLabel: statusLabels[req.statut] || req.statut,
+    statutLabel: statusLabel(req.statut),
     prescriber: getServiceDisplayName({ episodeId: req.episodeId }),
     createdAt: req.createdAt,
   });

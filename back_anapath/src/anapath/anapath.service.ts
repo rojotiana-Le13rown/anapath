@@ -834,11 +834,16 @@ export class AnapathService {
       }
     }
 
+    const nomPatient =
+      (saved.patientInfo
+        ? this.accueilClient.buildNomComplet(saved.patientInfo)
+        : '') || saved.patientId;
     await this.prescriptionClient.updateDemandeStatut(
       token,
       notification.metadata?.prescriptionId,
       notification.metadata?.demandeId,
       'EN_COURS',
+      `Votre demande pour l'examen du patient ${nomPatient} chez anapath est accepté`,
     );
 
     await this.notificationService.markResolved(notificationId, 'ACCEPTEE', {
@@ -927,7 +932,7 @@ export class AnapathService {
         type: 'RAPPORT_HEBDOMADAIRE',
         title: 'Rapport hebdomadaire disponible',
         message:
-          "Le rapport hebdomadaire d'activité du service est prêt — cliquez pour télécharger automatiquement le PDF de la semaine en cours.",
+          "Le rapport d'activité hebdomadaire du service est prêt, cliquer pour télécharger automatiquement le fichier Excel de la semaine en cours.",
         priority: 'medium',
         source: 'Anapath',
       });

@@ -17,7 +17,7 @@ import {
 import { useAuth } from './AuthProvider';
 import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole } from '@/lib/roles';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
-import { exportMajorReportPDF } from '@/lib/majorReport';
+import { exportMajorReportExcel } from '@/lib/majorReport';
 import { getMondayOfWeek, formatWeekLabel } from '@/lib/weekUtils';
 
 // URL de la Gateway socket.io du backend (namespace /anapath). En local :
@@ -125,6 +125,10 @@ function getServiceNom(n: any): string {
     ?? '—';
 }
 
+function getAllergies(n: any): string {
+  return n.enriched?.allergies ?? '';
+}
+
 function getMessage(n: any): string {
   return n.message
     ?? n.enriched?.message
@@ -215,6 +219,7 @@ export default function NotificationBell() {
   // présentes sont marquées connues SANS son : un son n'est joué que pour une
   // notification réellement nouvelle, reçue après l'ouverture de la page.
   const initializedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
 
   const cancelExtemporaneTimer = useCallback((aid: string) => {
@@ -437,6 +442,20 @@ export default function NotificationBell() {
     };
   }, [fetchNotifs]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
   const unreadCount = notifs.filter(n => !isLue(n)).length;
 
   const maxUrg = notifs
@@ -452,8 +471,8 @@ export default function NotificationBell() {
     : 'bg-[#e41e3f]';
 
   const handleClick = async (n: any) => {
-    // Rapport hebdomadaire : génère et télécharge automatiquement le PDF du
-    // rapport de la semaine en cours, sans quitter la page.
+    // Rapport hebdomadaire : génère et télécharge automatiquement le fichier Excel
+    // du rapport de la semaine en cours, sans quitter la page.
     const type = n.type ?? n.enriched?.type ?? '';
     if (type === 'RAPPORT_HEBDOMADAIRE' || type === 'RAPPORT') {
       setOpen(false);
@@ -472,7 +491,7 @@ export default function NotificationBell() {
             const d = new Date(r.createdAt ?? r.date ?? 0);
             return d >= monday && d <= sunday;
           });
-          await exportMajorReportPDF(
+          await exportMajorReportExcel(
             weekRequests,
             formatWeekLabel(monday),
           );
@@ -632,7 +651,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen(!open)}
         className="relative p-2 rounded-full
@@ -738,6 +757,8 @@ export default function NotificationBell() {
                 const enAttente = isPrescriptionEnAttente(n);
                 const isRefusingThis = inlineRefuseId === id;
                 const isSubmittingThis = inlineSubmittingId === id;
+                const isRapport = (n.type ?? n.enriched?.type ?? '') === 'RAPPORT_HEBDOMADAIRE'
+                  || (n.type ?? n.enriched?.type ?? '') === 'RAPPORT';
 
                 const bg = lue
                   ? 'bg-gray-50 opacity-70'
@@ -789,7 +810,24 @@ export default function NotificationBell() {
                     <div className="flex items-start
                       justify-between gap-2">
                       <div className="flex-1 min-w-0">
-
+                        {isRapport ? (
+                          <>
+                            <p className="text-sm font-semibold text-[#00478d]">
+                              📊 Rapport hebdomadaire
+                            </p>
+                            <p className="text-xs text-gray-600 mt-0.5 font-medium">
+                              {formatWeekLabel(
+                                getMondayOfWeek(new Date(n.createdAt ?? n.date ?? 0)),
+                              )}
+                            </p>
+                            {getMessage(n) && (
+                              <p className="text-xs text-slate-700 mt-1 leading-snug">
+                                {getMessage(n)}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                        <>
                         {!lue && urg !== 'NORMALE' && (
                           <span className={`
                             inline-block text-xs
@@ -829,6 +867,14 @@ export default function NotificationBell() {
                           📍 {svc}
                         </p>
 
+                        {getAllergies(n) && (
+                          <p className="text-xs
+                            text-red-600 mt-0.5
+                            font-medium">
+                            ⚠️ {getAllergies(n)}
+                          </p>
+                        )}
+
                         {getMessage(n) && (
                           <p className="text-xs
                             text-slate-700 mt-1
@@ -836,7 +882,8 @@ export default function NotificationBell() {
                             {getMessage(n)}
                           </p>
                         )}
-
+                        </>
+                        )}
                       </div>
 
                       <div
@@ -854,13 +901,6 @@ export default function NotificationBell() {
                         )}
                       </div>
                     </div>
-
-                    {enAttente && !canActOnPrescriptions && (
-                      <p className="mt-2 text-[11px] text-slate-400 italic">
-                        En attente de traitement (accepter/refuser réservé au
-                        service technique)
-                      </p>
-                    )}
 
                     {enAttente && canActOnPrescriptions && !isRefusingThis && (
                       <div className="flex items-center
@@ -1017,6 +1057,17 @@ export default function NotificationBell() {
                 </p>
               </div>
 
+              {getAllergies(detailNotif) && (
+                <div>
+                  <p className="text-xs text-gray-500">
+                    Allergies
+                  </p>
+                  <p className="text-sm font-semibold text-red-600">
+                    ⚠️ {getAllergies(detailNotif)}
+                  </p>
+                </div>
+              )}
+
               {detailNotif.metadata?.alertes && (
                 <div>
                   <p className="text-xs text-gray-500">
@@ -1081,21 +1132,7 @@ export default function NotificationBell() {
             <div className="flex items-center justify-end
               gap-2 px-5 py-4 border-t bg-gray-50
               rounded-b-xl">
-              {!canActOnPrescriptions ? (
-                <>
-                  <p className="flex-1 text-xs text-slate-400 italic">
-                    Accepter/refuser réservé au service technique.
-                  </p>
-                  <button
-                    onClick={closeDetail}
-                    className="px-4 py-2 text-sm
-                      font-medium text-gray-600
-                      hover:text-gray-800"
-                  >
-                    Fermer
-                  </button>
-                </>
-              ) : refuserMode ? (
+              {refuserMode ? (
                 <>
                   <button
                     onClick={() => { setRefuserMode(false); setMotif(''); }}

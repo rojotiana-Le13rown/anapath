@@ -14,7 +14,7 @@ import axios from 'axios';
 import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests } from '@/lib/searchAnapath';
 import { formatDateTime, formatDateLong, formatRelativeTime } from '@/lib/dateFormat';
-import { statusLabels, statusColors } from '@/lib/statusLabels';
+import { statusLabel, statusColors, PENDING_STATUSES } from '@/lib/statusLabels';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AnapathRequest {
@@ -106,14 +106,12 @@ export default function DashboardPage() {
       d.getDate() === now.getDate()
     );
   }).length;
-  const enAttenteSTAT = filteredRequests.filter(r => r.statut === 'CREEE' || r.statut === 'EN_ATTENTE').length;
-  const enValidation = filteredRequests.filter(r => r.statut === 'RESULTAT_DISPONIBLE').length;
+  const enAttenteSTAT = filteredRequests.filter((r) => PENDING_STATUSES.includes(r.statut)).length;
   const valides = filteredRequests.filter(r => r.statut === 'VALIDE').length;
-  const autres = totalExamens - enAttenteSTAT - enValidation - valides;
+  const autres = totalExamens - enAttenteSTAT - valides;
 
   const repartitionData = [
     { name: 'En attente', value: enAttenteSTAT, color: '#f59e0b' },
-    { name: 'En validation', value: enValidation, color: '#2563eb' },
     { name: 'Validés', value: valides, color: '#10b981' },
     { name: 'Autres', value: autres, color: '#94a3b8' },
   ].filter((d) => d.value > 0);
@@ -159,7 +157,7 @@ export default function DashboardPage() {
             <h2 className="text-2xl font-extrabold text-[#191c21] tracking-tight">Tableau de bord</h2>
             <p className="text-slate-500 text-sm mt-1">Vue d'ensemble de l'activité du laboratoire</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
             <div className="relative overflow-hidden bg-gradient-to-br from-primary to-blue-900 p-6 rounded-xl shadow-md flex justify-between items-center text-white">
               <div className="relative z-10">
                 <p className="text-xs font-bold uppercase tracking-wider text-white/80">Total examens</p>
@@ -185,21 +183,6 @@ export default function DashboardPage() {
                 )}
               </div>
               <span className="material-symbols-outlined text-tertiary bg-tertiary/10 rounded-full p-2 text-xl">schedule</span>
-            </div>
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20 flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">En validation</p>
-                <p className="text-3xl font-extrabold text-primary mt-1">{enValidation}</p>
-                {!isMajor && (
-                  <Link
-                    href="/worklist"
-                    className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-colors"
-                  >
-                    Valider maintenant
-                  </Link>
-                )}
-              </div>
-              <span className="material-symbols-outlined text-primary bg-primary/10 rounded-full p-2 text-xl">fact_check</span>
             </div>
             <div className="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/20 flex justify-between items-start">
               <div>
@@ -264,7 +247,7 @@ export default function DashboardPage() {
                             )}
                           </span>
                         </td>
-                        <td className="p-4"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusColors[req.statut] || 'bg-gray-100 text-gray-700'}`}>{statusLabels[req.statut] || req.statut}</span></td>
+                        <td className="p-4"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusColors[req.statut] || 'bg-gray-100 text-gray-700'}`}>{statusLabel(req.statut)}</span></td>
                         <td className="p-4 text-slate-500 text-xs">
                           <div>{formatDateTime(req.createdAt)}</div>
                           <div className="text-[10px] text-slate-400">{formatRelativeTime(req.createdAt)}</div>

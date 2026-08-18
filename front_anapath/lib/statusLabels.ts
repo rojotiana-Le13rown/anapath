@@ -25,6 +25,12 @@ export const statusLabels: Record<string, string> = {
   /** Statuts clôturés (terminé/archivé/annulé). */
   export const CLOSED_STATUSES = ['VALIDE', 'ARCHIVE', 'ANNULEE'];
   
+  /** Libellé d'affichage d'un statut : label lisible si connu, sinon le statut brut
+   *  avec les tirets bas remplacés par des espaces (aucun « _ » ne doit apparaître). */
+  export function statusLabel(status: string): string {
+    return statusLabels[status] ?? status.replace(/_/g, ' ');
+  }
+
   export const statusColors: Record<string, string> = {
     CREEE: 'bg-gray-100 text-gray-700',
     EN_ATTENTE: 'bg-blue-100 text-blue-700',

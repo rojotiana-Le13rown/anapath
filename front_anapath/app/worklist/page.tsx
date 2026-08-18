@@ -20,7 +20,7 @@ import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { matchesAnapathSearch } from '@/lib/searchAnapath';
 import { sortByUrgencyThenArrival, getUrgenceLevel, type UrgenceLevel } from '@/lib/urgencySort';
 import { formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
-import { statusLabels, statusColors } from '@/lib/statusLabels';
+import { statusLabel, statusColors } from '@/lib/statusLabels';
 import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
@@ -352,7 +352,7 @@ export default function WorklistPage() {
                   placeholder: 'Tous les statuts',
                   options: visibleStatuts.map((statut) => ({
                     value: statut,
-                    label: statusLabels[statut] || statut,
+                    label: statusLabel(statut),
                   })),
                   value: filterStatuts,
                   onChange: setFilterStatuts,
@@ -405,7 +405,7 @@ export default function WorklistPage() {
                               ? 'bg-amber-100 text-amber-800'
                               : statusColors[req.statut] || 'bg-gray-100 text-gray-700'
                           }`}>
-                            {statusLabels[req.statut] || req.statut}
+                            {statusLabel(req.statut)}
                           </span>
                         </td>
                         <td className="p-4 text-slate-500 text-xs">

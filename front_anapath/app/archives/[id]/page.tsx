@@ -10,7 +10,7 @@ import axios from 'axios';
 import { formatDateLong, formatDateTime } from '@/lib/dateFormat';
 import { getPatientForExamen, API_BASE } from '@/lib/api';
 import { getTypeLabel } from '@/lib/generatePDF';
-import { statusLabels, statusColors } from '@/lib/statusLabels';
+import { statusLabel, statusColors } from '@/lib/statusLabels';
 import { getClinicalNotes, getSuspicion, getTreatmentType } from '@/lib/prescriptionFields';
 
 interface AnapathRequest {
@@ -149,7 +149,7 @@ export default function ArchiveDetailPage() {
             </Link>
             <h2 className="text-lg font-black text-blue-900">Résultat d'examen</h2>
             <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusColors[request.statut] || 'bg-gray-100 text-gray-700'}`}>
-              {statusLabels[request.statut] || request.statut}
+              {statusLabel(request.statut)}
             </span>
           </div>
           <div className="flex items-center gap-2">

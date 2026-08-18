@@ -340,12 +340,25 @@ export class AnapathController {
       }
     }
 
+    let allergies: string | null = null;
+    if (typeof info?.allergie === 'string' && info.allergie.trim()) {
+      allergies = info.allergie.trim();
+    } else if (patientId && chuId) {
+      try {
+        const fetched = await this.accueilClient.getAllergie(patientId, chuId);
+        if (fetched?.trim()) allergies = fetched.trim();
+      } catch {
+        // Non bloquant
+      }
+    }
+
     return {
       ...base,
       enriched: {
         ...(base.enriched ?? {}),
         patientId,
         patientName,
+        allergies,
       },
     };
   }

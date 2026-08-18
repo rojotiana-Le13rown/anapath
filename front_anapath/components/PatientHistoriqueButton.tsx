@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { getTypeLabel } from '@/lib/generatePDF';
-import { statusLabels, statusColors } from '@/lib/statusLabels';
+import { statusLabel, statusColors } from '@/lib/statusLabels';
 import { formatDate } from '@/lib/dateFormat';
 
 export interface HistoriqueEntry {
@@ -75,7 +75,7 @@ export default function PatientHistoriqueButton({ entries, className = '' }: Pat
                     <p className="text-xs text-slate-400 mt-0.5">{formatDate(entry.createdAt)}</p>
                   </div>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${statusColors[entry.statut] || 'bg-gray-100 text-gray-700'}`}>
-                    {statusLabels[entry.statut] || entry.statut}
+                    {statusLabel(entry.statut)}
                   </span>
                 </div>
               ))}
