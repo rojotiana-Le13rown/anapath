@@ -398,7 +398,16 @@ export default function WorklistPage() {
                             )}
                           </span>
                         </td>
-                        <td className="p-4 text-xs text-slate-500">{req.prelevement?.site || '-'}</td>
+                        <td className="p-4 text-xs text-slate-500">
+                          {req.prelevement?.site ? (
+                            <div>
+                              <span className="font-semibold text-slate-700">{req.prelevement.site}</span>
+                              {req.prelevement?.description && (
+                                <span className="block text-slate-400 mt-0.5">{req.prelevement.description}</span>
+                              )}
+                            </div>
+                          ) : '-'}
+                        </td>
                         <td className="p-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             req.statut === 'RESULTAT_DISPONIBLE'

@@ -82,9 +82,9 @@ export default function WorklistDetailPage() {
   const [showSpeculum, setShowSpeculum] = useState(false);
   const [showTech, setShowTech] = useState(false);
   const [showDiag, setShowDiag] = useState(false);
-  // Détail de la prescription affiché par défaut ; le pathologiste peut le
-  // masquer pour se concentrer sur la saisie du résultat.
-  const [showPrescriptionDetails, setShowPrescriptionDetails] = useState(true);
+  // Détail de la prescription masqué par défaut ; le technicien/pathologiste
+  // peut l'afficher si besoin en cliquant sur le bouton dédié.
+  const [showPrescriptionDetails, setShowPrescriptionDetails] = useState(false);
 
   const [resultData, setResultData] = useState({ details: '', conclusion: '' });
   // Transcription vocale en direct : mots provisoires affichés en plus du texte définitif.
