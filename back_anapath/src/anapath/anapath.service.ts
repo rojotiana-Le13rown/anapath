@@ -372,17 +372,10 @@ export class AnapathService {
       this.accueilClient.buildNomComplet(info) ||
       (typeof info.nom === 'string' ? info.nom : '') ||
       request.patientId;
-    const typeExamen =
-      TYPE_EXAMEN_LABELS[request.typeExamen] ?? request.typeExamen;
-    const serviceDemandeur =
-      (request.metadata?.serviceNom as string) ||
-      (request.metadata?.serviceIdDest as string) ||
-      (request.metadata?.serviceIdSource as string) ||
-      'Service inconnu';
     await this.notificationService.createNotification({
       type: NotificationType.EXAMEN_TECHNIQUE_TERMINE,
       title: `Prêt pour passer l'examen — ${nomPatient}`,
-      message: `Patient prêt pour l'examen — ${nomPatient} · ${typeExamen} · Service demandeur : ${serviceDemandeur}`,
+      message: 'Patient prêt pour l\'examen',
       priority: 'medium',
       source: 'Anapath',
       metadata: {

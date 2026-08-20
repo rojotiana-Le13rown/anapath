@@ -167,7 +167,7 @@ export default function WorklistPage() {
     }
   };
 
-  const getTypeLabel = (type: string) => TYPE_LABELS[type] || type;
+  const getTypeLabel = (type: string) => TYPE_LABELS[type] || type.replace(/_/g, ' ');
 
   const handleSaisirResultat = (id: string) => {
     router.push(`/worklist/${id}`);

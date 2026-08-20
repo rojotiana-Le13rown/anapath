@@ -212,6 +212,7 @@ export default function NotificationBell() {
   const [inlineSubmittingId, setInlineSubmittingId] = useState<string | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [inlineErrorId, setInlineErrorId] = useState<string | null>(null);
+  const [showOldNotifs, setShowOldNotifs] = useState(false);
   const known = useRef<Set<string>>(new Set());
   const extemporaneTimers =
     useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -740,7 +741,21 @@ export default function NotificationBell() {
                     Aucune notification
                   </p>
                 </div>
-              ) : notifs.map(n => {
+              ) : (() => {
+                const CINQ_MIN = 5 * 60 * 1000;
+                const now = Date.now();
+                const recent = notifs.filter(n => {
+                  const d = new Date(n.createdAt ?? n.date ?? 0).getTime();
+                  return now - d <= CINQ_MIN;
+                });
+                const old = notifs.filter(n => {
+                  const d = new Date(n.createdAt ?? n.date ?? 0).getTime();
+                  return now - d > CINQ_MIN;
+                });
+                const visible = showOldNotifs ? notifs : recent;
+                return (
+                  <>
+                    {visible.map(n => {
                 const urg  = getUrgence(n);
                 const lue  = isLue(n);
                 const rel  = isRelance(n);
@@ -810,6 +825,11 @@ export default function NotificationBell() {
                     <div className="flex items-start
                       justify-between gap-2">
                       <div className="flex-1 min-w-0">
+                        <span className="text-[10px]
+                          text-gray-400 whitespace-nowrap"
+                          title={heure}>
+                          {relatif}
+                        </span>
                         {isRapport ? (
                           <>
                             <p className="text-sm font-semibold text-[#00478d]">
@@ -889,12 +909,7 @@ export default function NotificationBell() {
                       <div
                         className="flex items-center
                           gap-1.5 flex-shrink-0"
-                        title={heure}
                       >
-                        <span className="text-[10px]
-                          text-gray-400 whitespace-nowrap">
-                          {relatif}
-                        </span>
                         {!lue && !enAttente && (
                           <div className="w-2.5 h-2.5
                             bg-blue-600 rounded-full"/>
@@ -995,6 +1010,29 @@ export default function NotificationBell() {
                   </div>
                 );
               })}
+              {old.length > 0 && !showOldNotifs && (
+                <button
+                  onClick={() => setShowOldNotifs(true)}
+                  className="w-full px-4 py-2 text-xs text-[#00478d]
+                    font-medium hover:bg-gray-50 transition-colors
+                    border-t border-gray-100"
+                >
+                  Afficher les anciennes notifications ({old.length})
+                </button>
+              )}
+              {showOldNotifs && old.length > 0 && (
+                <button
+                  onClick={() => setShowOldNotifs(false)}
+                  className="w-full px-4 py-2 text-xs text-gray-500
+                    font-medium hover:bg-gray-50 transition-colors
+                    border-t border-gray-100"
+                >
+                  Masquer les anciennes notifications
+                </button>
+              )}
+              </>
+                );
+              })()}
             </div>
           </div>
         </>
@@ -1087,15 +1125,26 @@ export default function NotificationBell() {
                   </p>
                   <div className="text-sm text-gray-700
                     bg-gray-50 rounded-lg p-3 space-y-1">
-                    {Object.entries(detailNotif.metadata.data).map(
-                      ([k, v]) => (
-                        <p key={k}>
-                          <span className="text-gray-500">
-                            {k} :
-                          </span>{' '}
-                          {String(v)}
-                        </p>
-                      ),
+                    {Object.entries(detailNotif.metadata.data).flatMap(
+                      ([k, v]) => {
+                        if (v && typeof v === 'object' && !Array.isArray(v)) {
+                          return Object.entries(v as Record<string, unknown>)
+                            .filter(([, val]) => val != null && val !== '')
+                            .map(([subK, subV]) => (
+                              <p key={`${k}.${subK}`}>
+                                <span className="text-gray-500">{subK} :</span>{' '}
+                                {String(subV)}
+                              </p>
+                            ));
+                        }
+                        if (v == null || v === '') return [];
+                        return (
+                          <p key={k}>
+                            <span className="text-gray-500">{k} :</span>{' '}
+                            {String(v)}
+                          </p>
+                        );
+                      },
                     )}
                   </div>
                 </div>

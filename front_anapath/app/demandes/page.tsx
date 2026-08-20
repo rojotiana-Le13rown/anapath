@@ -597,14 +597,29 @@ export default function DemandesPage() {
                       Détails cliniques
                     </p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      {Object.entries(detailTarget.metadata.data).map(([k, v]) => (
-                        <div key={k} className="bg-slate-50 rounded-lg p-3">
-                          <p className="text-xs text-slate-400 capitalize">{k}</p>
-                          <p className="font-medium text-[#191c21] break-words">
-                            {String(v ?? '—')}
-                          </p>
-                        </div>
-                      ))}
+                      {Object.entries(detailTarget.metadata.data).flatMap(([k, v]) => {
+                        if (v && typeof v === 'object' && !Array.isArray(v)) {
+                          return Object.entries(v as Record<string, unknown>)
+                            .filter(([, val]) => val != null && val !== '')
+                            .map(([subK, subV]) => (
+                              <div key={`${k}.${subK}`} className="bg-slate-50 rounded-lg p-3">
+                                <p className="text-xs text-slate-400 capitalize">{subK}</p>
+                                <p className="font-medium text-[#191c21] break-words">
+                                  {String(subV)}
+                                </p>
+                              </div>
+                            ));
+                        }
+                        if (v == null || v === '') return [];
+                        return (
+                          <div key={k} className="bg-slate-50 rounded-lg p-3">
+                            <p className="text-xs text-slate-400 capitalize">{k}</p>
+                            <p className="font-medium text-[#191c21] break-words">
+                              {String(v)}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

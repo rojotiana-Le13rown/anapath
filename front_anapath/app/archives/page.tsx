@@ -308,7 +308,7 @@ export default function ArchivesPage() {
                   <p className="font-medium text-on-surface">{selectedRequest.resultat?.conclusion || '—'}</p>
                 </div>
                 <div className="mb-3">
-                  <p className="text-xs text-slate-500">Détails</p>
+                  <p className="text-xs text-slate-500">Détails de résultat</p>
                   <p className="font-medium text-on-surface whitespace-pre-wrap">{selectedRequest.resultat?.details || '—'}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
