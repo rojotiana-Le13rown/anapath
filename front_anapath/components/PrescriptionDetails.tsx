@@ -8,6 +8,7 @@ import {
   type FieldEntry,
 } from '@/lib/prescriptionContent';
 import { type PrescriptionLike } from '@/lib/prescriptionFields';
+import { typeExamenLabel } from '@/lib/statusLabels';
 
 interface PrescriptionRequest extends PrescriptionLike {
   typeExamen: string;
@@ -80,7 +81,7 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
             <div className="grid grid-cols-2 gap-4 text-sm mt-4 pt-4 border-t border-outline-variant/30">
               <div>
                 <p className="text-xs text-slate-400">Type d'examen</p>
-                <p className="font-medium text-on-surface">{request.typeExamen}</p>
+                <p className="font-medium text-on-surface">{typeExamenLabel(request.typeExamen)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-400">Date de réception</p>

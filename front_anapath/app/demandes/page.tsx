@@ -11,6 +11,7 @@ import StatCountdown from '@/components/StatCountdown';
 import { accepterPrescriptionNotif, refuserPrescriptionNotif, getPatientForExamen, API_BASE } from '@/lib/api';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
+import { typeExamenLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
 import { type PatientInfo } from '@/components/PatientIdentitySection';
 
@@ -21,7 +22,7 @@ const isPending = (n: any) =>
 const getUrgence = (n: any): string =>
   n?.enriched?.urgence ?? n?.metadata?.urgence ?? 'NORMALE';
 const getTypeExamen = (n: any): string =>
-  n?.enriched?.typeExamen ?? n?.metadata?.typeExamen ?? n?.typeExamen ?? '';
+  typeExamenLabel(n?.enriched?.typeExamen ?? n?.metadata?.typeExamen ?? n?.typeExamen ?? '');
 const getServiceNom = (n: any): string =>
   n?.enriched?.serviceNom ?? n?.metadata?.serviceNom ?? '—';
 const getPatientId = (n: any): string =>
@@ -107,15 +108,7 @@ function StatCard({
   );
 }
 
-const TYPE_OPTIONS: Record<string, string> = {
-  BIOPSIE: 'Biopsie',
-  FCV_PAP: 'FCV / Pap test',
-  CYT0PONCTION: 'Cytoponction',
-  LIQUIDE: 'Liquide',
-  POS: 'POS',
-  POC: 'POC',
-  EXTEMPORANE_STAT: 'Extemporané STAT',
-};
+const TYPE_OPTIONS = TYPE_EXAMEN_LABELS;
 
 const URGENCE_OPTIONS: Record<UrgenceLevel, string> = {
   STAT: 'Très urgent',

@@ -14,7 +14,7 @@ import axios from 'axios';
 import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests } from '@/lib/searchAnapath';
 import { formatDateTime, formatDateLong, formatRelativeTime } from '@/lib/dateFormat';
-import { statusLabel, statusColors, PENDING_STATUSES } from '@/lib/statusLabels';
+import { statusLabel, statusColors, PENDING_STATUSES, typeExamenLabel } from '@/lib/statusLabels';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AnapathRequest {
@@ -116,18 +116,7 @@ export default function DashboardPage() {
     { name: 'Autres', value: autres, color: '#94a3b8' },
   ].filter((d) => d.value > 0);
 
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      BIOPSIE: 'Biopsie',
-      FCV_PAP: 'FCV / Pap test',
-      CYT0PONCTION: 'Cytoponction',
-      LIQUIDE: 'Liquide',
-      EXTEMPORANE_STAT: 'Extemporané',
-      POS: 'POS',
-      POC: 'POC',
-    };
-    return labels[type] || type;
-  };
+  const getTypeLabel = (type: string) => typeExamenLabel(type);
 
   const handleSaisirResultat = (id: string) => {
     router.push(`/worklist/${id}`);

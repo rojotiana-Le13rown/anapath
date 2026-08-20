@@ -18,6 +18,7 @@ import { useAuth } from './AuthProvider';
 import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole } from '@/lib/roles';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
 import { exportMajorReportExcel } from '@/lib/majorReport';
+import { typeExamenLabel } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
 import { type PatientInfo } from '@/components/PatientIdentitySection';
 import { getPatientForExamen } from '@/lib/api';
@@ -108,16 +109,7 @@ function getTypeExamen(n: any): string {
   const t = n.enriched?.typeExamen
     ?? n.metadata?.typeExamen
     ?? n.typeExamen ?? '';
-  const map: Record<string, string> = {
-    BIOPSIE:          'Biopsie',
-    FCV_PAP:          'FCV / Pap test',
-    CYT0PONCTION:     'Cytoponction',
-    LIQUIDE:          'Liquide',
-    POS:              'POS',
-    POC:              'POC',
-    EXTEMPORANE_STAT: '⚡ Extemporané STAT',
-  };
-  return map[t] ?? t;
+  return typeExamenLabel(t);
 }
 
 function getServiceNom(n: any): string {

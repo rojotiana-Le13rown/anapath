@@ -109,7 +109,7 @@ function formatDate(iso: string): string {
 /** Libellé du type d'examen tel qu'affiché dans le modèle CHU (tableaux 1 et 2). */
 export function getExamenLabel(typeExamen: string): string {
   const row = ACTIVITE_ROWS.find((r) => r.types.includes(typeExamen));
-  return row?.label ?? typeExamen;
+  return row?.label ?? typeExamen.replace(/_/g, ' ');
 }
 
 /** Construit les lignes du tableau 1 pour une période donnée. */

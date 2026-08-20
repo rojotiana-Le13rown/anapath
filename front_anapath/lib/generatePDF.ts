@@ -278,5 +278,5 @@ function formatTypeExamen(t: string): string {
     POC: 'Prélèvement Organique Complexe',
     EXTEMPORANE_STAT: 'Examen extemporané (STAT)',
   };
-  return m[t] ?? t;
+  return m[t] ?? t.replace(/_/g, ' ');
 }

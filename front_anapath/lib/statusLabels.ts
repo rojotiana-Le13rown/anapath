@@ -31,6 +31,21 @@ export const statusLabels: Record<string, string> = {
     return statusLabels[status] ?? status.replace(/_/g, ' ');
   }
 
+  /** Libellé lisible d'un type d'examen (jamais de « _ »). */
+  export const TYPE_EXAMEN_LABELS: Record<string, string> = {
+    BIOPSIE: 'Biopsie',
+    FCV_PAP: 'FCV / Pap test',
+    CYT0PONCTION: 'Cytoponction',
+    LIQUIDE: 'Liquide',
+    POS: 'POS',
+    POC: 'POC',
+    EXTEMPORANE_STAT: 'Extemporané STAT',
+  };
+
+  export function typeExamenLabel(type: string): string {
+    return TYPE_EXAMEN_LABELS[type] ?? type.replace(/_/g, ' ');
+  }
+
   export const statusColors: Record<string, string> = {
     CREEE: 'bg-gray-100 text-gray-700',
     EN_ATTENTE: 'bg-blue-100 text-blue-700',

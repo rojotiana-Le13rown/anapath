@@ -1,14 +1,4 @@
-import { statusLabels } from './statusLabels';
-
-const TYPE_LABELS: Record<string, string> = {
-  BIOPSIE: 'Biopsie',
-  FCV_PAP: 'FCV / Pap test',
-  CYT0PONCTION: 'Cytoponction',
-  LIQUIDE: 'Liquide',
-  EXTEMPORANE_STAT: 'Extemporané',
-  POS: 'POS',
-  POC: 'POC',
-};
+import { statusLabels, TYPE_EXAMEN_LABELS } from './statusLabels';
 
 export interface AnapathSearchable {
   anapathId?: string;
@@ -35,7 +25,7 @@ function collectSearchableText(req: AnapathSearchable): string {
     req.patientId,
     req.episodeId,
     req.typeExamen,
-    TYPE_LABELS[req.typeExamen ?? ''],
+    TYPE_EXAMEN_LABELS[req.typeExamen ?? ''],
     req.statut,
     statusLabels[req.statut ?? ''],
     req.validatedByUserId,

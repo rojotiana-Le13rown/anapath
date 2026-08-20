@@ -20,7 +20,7 @@ import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { matchesAnapathSearch } from '@/lib/searchAnapath';
 import { sortByUrgencyThenArrival, getUrgenceLevel, type UrgenceLevel } from '@/lib/urgencySort';
 import { formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
-import { statusLabel, statusColors } from '@/lib/statusLabels';
+import { statusLabel, statusColors, typeExamenLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
@@ -56,16 +56,6 @@ const TECHNICAL_STATUSES = ['EN_COURS'];
 // l'examen demandé — et résultats déjà saisis (autosave) encore en attente
 // de validation/signature finale.
 const PATHOLOGIST_STATUSES = ['EN_ATTENTE_DIAGNOSTIC', 'EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE'];
-
-const TYPE_LABELS: Record<string, string> = {
-  BIOPSIE: 'Biopsie',
-  FCV_PAP: 'FCV / Pap test',
-  CYT0PONCTION: 'Cytoponction',
-  LIQUIDE: 'Liquide',
-  EXTEMPORANE_STAT: 'Extemporané',
-  POS: 'POS',
-  POC: 'POC',
-};
 
 const URGENCE_LABELS: Record<UrgenceLevel, string> = {
   STAT: 'Très urgent',
@@ -167,7 +157,7 @@ export default function WorklistPage() {
     }
   };
 
-  const getTypeLabel = (type: string) => TYPE_LABELS[type] || type.replace(/_/g, ' ');
+  const getTypeLabel = (type: string) => typeExamenLabel(type);
 
   const handleSaisirResultat = (id: string) => {
     router.push(`/worklist/${id}`);
@@ -342,7 +332,7 @@ export default function WorklistPage() {
                   label: "Type d'examen",
                   placeholder: 'Tous les examens',
                   multiple: true,
-                  options: Object.entries(TYPE_LABELS).map(([code, label]) => ({ value: code, label })),
+                  options: Object.entries(TYPE_EXAMEN_LABELS).map(([code, label]) => ({ value: code, label })),
                   value: filterTypes,
                   onChange: setFilterTypes,
                 },

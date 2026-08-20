@@ -14,6 +14,7 @@ import axios from 'axios';
 import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests, matchesAnapathSearch } from '@/lib/searchAnapath';
 import { formatDateTime, formatRelativeTime, formatDateLong } from '@/lib/dateFormat';
+import { typeExamenLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 
 interface AnapathRequest {
   id: string;
@@ -35,15 +36,7 @@ interface AnapathRequest {
   patientInfo?: PatientInfo | null;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  BIOPSIE: 'Biopsie',
-  FCV_PAP: 'FCV / Pap test',
-  CYT0PONCTION: 'Cytoponction',
-  LIQUIDE: 'Liquide',
-  EXTEMPORANE_STAT: 'Extemporané',
-  POS: 'POS',
-  POC: 'POC',
-};
+const TYPE_LABELS = TYPE_EXAMEN_LABELS;
 
 /** Nom affichable du patient : nom complet enrichi (Accueil), sinon nom+prénom, sinon tiret. */
 function patientDisplayName(req: { patientInfo?: PatientInfo | null }): string {
@@ -121,7 +114,7 @@ export default function ArchivesPage() {
     }
   };
 
-  const getTypeLabel = (type: string) => TYPE_LABELS[type] || type;
+  const getTypeLabel = (type: string) => typeExamenLabel(type);
 
   const getTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
