@@ -18,6 +18,9 @@ import { useAuth } from './AuthProvider';
 import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole } from '@/lib/roles';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
 import { exportMajorReportExcel } from '@/lib/majorReport';
+import PrescriptionDetails from '@/components/PrescriptionDetails';
+import { type PatientInfo } from '@/components/PatientIdentitySection';
+import { getPatientForExamen } from '@/lib/api';
 import { getMondayOfWeek, formatWeekLabel } from '@/lib/weekUtils';
 
 // URL de la Gateway socket.io du backend (namespace /anapath). En local :
@@ -202,6 +205,8 @@ export default function NotificationBell() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [detailNotif, setDetailNotif] = useState<any>(null);
+  const [modalPatient, setModalPatient] = useState<PatientInfo | null>(null);
+  const [modalPatientLoading, setModalPatientLoading] = useState(false);
   const [refuserMode, setRefuserMode] = useState(false);
   const [motif, setMotif] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -456,6 +461,19 @@ export default function NotificationBell() {
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [open]);
+
+  useEffect(() => {
+    if (!detailNotif) { setModalPatient(null); return; }
+    const pid = getPatientId(detailNotif);
+    if (!pid) { setModalPatient(null); return; }
+    let cancelled = false;
+    setModalPatientLoading(true);
+    getPatientForExamen(pid)
+      .then(p => { if (!cancelled) setModalPatient(p as PatientInfo); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setModalPatientLoading(false); });
+    return () => { cancelled = true; };
+  }, [detailNotif?.id ?? detailNotif?._id]);
 
   const unreadCount = notifs.filter(n => !isLue(n)).length;
 
@@ -1065,94 +1083,21 @@ export default function NotificationBell() {
               </button>
             </div>
 
-            <div className="px-5 py-4 space-y-3">
-              <div>
-                <p className="text-xs text-gray-500">
-                  Type d'examen
-                </p>
-                <p className="text-sm font-semibold
-                  text-gray-800">
-                  {getTypeExamen(detailNotif)}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500">
-                  Patient
-                </p>
-                <p className="text-sm font-semibold
-                  text-gray-800">
-                  {getPatientName(detailNotif) || '—'}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500">
-                  Urgence
-                </p>
-                <p className="text-sm text-gray-800">
-                  {detailNotif.metadata?.urgence ?? 'NORMALE'}
-                </p>
-              </div>
-
-              {getAllergies(detailNotif) && (
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Allergies
-                  </p>
-                  <p className="text-sm font-semibold text-red-600">
-                    ⚠️ {getAllergies(detailNotif)}
-                  </p>
-                </div>
-              )}
-
-              {detailNotif.metadata?.alertes && (
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Alertes
-                  </p>
-                  <p className="text-sm text-gray-800">
-                    {detailNotif.metadata.alertes}
-                  </p>
-                </div>
-              )}
-
-              {detailNotif.metadata?.data
-                && Object.keys(detailNotif.metadata.data).length > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">
-                    Détails cliniques
-                  </p>
-                  <div className="text-sm text-gray-700
-                    bg-gray-50 rounded-lg p-3 space-y-1">
-                    {Object.entries(detailNotif.metadata.data).flatMap(
-                      ([k, v]) => {
-                        if (v && typeof v === 'object' && !Array.isArray(v)) {
-                          return Object.entries(v as Record<string, unknown>)
-                            .filter(([, val]) => val != null && val !== '')
-                            .map(([subK, subV]) => (
-                              <p key={`${k}.${subK}`}>
-                                <span className="text-gray-500">{subK} :</span>{' '}
-                                {String(subV)}
-                              </p>
-                            ));
-                        }
-                        if (v == null || v === '') return [];
-                        return (
-                          <p key={k}>
-                            <span className="text-gray-500">{k} :</span>{' '}
-                            {String(v)}
-                          </p>
-                        );
-                      },
-                    )}
-                  </div>
-                </div>
-              )}
+            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+              <PrescriptionDetails
+                request={{
+                  typeExamen: detailNotif.metadata?.typeExamen ?? '',
+                  createdAt: detailNotif.createdAt ?? detailNotif.date ?? '',
+                  patientId: getPatientId(detailNotif),
+                  metadata: detailNotif.metadata ?? {},
+                }}
+                patient={modalPatient}
+                patientLoading={modalPatientLoading}
+              />
 
               {actionError && (
                 <p className="text-sm text-red-600
-                  bg-red-50 rounded-lg px-3 py-2">
+                  bg-red-50 rounded-lg px-3 py-2 mt-3">
                   {actionError}
                 </p>
               )}

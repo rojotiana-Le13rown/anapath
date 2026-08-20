@@ -8,9 +8,11 @@ import FilterButton from '@/components/FilterButton';
 import { useSearch } from '@/components/SearchContext';
 import { useToast } from '@/components/ToastContext';
 import StatCountdown from '@/components/StatCountdown';
-import { accepterPrescriptionNotif, refuserPrescriptionNotif, API_BASE } from '@/lib/api';
+import { accepterPrescriptionNotif, refuserPrescriptionNotif, getPatientForExamen, API_BASE } from '@/lib/api';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
+import PrescriptionDetails from '@/components/PrescriptionDetails';
+import { type PatientInfo } from '@/components/PatientIdentitySection';
 
 /* ---- Helpers (mêmes règles que la cloche de notification) ---- */
 const isPending = (n: any) =>
@@ -138,6 +140,8 @@ export default function DemandesPage() {
   const [motifInput, setMotifInput] = useState('');
   const [refusing, setRefusing] = useState(false);
   const [detailTarget, setDetailTarget] = useState<any | null>(null);
+  const [modalPatient, setModalPatient] = useState<PatientInfo | null>(null);
+  const [modalPatientLoading, setModalPatientLoading] = useState(false);
 
   // Actualise les libellés relatifs ("il y a X") toutes les 30 s.
   const [, setTick] = useState(0);
@@ -148,6 +152,19 @@ export default function DemandesPage() {
 
   const openDetail = (n: any) => setDetailTarget(n);
   const closeDetail = () => setDetailTarget(null);
+
+  useEffect(() => {
+    if (!detailTarget) { setModalPatient(null); return; }
+    const pid = getPatientId(detailTarget);
+    if (!pid) { setModalPatient(null); return; }
+    let cancelled = false;
+    setModalPatientLoading(true);
+    getPatientForExamen(pid)
+      .then(p => { if (!cancelled) setModalPatient(p as PatientInfo); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setModalPatientLoading(false); });
+    return () => { cancelled = true; };
+  }, [detailTarget?.id ?? detailTarget?._id]);
 
   const loadOnce = useCallback(async () => {
     const [notifs, acceptees, refusees] = await Promise.all([
@@ -535,94 +552,17 @@ export default function DemandesPage() {
               </button>
             </div>
 
-            <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Patient</p>
-                  <p className="font-medium text-[#191c21]">{getPatientName(detailTarget) || '—'}</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Type d'examen</p>
-                  <p className="font-medium text-[#191c21]">{getTypeExamen(detailTarget) || '—'}</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Service demandeur</p>
-                  <p className="font-medium text-[#191c21]">{getServiceNom(detailTarget)}</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Urgence</p>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${urgenceBadge(getUrgence(detailTarget))}`}>
-                    {getUrgence(detailTarget)}
-                  </span>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3 col-span-2">
-                  <p className="text-xs text-slate-400">Reçue le</p>
-                  <p className="font-medium text-[#191c21]">
-                    {formatDateTime(getCreatedAt(detailTarget))}
-                  </p>
-                </div>
-              </div>
-
-              {(detailTarget.metadata?.anapathId || detailTarget.referenceId || detailTarget.examId) && (
-                <div className="bg-[#00478d]/5 border border-[#00478d]/15 rounded-lg p-3 text-sm">
-                  <p className="text-xs text-slate-400 mb-0.5">Référence examen</p>
-                  <p className="font-mono font-medium text-[#00478d]">
-                    {detailTarget.metadata?.anapathId ?? detailTarget.referenceId ?? detailTarget.examId}
-                  </p>
-                </div>
-              )}
-
-              {detailTarget.metadata?.alertes && (
-                <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
-                  <p className="text-xs text-red-400 font-bold uppercase tracking-wider mb-0.5">
-                    Alertes
-                  </p>
-                  <p className="font-medium text-red-700">{detailTarget.metadata.alertes}</p>
-                </div>
-              )}
-
-              {detailTarget.message && (
-                <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-3 text-sm">
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">
-                    Message
-                  </p>
-                  <p className="font-medium text-[#191c21] leading-relaxed">{detailTarget.message}</p>
-                </div>
-              )}
-
-              {detailTarget.metadata?.data &&
-                Object.keys(detailTarget.metadata.data).length > 0 && (
-                  <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1.5">
-                      Détails cliniques
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {Object.entries(detailTarget.metadata.data).flatMap(([k, v]) => {
-                        if (v && typeof v === 'object' && !Array.isArray(v)) {
-                          return Object.entries(v as Record<string, unknown>)
-                            .filter(([, val]) => val != null && val !== '')
-                            .map(([subK, subV]) => (
-                              <div key={`${k}.${subK}`} className="bg-slate-50 rounded-lg p-3">
-                                <p className="text-xs text-slate-400 capitalize">{subK}</p>
-                                <p className="font-medium text-[#191c21] break-words">
-                                  {String(subV)}
-                                </p>
-                              </div>
-                            ));
-                        }
-                        if (v == null || v === '') return [];
-                        return (
-                          <div key={k} className="bg-slate-50 rounded-lg p-3">
-                            <p className="text-xs text-slate-400 capitalize">{k}</p>
-                            <p className="font-medium text-[#191c21] break-words">
-                              {String(v)}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+            <div className="p-5 max-h-[65vh] overflow-y-auto">
+              <PrescriptionDetails
+                request={{
+                  typeExamen: detailTarget.metadata?.typeExamen ?? '',
+                  createdAt: detailTarget.createdAt ?? detailTarget.date ?? '',
+                  patientId: getPatientId(detailTarget),
+                  metadata: detailTarget.metadata ?? {},
+                }}
+                patient={modalPatient}
+                patientLoading={modalPatientLoading}
+              />
             </div>
 
             <div className="flex items-center justify-end gap-2 px-5 py-4 bg-slate-50 border-t border-slate-100">
