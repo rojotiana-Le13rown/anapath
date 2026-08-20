@@ -61,6 +61,14 @@ export default function TopBar() {
         </div>
         
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-right leading-tight mr-1">
+            <span className="material-symbols-outlined text-[#00478d] text-sm">calendar_today</span>
+            <div>
+              <div className="text-[13px] font-semibold text-[#00478d]">{dateLabel}</div>
+              <div className="text-xs font-bold tabular-nums text-sky-500">{timeLabel}</div>
+            </div>
+          </div>
+          
           <NotificationBell />
           
           <Link
@@ -75,12 +83,6 @@ export default function TopBar() {
         </div>
       </div>
 
-      <div className="flex justify-end items-center px-6 pb-2">
-        <div className="text-right leading-tight">
-          <div className="text-[13px] font-semibold text-[#00478d]">{dateLabel}</div>
-          <div className="text-sm font-bold tabular-nums text-sky-500">{timeLabel}</div>
-        </div>
-      </div>
     </header>
   );
 }
