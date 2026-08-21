@@ -64,6 +64,8 @@ services:
         sync: false
       - key: UPLOAD_SERVICE_URL
         value: https://service-upload-u5z9.onrender.com
+      - key: DOSSIER_PATIENT_URL
+        value: https://dossier-patient-back-ri3e.onrender.com
       - key: CORS_ORIGINS
         sync: false
 

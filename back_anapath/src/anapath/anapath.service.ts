@@ -16,6 +16,7 @@ import { PrescriptionClient, AnapathPrescription, PrescriptionDemande } from '..
 import { ChuClient } from '../common/clients/chu.client';
 import { ServiceServiceClient } from '../common/clients/service.client';
 import { AccueilClient } from '../common/clients/accueil.client';
+import { DossierPatientClient } from '../common/clients/dossier-patient.client';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/receive-notification.dto';
 import { AuthServiceTokenService } from '../common/clients/auth-service-token.service';
@@ -59,6 +60,7 @@ export class AnapathService {
     private readonly chuClient: ChuClient,
     private readonly serviceServiceClient: ServiceServiceClient,
     private readonly accueilClient: AccueilClient,
+    private readonly dossierPatientClient: DossierPatientClient,
     private readonly userServiceClient: UserServiceClient,
   ) {}
 
@@ -495,6 +497,40 @@ export class AnapathService {
 
     const saved = await this.anapathRepository.save(request);
     await this.propagerStatutVersPrescription(saved, token);
+
+    // Envoi automatique du compte-rendu au service dossier patient
+    try {
+      const meta = (saved.metadata ?? {}) as Record<string, unknown>;
+      const chuId = (meta.chuId as string) ?? '';
+      const serviceId = (meta.serviceIdSource as string) ?? (meta.serviceIdDest as string) ?? '';
+      const prescripteur = (meta.prescripteurNom as string) ?? (meta.nomMedecinPrescripteur as string) ?? '';
+      const typeLabel = TYPE_EXAMEN_LABELS[saved.typeExamen] ?? saved.typeExamen;
+
+      if (saved.patientId && chuId) {
+        await this.dossierPatientClient.createComplementaryExamination({
+          chuId,
+          serviceId: serviceId || ANAPATH_SERVICE_ID,
+          patientId: saved.patientId,
+          examinationType: saved.typeExamen,
+          titre: `Compte-rendu anapath – ${typeLabel}`,
+          description: `Compte-rendu d'examen anapath (${typeLabel}) pour le patient`,
+          dateExamen: (saved.validatedAt ?? new Date()).toISOString(),
+          resultats: saved.resultatDetails ?? '',
+          interpretation: '',
+          conclusion: saved.resultatConclusion ?? '',
+          prescripteur,
+          laboratoire: 'Anapath',
+          urgency: 'normale',
+          isUrgent: false,
+          notes: '',
+          createdBy: saved.validatedByUserId ?? '',
+        });
+      }
+    } catch (e) {
+      // Jamais bloquant
+      console.warn(`Échec envoi dossier patient pour ${saved.anapathId}: ${e instanceof Error ? e.message : e}`);
+    }
+
     return this.toResponse(saved);
   }
 
