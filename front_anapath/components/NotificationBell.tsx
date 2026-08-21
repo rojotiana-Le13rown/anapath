@@ -209,7 +209,7 @@ export default function NotificationBell() {
   const [inlineSubmittingId, setInlineSubmittingId] = useState<string | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [inlineErrorId, setInlineErrorId] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [visibleCount, setVisibleCount] = useState(3);
   const known = useRef<Set<string>>(new Set());
   const extemporaneTimers =
     useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -468,7 +468,7 @@ export default function NotificationBell() {
   }, [detailNotif?.id ?? detailNotif?._id]);
 
   useEffect(() => {
-    if (!open) setVisibleCount(6);
+    if (!open) setVisibleCount(3);
   }, [open]);
 
   const unreadCount = notifs.filter(n => !isLue(n)).length;
@@ -1017,7 +1017,7 @@ export default function NotificationBell() {
               })}
               {remaining > 0 && (
                 <button
-                  onClick={() => setVisibleCount(c => c + 6)}
+                  onClick={() => setVisibleCount(c => c + 3)}
                   className="w-full px-4 py-2 text-xs text-[#00478d]
                     font-medium hover:bg-gray-50 transition-colors
                     border-t border-gray-100"
@@ -1025,9 +1025,9 @@ export default function NotificationBell() {
                   Afficher les anciennes notifications ({remaining} restante{remaining > 1 ? 's' : ''})
                 </button>
               )}
-              {visibleCount > 6 && remaining === 0 && (
+              {visibleCount > 3 && remaining === 0 && (
                 <button
-                  onClick={() => setVisibleCount(6)}
+                  onClick={() => setVisibleCount(3)}
                   className="w-full px-4 py-2 text-xs text-gray-500
                     font-medium hover:bg-gray-50 transition-colors
                     border-t border-gray-100"
