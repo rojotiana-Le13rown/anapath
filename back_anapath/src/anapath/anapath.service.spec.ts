@@ -10,6 +10,7 @@ import { ChuClient } from '../common/clients/chu.client';
 import { ServiceServiceClient } from '../common/clients/service.client';
 import { AccueilClient } from '../common/clients/accueil.client';
 import { UserServiceClient } from '../common/clients/user-service.client';
+import { DossierPatientClient } from '../common/clients/dossier-patient.client';
 import {
   ALL_TYPES_FIXTURES,
   DATA_ABSENT_FIXTURE,
@@ -31,6 +32,7 @@ describe('AnapathService', () => {
         { provide: ChuClient, useValue: {} },
         { provide: ServiceServiceClient, useValue: {} },
         { provide: AccueilClient, useValue: {} },
+        { provide: DossierPatientClient, useValue: {} },
         { provide: UserServiceClient, useValue: {} },
       ],
     }).compile();
