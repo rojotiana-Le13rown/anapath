@@ -62,7 +62,6 @@ export default function TopBar() {
         
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-right leading-tight mr-1">
-            <span className="material-symbols-outlined text-[#00478d] text-sm">calendar_today</span>
             <div>
               <div className="text-[13px] font-semibold text-[#00478d]">{dateLabel}</div>
               <div className="text-xs font-bold tabular-nums text-sky-500">{timeLabel}</div>

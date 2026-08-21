@@ -561,10 +561,19 @@ export default function DemandesPage() {
             <div className="flex items-center justify-end gap-2 px-5 py-4 bg-slate-50 border-t border-slate-100">
               <button
                 type="button"
-                onClick={closeDetail}
-                className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[#00478d] to-[#005eb8] rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all"
+                onClick={() => { closeDetail(); openRefuse(detailTarget); }}
+                disabled={busyId === (detailTarget?.id ?? detailTarget?._id)}
+                className="px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-40"
               >
-                Fermer
+                Refuser
+              </button>
+              <button
+                type="button"
+                onClick={() => { closeDetail(); handleAccept(detailTarget); }}
+                disabled={busyId === (detailTarget?.id ?? detailTarget?._id)}
+                className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[#00478d] to-[#005eb8] rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
+              >
+                {busyId === (detailTarget?.id ?? detailTarget?._id) ? '...' : 'Accepter'}
               </button>
             </div>
           </div>
