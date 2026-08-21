@@ -209,7 +209,7 @@ export default function NotificationBell() {
   const [inlineSubmittingId, setInlineSubmittingId] = useState<string | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [inlineErrorId, setInlineErrorId] = useState<string | null>(null);
-  const [showOldNotifs, setShowOldNotifs] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(6);
   const known = useRef<Set<string>>(new Set());
   const extemporaneTimers =
     useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -466,6 +466,10 @@ export default function NotificationBell() {
       .finally(() => { if (!cancelled) setModalPatientLoading(false); });
     return () => { cancelled = true; };
   }, [detailNotif?.id ?? detailNotif?._id]);
+
+  useEffect(() => {
+    if (!open) setVisibleCount(6);
+  }, [open]);
 
   const unreadCount = notifs.filter(n => !isLue(n)).length;
 
@@ -752,17 +756,8 @@ export default function NotificationBell() {
                   </p>
                 </div>
               ) : (() => {
-                const CINQ_MIN = 5 * 60 * 1000;
-                const now = Date.now();
-                const recent = notifs.filter(n => {
-                  const d = new Date(n.createdAt ?? n.date ?? 0).getTime();
-                  return now - d <= CINQ_MIN;
-                });
-                const old = notifs.filter(n => {
-                  const d = new Date(n.createdAt ?? n.date ?? 0).getTime();
-                  return now - d > CINQ_MIN;
-                });
-                const visible = showOldNotifs ? notifs : recent;
+                const visible = notifs.slice(0, visibleCount);
+                const remaining = notifs.length - visibleCount;
                 return (
                   <>
                     {visible.map(n => {
@@ -1020,19 +1015,19 @@ export default function NotificationBell() {
                   </div>
                 );
               })}
-              {old.length > 0 && !showOldNotifs && (
+              {remaining > 0 && (
                 <button
-                  onClick={() => setShowOldNotifs(true)}
+                  onClick={() => setVisibleCount(c => c + 6)}
                   className="w-full px-4 py-2 text-xs text-[#00478d]
                     font-medium hover:bg-gray-50 transition-colors
                     border-t border-gray-100"
                 >
-                  Afficher les anciennes notifications ({old.length})
+                  Afficher les anciennes notifications ({remaining} restante{remaining > 1 ? 's' : ''})
                 </button>
               )}
-              {showOldNotifs && old.length > 0 && (
+              {visibleCount > 6 && remaining === 0 && (
                 <button
-                  onClick={() => setShowOldNotifs(false)}
+                  onClick={() => setVisibleCount(6)}
                   className="w-full px-4 py-2 text-xs text-gray-500
                     font-medium hover:bg-gray-50 transition-colors
                     border-t border-gray-100"
