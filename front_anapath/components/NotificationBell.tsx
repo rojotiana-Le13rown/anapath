@@ -1057,7 +1057,7 @@ export default function NotificationBell() {
         >
           <div
             className="bg-white rounded-xl shadow-xl
-              max-w-md w-full overflow-hidden"
+              max-w-2xl w-[95vw] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between
@@ -1075,7 +1075,7 @@ export default function NotificationBell() {
               </button>
             </div>
 
-            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="px-5 py-4 max-h-[75vh] overflow-y-auto">
               <PrescriptionDetails
                 request={{
                   typeExamen: detailNotif.metadata?.typeExamen ?? '',

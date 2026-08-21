@@ -47,7 +47,7 @@ export default function PatientHistoriqueButton({ entries, className = '' }: Pat
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-xl shadow-xl max-w-lg w-[95vw] max-h-[80vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">

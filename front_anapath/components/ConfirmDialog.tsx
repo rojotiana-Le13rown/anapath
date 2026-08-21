@@ -30,7 +30,7 @@ export default function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden modal-in"
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-[95vw] overflow-hidden modal-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-gradient-to-r from-[#00284d] to-[#00478d] px-5 py-4 flex items-center gap-3">

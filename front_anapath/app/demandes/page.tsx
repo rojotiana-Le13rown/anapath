@@ -522,7 +522,7 @@ export default function DemandesPage() {
           onClick={closeDetail}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-in"
+            className="bg-white rounded-2xl shadow-2xl max-w-6xl w-[95vw] overflow-hidden modal-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-[#00284d] to-[#00478d] px-5 py-4 flex items-center justify-between">
@@ -545,7 +545,7 @@ export default function DemandesPage() {
               </button>
             </div>
 
-            <div className="p-5 max-h-[65vh] overflow-y-auto">
+            <div className="p-5 max-h-[75vh] overflow-y-auto">
               <PrescriptionDetails
                 request={{
                   typeExamen: detailTarget.metadata?.typeExamen ?? '',
@@ -587,7 +587,7 @@ export default function DemandesPage() {
           onClick={closeRefuse}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden modal-in"
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-[#00284d] to-[#00478d] px-5 py-4 flex items-center justify-between">
