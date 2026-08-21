@@ -3,10 +3,10 @@ import { Injectable } from '@nestjs/common';
 // Valeur confirmée en prod : le service Accueil (migré sur Render) expose ses
 // routes AVEC le préfixe `/accueil/...` — l'URL de base est donc la racine,
 // SANS suffixe `/accueil/api` (celui-ci pointe vers le Swagger UI, pas l'API).
-// Vérifié : GET https://acceuil-back.onrender.com/accueil/patients?chuId=… → 200 JSON.
+// Vérifié : GET https://acceuil-back-ytyd.onrender.com/accueil/patients?chuId=… → 200 JSON.
 const ACCUEIL_BASE_URL =
   process.env.ACCUEIL_BASE_URL ??
-  'https://acceuil-back.onrender.com';
+  'https://acceuil-back-ytyd.onrender.com';
 
 @Injectable()
 export class AccueilClient {
