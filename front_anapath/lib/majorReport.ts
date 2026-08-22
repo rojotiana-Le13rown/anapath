@@ -98,6 +98,14 @@ function formatSexe(sexe?: string | null): string {
   return '';
 }
 
+function calcAgeFromDate(d: string): number {
+  const b = new Date(d), n = new Date();
+  let a = n.getFullYear() - b.getFullYear();
+  if (n.getMonth() - b.getMonth() < 0
+    || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
+  return a;
+}
+
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString('fr-FR');
@@ -155,7 +163,11 @@ export function buildTableau2(requests: MajorRequest[]): Tableau2Row[] {
         service: '',
         numero: '',
         nom,
-        age: info.age != null ? String(info.age) : '',
+        age: info.age != null
+          ? String(info.age)
+          : info.dateNaissance
+            ? String(calcAgeFromDate(info.dateNaissance))
+            : '',
         sexe: formatSexe(info.sexe),
         dateReception: formatDate(r.createdAt),
         examen: getExamenLabel(r.typeExamen),
