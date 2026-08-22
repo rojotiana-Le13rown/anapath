@@ -54,14 +54,26 @@ const BIOPSIE_CONFIG: ContentBlock[] = [
 
 const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
   FCV_PAP: [
-    { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
-    { type: 'field', field: { keys: ['fcvNote', 'note'], label: 'Note complémentaire' } },
-    { type: 'field', field: { keys: ['fcvGPA', 'gpa'], label: 'GPA' } },
-    { type: 'field', field: { keys: ['fcvDDR', 'ddr'], label: 'DDR', date: true } },
-    { type: 'field', field: { keys: ['fcvMeno'], label: 'MENOPAUSE' } },
-    { type: 'field', field: { keys: ['fcvMenarche'], label: 'AGE DE LA MENARCHE' } },
-    { type: 'field', field: { keys: ['fcvRapport'], label: 'Âge du 1er rapport sexuel' } },
-    { type: 'field', field: { keys: ['fcvContra'], label: 'CONTRACEPTION' } },
+    {
+      type: 'group',
+      label: 'NOTES & CLINIQUE',
+      fields: [
+        { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' },
+        { keys: ['fcvNote', 'note'], label: 'Note complémentaire' },
+      ],
+    },
+    {
+      type: 'group',
+      label: 'ANTÉCÉDENTS',
+      fields: [
+        { keys: ['fcvGPA', 'gpa'], label: 'GPA' },
+        { keys: ['fcvDDR', 'ddr'], label: 'DDR' },
+        { keys: ['fcvMeno'], label: 'MENOPAUSE' },
+        { keys: ['fcvMenarche'], label: 'AGE DE LA MENARCHE' },
+        { keys: ['fcvRapport'], label: 'Âge du 1er rapport sexuel' },
+        { keys: ['fcvContra'], label: 'CONTRACEPTION' },
+      ],
+    },
     { type: 'field', field: { keys: ['fcvTtt'], label: 'TRAITEMENT EN COURS' } },
     { type: 'field', field: { keys: ['etat_col'], label: 'État du col' } },
     { type: 'field', field: { keys: ['service'], label: 'Service' } },
