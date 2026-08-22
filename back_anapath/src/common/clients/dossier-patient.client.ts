@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { AuthServiceTokenService } from './auth-service-token.service';
 
 const DOSSIER_PATIENT_BASE_URL =
   process.env.DOSSIER_PATIENT_URL ??
@@ -10,8 +11,15 @@ export class DossierPatientClient {
   private readonly baseUrl: string;
   private readonly timeout = 30000;
 
-  constructor() {
+  constructor(private readonly authServiceToken: AuthServiceTokenService) {
     this.baseUrl = (DOSSIER_PATIENT_BASE_URL).replace(/\/$/, '');
+  }
+
+  private async headers(): Promise<Record<string, string>> {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = await this.authServiceToken.getToken();
+    if (token) h.Authorization = `Bearer ${token}`;
+    return h;
   }
 
   async createComplementaryExamination(data: {
@@ -36,7 +44,7 @@ export class DossierPatientClient {
       const url = `${this.baseUrl}/dossier-patient/complementary-examinations`;
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await this.headers(),
         body: JSON.stringify(data),
         signal: AbortSignal.timeout(this.timeout),
       });
@@ -60,12 +68,11 @@ export class DossierPatientClient {
   async getPatientExaminations(
     chuId: string,
     patientId: string,
-    token?: string,
   ): Promise<any[]> {
     try {
       const url = `${this.baseUrl}/dossier-patient/complementary-examinations`;
       const res = await fetch(`${url}?chuId=${encodeURIComponent(chuId)}&patientId=${encodeURIComponent(patientId)}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: await this.headers(),
         signal: AbortSignal.timeout(this.timeout),
       });
       if (!res.ok) {

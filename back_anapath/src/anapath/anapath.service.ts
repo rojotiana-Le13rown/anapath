@@ -78,7 +78,6 @@ export class AnapathService {
     const items = await this.dossierPatientClient.getPatientExaminations(
       chuId,
       patientId,
-      token ?? undefined,
     );
 
     // Rattrapage des comptes-rendus anapath manquants dans le dossier-patient.
