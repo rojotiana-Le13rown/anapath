@@ -326,19 +326,9 @@ export async function exportMajorReportExcel(
   // ===== VOLET ACTIVITÉ =====
   sectionTitle('VOLET ACTIVITÉ', 8);
   writeGrid(tableau1Grid(t1), 8, [2, 3, 4, 5, 6, 7, 8]);
-  mutedNote(
-    `TOTAL (auto) : PEC = ${total.pec} · RÉSULTATS EN COURS = ${total.enCours}. ` +
-      'Les colonnes vides (EXTERNE, HOSP, DÉMUNI, POSITIFS, RECETTE DAAF) sont à compléter par le major.',
-    8,
-  );
-
   // ===== PRISE EN CHARGE =====
   sectionTitle('PRISE EN CHARGE (PIVOT, ASSOCIATION MANAMPY…….)', 10);
   writeGrid(tableau2Grid(t2), 10, [2, 4, 5, 6]);
-  mutedNote(
-    'Patients de la période. Colonnes vides à compléter par le major (SERVICE, N°/NOMBRE, RÉSULTATS, OBSERVATION).',
-    10,
-  );
 
   // Pied de page (même mention que le PDF)
   const footRow = ws.rowCount + 2;
@@ -422,15 +412,12 @@ th{background:#e8edf5;font-weight:bold;}
     <thead><tr>${ACTIVITE_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
     <tbody>${t1Rows}</tbody>
   </table>
-  <div class="muted">TOTAL (auto) : PEC = ${total.pec} · RÉSULTATS EN COURS = ${total.enCours}.
-  Les colonnes vides (EXTERNE, HOSP, DÉMUNI, POSITIFS, RECETTE DAAF) sont à compléter par le major.</div>
 
   <div class="section-title">PRISE EN CHARGE (PIVOT, ASSOCIATION MANAMPY…….)</div>
   <table>
     <thead><tr>${PRISE_EN_CHARGE_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
     <tbody>${t2Rows}</tbody>
   </table>
-  <div class="muted">Patients de la période. Colonnes vides à compléter par le major (SERVICE, N°/NOMBRE, RÉSULTATS, OBSERVATION).</div>
 
   <div style="margin-top:16px;text-align:center;font-size:8px;color:#666;border-top:1px solid #ccc;padding-top:6px;">
     Document généré le ${escapeHtml(new Date().toLocaleString('fr-FR', { hour12: false }))}
