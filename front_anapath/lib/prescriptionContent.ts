@@ -49,6 +49,7 @@ const BIOPSIE_CONFIG: ContentBlock[] = [
   { type: 'field', field: { keys: ['bioDDR'], label: 'DDR (si applicable)', date: true } },
   { type: 'field', field: { keys: ['bioMeno'], label: 'Ménopause' } },
   { type: 'field', field: { keys: ['bioAtcd'], label: 'Autres antécédents personnels / familiaux' } },
+  { type: 'field', field: { keys: ['bioFaitLe', 'faitLe'], label: 'Fait le', date: true } },
 ];
 
 const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
@@ -63,6 +64,7 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
     { type: 'field', field: { keys: ['fcvContra'], label: 'CONTRACEPTION' } },
     { type: 'field', field: { keys: ['fcvTtt'], label: 'TRAITEMENT EN COURS' } },
     { type: 'field', field: { keys: ['etat_col'], label: 'État du col' } },
+    { type: 'field', field: { keys: ['service'], label: 'Service' } },
     { type: 'field', field: { keys: ['papResultat'], label: 'Résultat du dernier frottis / PAP' } },
     {
       type: 'group',
@@ -78,18 +80,33 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
   ],
 
   CYT0PONCTION: [
-    { type: 'field', field: { keys: ['cytoSiege', 'siege'], label: 'Siège de la ponction' } },
-    { type: 'field', field: { keys: ['cytoOrgane', 'organe'], label: 'Organe' } },
-    { type: 'field', field: { keys: ['cytoFix', 'fixateur'], label: 'Fixateur', otherKeys: ['cytoFixAutre'] } },
-    { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
-    { type: 'field', field: { keys: ['cytoNotes', 'note'], label: 'Note complémentaire' } },
+    {
+      type: 'group',
+      label: 'PRÉLÈVEMENT',
+      fields: [
+        { keys: ['cytoSiege', 'siege'], label: 'Siège de la ponction' },
+        { keys: ['cytoOrgane', 'organe'], label: 'Organe' },
+        { keys: ['cytoFix', 'fixateur'], label: 'Fixateur', otherKeys: ['cytoFixAutre'] },
+        { keys: ['service'], label: 'Service' },
+      ],
+    },
+    {
+      type: 'group',
+      label: 'NOTES & CLINIQUE',
+      fields: [
+        { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' },
+        { keys: ['cytoNotes', 'note'], label: 'Note complémentaire' },
+      ],
+    },
   ],
 
   LIQUIDE: [
     { type: 'field', field: { keys: ['liqNat', 'type_liquide'], label: 'Nature du liquide', otherKeys: ['liqNatAutre'] } },
     { type: 'field', field: { keys: ['volume'], label: 'Volume (ml)' } },
+    { type: 'field', field: { keys: ['bioDatePrelev'], label: 'Date du prélèvement', date: true } },
     { type: 'field', field: { keys: ['liqNotes', 'note'], label: 'Note complémentaire' } },
     { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
+    { type: 'field', field: { keys: ['bioFaitLe', 'faitLe'], label: 'Fait le', date: true } },
   ],
 
   BIOPSIE: BIOPSIE_CONFIG,
@@ -106,6 +123,7 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
     { type: 'field', field: { keys: ['extQuestion'], label: 'Question clinique posée au pathologiste' } },
     { type: 'field', field: { keys: ['extDatePrevue'], label: 'Date prévue', date: true } },
     { type: 'field', field: { keys: ['extHeure'], label: 'Heure' } },
+    { type: 'field', field: { keys: ['bioFaitLe', 'faitLe'], label: 'Fait le', date: true } },
   ],
 };
 
@@ -120,9 +138,11 @@ const TECHNICAL_KEYS = new Set([
   'statut', 'motifRefus', 'createdAt', 'updatedAt', 'renseignementsCliniques',
 ]);
 
-/** Libellé lisible pour une clé technique : camelCase / snake_case → mots capitalisés. */
+/** Libellé lisible pour une clé technique : préfixes de type retirés
+ *  (bioFaitLe → « Fait Le »), camelCase / snake_case → mots capitalisés. */
 function humanizeKey(key: string): string {
-  const words = key
+  const stripped = key.replace(/^(bio|fcv|cyto|ext|liq|pap)(?=[A-Z])/, '');
+  const words = stripped
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
     .trim();
@@ -213,7 +233,8 @@ export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
     for (const [key, value] of Object.entries(source)) {
       if (covered.has(key) || TECHNICAL_KEYS.has(key)) continue;
       if (typeof value === 'string' && value.trim()) {
-        extras.push({ key, value: value.trim() });
+        const v = value.trim();
+        extras.push({ key, value: /^\d{4}-\d{2}-\d{2}$/.test(v) ? formatDate(v) : v });
       } else if (typeof value === 'boolean') {
         extras.push({ key, value: value ? 'Oui' : 'Non' });
       } else if (typeof value === 'number') {
