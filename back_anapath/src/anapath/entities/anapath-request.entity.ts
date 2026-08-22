@@ -117,6 +117,11 @@ export class AnapathRequest {
   @Column({ type: 'timestamp', nullable: true })
   validatedAt: Date;
 
+  // Id de l'examen complémentaire correspondant dans le service dossier-patient
+  // (renseigné après l'envoi du compte-rendu ; null = pas encore envoyé).
+  @Column({ nullable: true })
+  dossierPatientId: string;
+
   @Column({ nullable: true })
   validationHash: string;
 
