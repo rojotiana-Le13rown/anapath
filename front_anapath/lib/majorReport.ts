@@ -22,6 +22,7 @@ export interface MajorRequest {
     nom?: string | null;
     prenom?: string | null;
     sexe?: string | null;
+    genre?: string | null;
     age?: number | null;
     dateNaissance?: string | null;
   } | null;
@@ -93,8 +94,10 @@ function isEnCours(statut: string): boolean {
 }
 
 function formatSexe(sexe?: string | null): string {
-  if (sexe === 'MALE' || sexe === 'M' || sexe === 'Homme') return 'M';
-  if (sexe === 'FEMALE' || sexe === 'F' || sexe === 'Femme') return 'F';
+  if (!sexe) return '';
+  const s = sexe.trim().toLowerCase();
+  if (['m', 'male', 'homme', 'masculin', 'mâle'].includes(s)) return 'M';
+  if (['f', 'female', 'femme', 'féminin', 'feminin'].includes(s)) return 'F';
   return '';
 }
 
@@ -168,7 +171,7 @@ export function buildTableau2(requests: MajorRequest[]): Tableau2Row[] {
           : info.dateNaissance
             ? String(calcAgeFromDate(info.dateNaissance))
             : '',
-        sexe: formatSexe(info.sexe),
+        sexe: formatSexe(info.sexe) || formatSexe((info as any).genre),
         dateReception: formatDate(r.createdAt),
         examen: getExamenLabel(r.typeExamen),
         resultatsPathologiques: '',
