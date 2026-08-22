@@ -115,8 +115,6 @@ function getTypeExamen(n: any): string {
 function getServiceNom(n: any): string {
   return n.enriched?.serviceNom
     ?? n.metadata?.serviceNom
-    ?? n.metadata?.serviceId
-    ?? n.metadata?.serviceIdSource
     ?? '—';
 }
 

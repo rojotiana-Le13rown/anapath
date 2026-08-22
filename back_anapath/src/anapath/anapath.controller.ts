@@ -162,7 +162,7 @@ export class AnapathController {
     // plus les nouvelles demandes (ni la cloche d'acceptation/refus).
     locales = this.filterNotificationsForUser(locales, user);
     const enriched = await Promise.all(
-      locales.map(async (n: any) => this.enrichNotification(n, ctx)),
+      locales.map(async (n: any) => this.enrichNotification(n, ctx, token)),
     );
     return sortNotifications(enriched);
   }
@@ -179,7 +179,7 @@ export class AnapathController {
     let locales = await this.notificationService.findUnread();
     locales = this.filterNotificationsForUser(locales, user);
     const enriched = await Promise.all(
-      locales.map(async (n: any) => this.enrichNotification(n, ctx)),
+      locales.map(async (n: any) => this.enrichNotification(n, ctx, token)),
     );
     return sortNotifications(enriched);
   }
@@ -204,7 +204,7 @@ export class AnapathController {
     // des demandes qu'il ne peut ni accepter ni refuser.
     locales = locales.filter((n: any) => shouldNotifyUser(n, user));
     const enriched = await Promise.all(
-      locales.map(async (n: any) => this.enrichNotification(n, ctx)),
+      locales.map(async (n: any) => this.enrichNotification(n, ctx, token)),
     );
     return sortNotifications(enriched);
   }
@@ -272,6 +272,7 @@ export class AnapathController {
   private async enrichNotification(
     n: any,
     ctx?: { serviceName?: string; chuName?: string },
+    token?: string,
   ): Promise<any> {
     if (!n || typeof n !== 'object') return n;
     n = this.appliquerContexteAffichage(n, ctx);
@@ -322,6 +323,30 @@ export class AnapathController {
       ((examen?.metadata?.chuId as string) ??
         (n.metadata?.chuId as string)) ??
       '';
+
+    // Nom du service demandeur / CHU : réutilise celui stocké, sinon le résout
+    // best-effort (caches 5 min côté service) — jamais un UUID brut à l'écran.
+    let serviceNom: string | null =
+      (examen?.metadata?.serviceNom as string) ??
+      (n.metadata?.serviceNom as string) ??
+      null;
+    if (!serviceNom) {
+      const sid =
+        (examen?.metadata?.serviceIdSource as string) ??
+        (examen?.metadata?.serviceIdDest as string) ??
+        (n.metadata?.serviceIdSource as string) ??
+        (n.metadata?.serviceIdDest as string) ??
+        '';
+      serviceNom = await this.anapathService.getServiceNom(token, sid, chuId);
+    }
+    let chuNom: string | null =
+      (examen?.metadata?.chuNom as string) ??
+      (n.metadata?.chuNom as string) ??
+      null;
+    if (!chuNom && chuId) {
+      chuNom = await this.anapathService.getChuNom(token, chuId);
+    }
+
     const info = (examen?.patientInfo as any) ?? null;
 
     let patientName = patientId || '—';
@@ -359,7 +384,21 @@ export class AnapathController {
         patientId,
         patientName,
         allergies,
+        serviceNom: serviceNom ?? undefined,
+        chuNom: chuNom ?? undefined,
       },
+      // Miroir dans metadata pour que le front (fallback metadata.serviceNom)
+      // et les prochains rendus trouvent le nom sans nouvel appel externe.
+      metadata:
+        base.metadata && typeof base.metadata === 'object'
+          ? {
+              ...base.metadata,
+              ...(serviceNom && !base.metadata.serviceNom
+                ? { serviceNom }
+                : {}),
+              ...(chuNom && !base.metadata.chuNom ? { chuNom } : {}),
+            }
+          : base.metadata,
     };
   }
 
