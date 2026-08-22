@@ -104,6 +104,21 @@ export class AnapathController {
   }
 
   @Permissions('anapath:read')
+  @Get('patients/:patientId/dossier-patient')
+  @ApiOperation({
+    summary:
+      "Dossier patient : tous les examens complémentaires du patient enregistrés par l'ensemble des services du CHU (dossier-patient)",
+  })
+  @ApiParam({ name: 'patientId', description: 'UUID du patient (service Accueil)' })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getDossierPatient(
+    @Param('patientId') patientId: string,
+    @Query('chuId') chuId?: string,
+  ) {
+    return this.anapathService.getDossierPatient(patientId, chuId);
+  }
+
+  @Permissions('anapath:read')
   @Get('prescriptions/sync-status')
   @ApiOperation({
     summary: "Statut du token utilisé par le cron/WebSocket Prescription (expiration, etc.) — PRESCRIPTION_CRON_JWT n'est pas un token de service durable",

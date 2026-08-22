@@ -65,6 +65,22 @@ export class AnapathService {
   ) {}
 
   /**
+   * Dossier patient complet : tous les examens complémentaires du patient
+   * enregistrés par l'ensemble des services du CHU (dossier-patient).
+   */
+  async getDossierPatient(patientId: string, chuId?: string): Promise<{ items: any[]; total: number }> {
+    if (!patientId) throw new BadRequestException('patientId requis');
+    if (!chuId) throw new BadRequestException('chuId requis');
+    const token = await this.authServiceToken.getToken();
+    const items = await this.dossierPatientClient.getPatientExaminations(
+      chuId,
+      patientId,
+      token ?? undefined,
+    );
+    return { items, total: items.length };
+  }
+
+  /**
    * Propage un changement de statut local vers le service Prescription externe.
    * Jamais bloquant : appelée après un save() réussi, ignore silencieusement
    * (avec un warning) si les IDs externes ou le token sont absents, ou si l'appel échoue.

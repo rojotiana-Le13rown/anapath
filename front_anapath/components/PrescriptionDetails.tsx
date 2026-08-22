@@ -1,6 +1,7 @@
 'use client';
 
 import PatientIdentitySection, { PatientInfo } from '@/components/PatientIdentitySection';
+import PatientDossierButton from '@/components/PatientDossierButton';
 import { formatDateLong } from '@/lib/dateFormat';
 import {
   contentEntriesOf,
@@ -137,11 +138,13 @@ export default function PrescriptionDetails({ request, patient, patientLoading, 
         </div>
 
         <div className="space-y-5">
-          {historiqueButton && (
-            <div className="flex justify-end">
-              {historiqueButton}
-            </div>
-          )}
+          <div className="flex items-center justify-end gap-2 flex-wrap">
+            <PatientDossierButton
+              patientId={request.patientId}
+              chuId={request.metadata?.chuId as string | undefined}
+            />
+            {historiqueButton}
+          </div>
 
           {/* Contenu de la prescription, dans l'ordre du formulaire du service Prescription */}
           <ContentFields entries={contentEntriesOf(request)} />
