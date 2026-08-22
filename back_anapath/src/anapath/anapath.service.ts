@@ -110,14 +110,20 @@ export class AnapathService {
     const chuId = (meta.chuId as string) ?? '';
     const serviceId = (meta.serviceIdSource as string) ?? (meta.serviceIdDest as string) ?? '';
     const prescripteur = (meta.prescripteurNom as string) ?? (meta.nomMedecinPrescripteur as string) ?? '';
+    // createdBy doit être un UUID : id du prescripteur de la prescription, sinon l'id du service anapath.
+    const createdBy =
+      (meta.prescripteurId as string) ?? ANAPATH_SERVICE_ID;
     const typeLabel = TYPE_EXAMEN_LABELS[examen.typeExamen] ?? examen.typeExamen;
     return {
       chuId,
       serviceId: serviceId || ANAPATH_SERVICE_ID,
       patientId: examen.patientId,
-      examinationType: examen.typeExamen,
+      // Le dossier-patient n'accepte que BIOLOGIE/RADIOLOGIE/ECHOGRAPHIE/IRM/
+      // SCANNER/ECG/EEG/AUTRE : l'anapath est classé AUTRE, le vrai type reste
+      // dans le titre et la description.
+      examinationType: 'AUTRE',
       titre: `Compte-rendu anapath – ${typeLabel}`,
-      description: `Compte-rendu d'examen anapath (${typeLabel}) pour le patient`,
+      description: `Examen anapath (${typeLabel}) pour le patient`,
       dateExamen: (examen.validatedAt ?? new Date()).toISOString(),
       resultats: examen.resultatDetails ?? '',
       interpretation: '',
@@ -127,7 +133,7 @@ export class AnapathService {
       urgency: 'normale',
       isUrgent: false,
       notes: '',
-      createdBy: examen.validatedByUserId ?? '',
+      createdBy,
     };
   }
 
