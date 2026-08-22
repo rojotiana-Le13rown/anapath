@@ -33,9 +33,9 @@ services:
           name: anapath-db
           property: database
       - key: CHU_CMS_SERVICE_URL
-        value: https://chu-service-cms7.onrender.com
+        value: https://chu-service-fec1.onrender.com
       - key: SERVICE_SERVICE_URL
-        value: https://service-service-0f7p.onrender.com
+        value: https://service-service-8cgb.onrender.com
       - key: ACCUEIL_BASE_URL
         value: https://acceuil-back-ytyd.onrender.com
       - key: ANAPATH_SERVICE_ID
@@ -43,9 +43,9 @@ services:
       - key: NOTIFICATION_SERVICE_URL
         value: https://service-notificqtion-v2-production.up.railway.app
       - key: AUTH_SERVICE_URL
-        value: https://auth-service-4q6g.onrender.com
+        value: https://auth-service-tnqp.onrender.com
       - key: USER_SERVICES_URL
-        value: https://user-services-0sze.onrender.com
+        value: https://user-services-w0h3.onrender.com
       - key: PRESCRIPTION_SERVICE_URL
         value: https://prescriptionback-production.up.railway.app
       - key: PRESCRIPTION_SYNC_ENABLED

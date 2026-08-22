@@ -20,7 +20,7 @@ export class UserServiceClient {
     this.baseUrl = (
       configService?.get<string>('USER_SERVICES_URL') ??
       process.env.USER_SERVICES_URL ??
-      'https://user-services-0sze.onrender.com'
+      'https://user-services-w0h3.onrender.com'
     ).replace(/\/$/, '');
     this.timeout = Number(
       configService?.get<string>('USER_SERVICES_TIMEOUT_MS') ??

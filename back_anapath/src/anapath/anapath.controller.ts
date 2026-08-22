@@ -226,7 +226,7 @@ export class AnapathController {
    * Contexte du service Anapath connecté (décodé du JWT de la session) : le CHU de
    * l'utilisateur — source du champ affiché « CHU ». Le « Service demandeur » (le
    * service émetteur de la prescription, serviceIdSource) est résolu via le
-   * service-service dédié (https://service-service-0f7p.onrender.com, GET /services/{id})
+   * service-service dédié (https://service-service-8cgb.onrender.com, GET /services/{id})
    * dans anapathService.getServiceNom (cf. enrichChuServiceExamen).
    */
   private decodeAnapathContext(token?: string): { serviceName?: string; chuName?: string } {

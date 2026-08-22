@@ -190,10 +190,10 @@ const CATEGORIES = [
 <li><strong>Frontend</strong> : <code>https://anapath-frontend.onrender.com</code> (Next.js 15)</li>
 <li><strong>Backend</strong> : <code>https://anapath-backend-ar7u-uj8n.onrender.com</code> (NestJS 10 + PostgreSQL)</li>
 <li><strong>Service Anapath ID</strong> : <code>9e73904c-71e5-4477-9280-513e4112a468</code></li>
-<li><strong>Service CHU</strong> : <code>https://chu-service-cms7.onrender.com</code> (/chu, /prise-en-charge)</li>
-<li><strong>Services (registre)</strong> : <code>https://service-service-0f7p.onrender.com</code> (/services)</li>
-<li><strong>Users</strong> : <code>https://user-services-0sze.onrender.com</code></li>
-<li><strong>Auth</strong> : <code>https://auth-service-4q6g.onrender.com</code></li>
+<li><strong>Service CHU</strong> : <code>https://chu-service-fec1.onrender.com</code> (/chu, /prise-en-charge)</li>
+<li><strong>Services (registre)</strong> : <code>https://service-service-8cgb.onrender.com</code> (/services)</li>
+<li><strong>Users</strong> : <code>https://user-services-w0h3.onrender.com</code></li>
+<li><strong>Auth</strong> : <code>https://auth-service-tnqp.onrender.com</code></li>
 <li><strong>Notifications</strong> : <code>https://service-notification-nlqp.onrender.com</code></li>
 <li><strong>Upload</strong> : <code>https://service-upload-u5z9.onrender.com</code></li>
 <li><strong>Accueil patients</strong> : <code>https://acceuil-back.onrender.com</code></li>

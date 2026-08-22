@@ -396,11 +396,6 @@ export default function WorklistPage() {
                                 <span className="block text-slate-400 mt-0.5">{req.prelevement.description}</span>
                               )}
                             </div>
-                          ) : req.examenSpeculum?.prelevementDetails ? (
-                            <div>
-                              <span className="font-semibold text-slate-700">Spéculum</span>
-                              <span className="block text-slate-400 mt-0.5">{String(req.examenSpeculum.prelevementDetails)}</span>
-                            </div>
                           ) : '-'}
                         </td>
                         <td className="p-4">
