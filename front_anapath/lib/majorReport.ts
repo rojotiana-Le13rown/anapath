@@ -150,8 +150,7 @@ export function buildTableau2(requests: MajorRequest[]): Tableau2Row[] {
       const info = r.patientInfo ?? {};
       const nom = info.nomComplet
         || [info.nom, info.prenom].filter(Boolean).join(' ')
-        || r.anapathId
-        || '—';
+        || '';
       return {
         service: '',
         numero: '',
