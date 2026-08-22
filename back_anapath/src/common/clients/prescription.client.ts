@@ -93,6 +93,27 @@ export class PrescriptionClient {
     }
   }
 
+  /** Récupère une prescription externe complète par son id (GET /prescriptions/anapath/{id}). Null si indisponible. */
+  async getPrescriptionById(
+    token: string,
+    prescriptionId: string,
+  ): Promise<AnapathPrescription | null> {
+    try {
+      const { data } = await axios.get(
+        `${this.baseUrl}/prescriptions/anapath/${prescriptionId}`,
+        { headers: this.headers(token), timeout: this.timeout },
+      );
+      return data ? this.normalizePrescription(data) : null;
+    } catch (e: any) {
+      const status = e?.response?.status;
+      console.warn(
+        `PrescriptionClient.getPrescriptionById échoué (${prescriptionId}, HTTP ${status ?? 'inconnu'}):`,
+        e instanceof Error ? e.message : e,
+      );
+      return null;
+    }
+  }
+
   /** Propage le changement de statut d'une demande vers le service Prescription. Ne throw jamais — mode dégradé. */
   async updateDemandeStatut(
     token: string,

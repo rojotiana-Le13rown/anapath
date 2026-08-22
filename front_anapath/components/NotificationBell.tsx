@@ -21,7 +21,7 @@ import { exportMajorReportExcel } from '@/lib/majorReport';
 import { typeExamenLabel } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
 import { type PatientInfo } from '@/components/PatientIdentitySection';
-import { getPatientForExamen } from '@/lib/api';
+import { getPatientForExamen, getPrescriptionExterneDetails } from '@/lib/api';
 import { getMondayOfWeek, formatWeekLabel } from '@/lib/weekUtils';
 
 // URL de la Gateway socket.io du backend (namespace /anapath). En local :
@@ -197,6 +197,7 @@ export default function NotificationBell() {
   const [detailNotif, setDetailNotif] = useState<any>(null);
   const [modalPatient, setModalPatient] = useState<PatientInfo | null>(null);
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
+  const [detailRefreshing, setDetailRefreshing] = useState(false);
   const [refuserMode, setRefuserMode] = useState(false);
   const [motif, setMotif] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -462,6 +463,43 @@ export default function NotificationBell() {
       .then(p => { if (!cancelled) setModalPatient(p as PatientInfo); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setModalPatientLoading(false); });
+    return () => { cancelled = true; };
+  }, [detailNotif?.id ?? detailNotif?._id]);
+
+  // Détail de prescription : complète le snapshot du pull avec les données à
+  // jour du service Prescription (GET externe) pour afficher TOUTES les
+  // informations saisies, même si la notification a été créée avant.
+  useEffect(() => {
+    if (!detailNotif) return;
+    const prescriptionId = detailNotif.metadata?.prescriptionId;
+    const demandeId = detailNotif.metadata?.demandeId;
+    if (!prescriptionId || !demandeId) return;
+    let cancelled = false;
+    setDetailRefreshing(true);
+    getPrescriptionExterneDetails(prescriptionId, demandeId)
+      .then(details => {
+        if (cancelled || !details) return;
+        const { prescription, demande } = details;
+        setDetailNotif((prev: any) => {
+          if (!prev || (prev.id ?? prev._id) !== (detailNotif.id ?? detailNotif._id)) return prev;
+          return {
+            ...prev,
+            metadata: {
+              ...prev.metadata,
+              ...(demande?.data ? { data: demande.data } : {}),
+              ...(demande?.typeExamen ? { typeExamen: demande.typeExamen } : {}),
+              ...(demande?.statut ? { demandeStatut: demande.statut } : {}),
+              ...(prescription.urgence ? { urgence: prescription.urgence } : {}),
+              ...(typeof prescription.alertes === 'string' ? { alertes: prescription.alertes } : {}),
+              ...(prescription.renseignements != null ? { renseignements: prescription.renseignements } : {}),
+              ...(prescription.nomMedecinPrescripteur != null ? { nomMedecinPrescripteur: prescription.nomMedecinPrescripteur } : {}),
+              ...(prescription.numeroONM != null ? { numeroONM: prescription.numeroONM } : {}),
+            },
+          };
+        });
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setDetailRefreshing(false); });
     return () => { cancelled = true; };
   }, [detailNotif?.id ?? detailNotif?._id]);
 

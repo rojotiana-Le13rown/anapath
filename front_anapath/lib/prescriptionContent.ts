@@ -114,6 +114,21 @@ const GENERIC_CONFIG: ContentBlock[] = [
   { type: 'field', field: { keys: ['note'], label: 'Note complémentaire' } },
 ];
 
+/** Clés techniques jamais affichées dans le bloc « champs supplémentaires ». */
+const TECHNICAL_KEYS = new Set([
+  'id', '_id', 'prescriptionId', 'demandeId', 'patientId', 'typeExamen',
+  'statut', 'motifRefus', 'createdAt', 'updatedAt', 'renseignementsCliniques',
+]);
+
+/** Libellé lisible pour une clé technique : camelCase / snake_case → mots capitalisés. */
+function humanizeKey(key: string): string {
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function typeOf(request: PrescriptionLike): string {
   return (request as { typeExamen?: string }).typeExamen ?? '';
 }
@@ -177,6 +192,51 @@ export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
       }
     }
   }
+
+  // Filet de sécurité : tout champ saisi non couvert par la configuration est
+  // affiché aussi — aucune information saisie côté service Prescription n'est
+  // perdue à l'écran.
+  const covered = new Set<string>();
+  for (const block of config) {
+    if (block.type === 'field') {
+      for (const key of block.field.keys) covered.add(key);
+      for (const key of block.field.otherKeys ?? []) covered.add(key);
+    } else {
+      for (const field of block.fields) {
+        for (const key of field.keys) covered.add(key);
+      }
+    }
+  }
+  const extras: { key: string; value: string }[] = [];
+  const sources: Record<string, any>[] = [details, raw];
+  for (const source of sources) {
+    for (const [key, value] of Object.entries(source)) {
+      if (covered.has(key) || TECHNICAL_KEYS.has(key)) continue;
+      if (typeof value === 'string' && value.trim()) {
+        extras.push({ key, value: value.trim() });
+      } else if (typeof value === 'boolean') {
+        extras.push({ key, value: value ? 'Oui' : 'Non' });
+      } else if (typeof value === 'number') {
+        extras.push({ key, value: String(value) });
+      }
+    }
+  }
+  const seen = new Set<string>();
+  for (const extra of extras) {
+    if (seen.has(extra.key)) continue;
+    seen.add(extra.key);
+    out.push({ label: humanizeKey(extra.key), value: extra.value });
+  }
+
+  // Renseignements cliniques portés par la prescription elle-même (champ de
+  // niveau prescription du service Prescription) si la demande n'en porte pas.
+  if (!out.some((e) => e.label === 'Renseignements cliniques')) {
+    const renseg = String(
+      (request.metadata?.renseignements as string) ?? '',
+    ).trim();
+    if (renseg) out.push({ label: 'Renseignements cliniques', value: renseg });
+  }
+
   return out;
 }
 

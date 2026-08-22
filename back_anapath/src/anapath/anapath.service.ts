@@ -659,6 +659,33 @@ export class AnapathService {
     return candidates;
   }
 
+  /**
+   * Détails À JOUR d'une demande de prescription externe, pour l'affichage du
+   * détail depuis la cloche : GET /prescriptions/anapath/{id} du service
+   * Prescription, la demande demandée est extraite avec sa prescription.
+   */
+  async getPrescriptionDemandeDetails(
+    token: string | undefined,
+    prescriptionId: string,
+    demandeId: string,
+  ): Promise<{ prescription: AnapathPrescription; demande: PrescriptionDemande | null }> {
+    let prescription: AnapathPrescription | null = null;
+    for (const t of await this.resolveTokens(token)) {
+      prescription = await this.prescriptionClient.getPrescriptionById(t, prescriptionId);
+      if (prescription) break;
+    }
+    if (!prescription) {
+      throw new NotFoundException(
+        `Prescription externe ${prescriptionId} introuvable ou indisponible`,
+      );
+    }
+    const demande =
+      (prescription.demandes ?? []).find(
+        (d) => String(d.id) === String(demandeId),
+      ) ?? null;
+    return { prescription, demande };
+  }
+
   /** Construit les champs AnapathRequest depuis les métadonnées d'une notification "nouvelle prescription" (acceptation). */
   private buildRequestFromPendingMetadata(metadata: Record<string, any>): Partial<AnapathRequest> {
     const data = (metadata.data ?? {}) as Record<string, unknown>;

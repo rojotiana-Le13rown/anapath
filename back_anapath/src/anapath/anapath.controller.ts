@@ -85,6 +85,25 @@ export class AnapathController {
   }
 
   @Permissions('anapath:read')
+  @Get('prescriptions/externes/:prescriptionId/demandes/:demandeId')
+  @ApiOperation({
+    summary:
+      "Détails à jour d'une demande de prescription externe (service Prescription) — utilisé par la cloche pour afficher toutes les informations saisies",
+  })
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  getPrescriptionExterneDetails(
+    @Param('prescriptionId') prescriptionId: string,
+    @Param('demandeId') demandeId: string,
+    @CurrentToken() token: string,
+  ) {
+    return this.anapathService.getPrescriptionDemandeDetails(
+      token,
+      prescriptionId,
+      demandeId,
+    );
+  }
+
+  @Permissions('anapath:read')
   @Get('prescriptions/sync-status')
   @ApiOperation({
     summary: "Statut du token utilisé par le cron/WebSocket Prescription (expiration, etc.) — PRESCRIPTION_CRON_JWT n'est pas un token de service durable",

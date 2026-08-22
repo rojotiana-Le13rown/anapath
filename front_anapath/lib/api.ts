@@ -181,6 +181,27 @@ export async function getPrescriptionsAcceptees(): Promise<any[]> {
   }
 }
 
+/**
+ * Détails à jour d'une demande de prescription externe (service Prescription) :
+ * renvoie { prescription, demande } ou null. Utilisé par la cloche pour
+ * afficher toutes les informations saisies, au-delà du snapshot du pull.
+ */
+export async function getPrescriptionExterneDetails(
+  prescriptionId: string,
+  demandeId: string,
+): Promise<{ prescription: any; demande: any } | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/anapath/prescriptions/externes/${prescriptionId}/demandes/${demandeId}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function getExamenStatut(
   examId: string,
 ): Promise<string | null> {
