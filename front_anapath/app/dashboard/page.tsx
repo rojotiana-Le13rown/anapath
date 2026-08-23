@@ -15,6 +15,7 @@ import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests } from '@/lib/searchAnapath';
 import { formatDateTime, formatDateLong, formatRelativeTime } from '@/lib/dateFormat';
 import { statusLabel, statusColors, PENDING_STATUSES, typeExamenLabel, prescripteurLabel } from '@/lib/statusLabels';
+import FloatingModal from '@/components/FloatingModal';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AnapathRequest {
@@ -299,38 +300,22 @@ export default function DashboardPage() {
       </main>
 
       {selectedRequest && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setSelectedRequest(null)}
+        <FloatingModal
+          open
+          onClose={() => setSelectedRequest(null)}
+          icon="description"
+          title={isTerminee(selectedRequest.statut) ? "Détails de l'examen" : 'Détail de la prescription'}
         >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 sticky top-0 bg-gradient-to-r from-[#00284d] to-[#00478d] z-10">
-              <h3 className="font-bold text-lg text-white">
-                {isTerminee(selectedRequest.statut) ? "Détails de l'examen" : 'Détail de la prescription'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSelectedRequest(null)}
-                className="text-white/70 hover:text-white transition-colors"
-                aria-label="Fermer"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-5">
-              <PrescriptionDetails
-                request={selectedRequest}
-                patient={modalPatient}
-                patientLoading={modalPatientLoading}
-                historiqueButton={
-                  <PatientHistoriqueButton
-                    entries={requests.filter((r) => r.patientId === selectedRequest.patientId && r.id !== selectedRequest.id)}
-                  />
-                }
+          <PrescriptionDetails
+            request={selectedRequest}
+            patient={modalPatient}
+            patientLoading={modalPatientLoading}
+            historiqueButton={
+              <PatientHistoriqueButton
+                entries={requests.filter((r) => r.patientId === selectedRequest.patientId && r.id !== selectedRequest.id)}
               />
+            }
+          />
 
               {isTerminee(selectedRequest.statut) ? (
                 <div className="bg-green-50 border border-green-100 rounded-lg p-4 mt-5">
@@ -386,10 +371,8 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 )
-              )}
-            </div>
-          </div>
-        </div>
+               )}
+        </FloatingModal>
       )}
     </div>
   );

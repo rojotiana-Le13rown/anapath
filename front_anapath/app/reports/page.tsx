@@ -6,6 +6,7 @@ import TopBar from '@/components/TopBar';
 import FilterButton from '@/components/FilterButton';
 import { useSearch } from '@/components/SearchContext';
 import { useAuth } from '@/components/AuthProvider';
+import FloatingModal from '@/components/FloatingModal';
 import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import {
@@ -925,42 +926,15 @@ export default function ReportsPage() {
       </main>
 
       {showCustomReportModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowCustomReportModal(false)}
-        >
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-[95vw] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
-              <h3 className="font-bold text-lg text-white">Créer un rapport</h3>
-              <button
-                type="button"
-                onClick={() => setShowCustomReportModal(false)}
-                className="text-white/70 hover:text-white transition-colors"
-                aria-label="Fermer"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase">Du</label>
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full mt-1 p-2 border border-outline-variant rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase">Au</label>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full mt-1 p-2 border border-outline-variant rounded-lg text-sm"
-                />
-              </div>
-            </div>
+        <FloatingModal
+          open
+          onClose={() => setShowCustomReportModal(false)}
+          icon="summarize"
+          title="Créer un rapport"
+          maxWidthPx={448}
+          heightPct={0.55}
+          bodyClassName="p-4 space-y-3"
+          footer={
             <div className="flex justify-end gap-2 p-4 border-t border-outline-variant/20">
               <button
                 type="button"
@@ -985,8 +959,27 @@ export default function ReportsPage() {
                 {generatingCustom ? 'Génération...' : 'Générer le PDF'}
               </button>
             </div>
+          }
+        >
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase">Du</label>
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="w-full mt-1 p-2 border border-outline-variant rounded-lg text-sm"
+            />
           </div>
-        </div>
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase">Au</label>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="w-full mt-1 p-2 border border-outline-variant rounded-lg text-sm"
+            />
+          </div>
+        </FloatingModal>
       )}
 
       <button onClick={exportToPDF} className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#00478d] to-[#005eb8] text-white rounded-full font-bold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200">

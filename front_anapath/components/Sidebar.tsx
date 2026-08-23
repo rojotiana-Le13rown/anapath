@@ -7,6 +7,7 @@ import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
 import { isTechnicienUser } from '@/lib/roles';
 import ConfirmDialog from './ConfirmDialog';
+import FloatingModal from './FloatingModal';
 
 const ALL_NAVIGATION = [
   {
@@ -172,55 +173,42 @@ export default function Sidebar() {
       />
 
       {showContacts && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowContacts(false)}
+        <FloatingModal
+          open
+          onClose={() => setShowContacts(false)}
+          icon="contacts"
+          title="Liste de contact de personnel"
+          maxWidthPx={512}
+          heightPct={0.8}
+          bodyClassName="p-4"
         >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-lg w-[95vw] max-h-[80vh] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
-              <h3 className="font-bold text-lg text-white">Liste de contact de personnel</h3>
-              <button
-                type="button"
-                onClick={() => setShowContacts(false)}
-                className="text-white/70 hover:text-white transition-colors"
-                aria-label="Fermer"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto">
-              {PERSONNEL_CONTACTS.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-8">
-                  Aucun numéro flotte disponible pour le moment.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {PERSONNEL_CONTACTS.map((contact) => (
-                    <li
-                      key={contact.id}
-                      className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{contact.name}</p>
-                        <p className="text-xs text-slate-500 truncate">{contact.role}</p>
-                      </div>
-                      <a
-                        href={`tel:${contact.phone}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00478d]/10 text-[#00478d] text-xs font-bold whitespace-nowrap hover:bg-[#00478d]/20 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-sm">call</span>
-                        {contact.phone}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
+          {PERSONNEL_CONTACTS.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-8">
+              Aucun numéro flotte disponible pour le moment.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {PERSONNEL_CONTACTS.map((contact) => (
+                <li
+                  key={contact.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{contact.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{contact.role}</p>
+                  </div>
+                  <a
+                    href={`tel:${contact.phone}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00478d]/10 text-[#00478d] text-xs font-bold whitespace-nowrap hover:bg-[#00478d]/20 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">call</span>
+                    {contact.phone}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </FloatingModal>
       )}
     </aside>
   );

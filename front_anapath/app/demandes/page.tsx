@@ -13,6 +13,7 @@ import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/dateFormat
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
 import { typeExamenLabel, prescripteurLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
+import FloatingModal from '@/components/FloatingModal';
 import { type PatientInfo } from '@/components/PatientIdentitySection';
 
 /* ---- Helpers (mêmes règles que la cloche de notification) ---- */
@@ -520,50 +521,16 @@ export default function DemandesPage() {
         </div>
       </main>
 
-      {/* Fenêtre de détails de la prescription — thème bleu marine/blanc */}
+      {/* Fenêtre de détails de la prescription — déplaçable et redimensionnable */}
       {detailTarget && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#00203a]/50 backdrop-blur-sm p-4 overlay-in"
-          onClick={closeDetail}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-6xl w-[95vw] overflow-hidden modal-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-gradient-to-r from-[#00284d] to-[#00478d] px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-white text-2xl">description</span>
-                <div>
-                  <h3 className="text-white font-bold text-base">Détails de la prescription</h3>
-                  <p className="text-white/60 text-xs mt-0.5">
-                    {getTypeExamen(detailTarget) || 'Examen'}
-                    {prescripteurLabel(detailTarget?.metadata) ? ` · ${prescripteurLabel(detailTarget?.metadata)}` : ''} — Patient{' '}
-                    {getPatientName(detailTarget) || '—'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={closeDetail}
-                className="text-white/70 hover:text-white transition-colors"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="p-5 max-h-[75vh] overflow-y-auto">
-              <PrescriptionDetails
-                request={{
-                  typeExamen: detailTarget.metadata?.typeExamen ?? '',
-                  createdAt: detailTarget.createdAt ?? detailTarget.date ?? '',
-                  patientId: getPatientId(detailTarget),
-                  metadata: detailTarget.metadata ?? {},
-                }}
-                patient={modalPatient}
-                patientLoading={modalPatientLoading}
-              />
-            </div>
-
+        <FloatingModal
+          open
+          onClose={closeDetail}
+          zIndex={100}
+          icon="description"
+          title="Détails de la prescription"
+          subtitle={`${getTypeExamen(detailTarget) || 'Examen'}${prescripteurLabel(detailTarget?.metadata) ? ` · ${prescripteurLabel(detailTarget?.metadata)}` : ''} — Patient ${getPatientName(detailTarget) || '—'}`}
+          footer={
             <div className="flex items-center justify-end gap-2 px-5 py-4 bg-slate-50 border-t border-slate-100">
               <button
                 type="button"
@@ -582,55 +549,32 @@ export default function DemandesPage() {
                 {busyId === (detailTarget?.id ?? detailTarget?._id) ? '...' : 'Accepter'}
               </button>
             </div>
-          </div>
-        </div>
+          }
+        >
+          <PrescriptionDetails
+            request={{
+              typeExamen: detailTarget.metadata?.typeExamen ?? '',
+              createdAt: detailTarget.createdAt ?? detailTarget.date ?? '',
+              patientId: getPatientId(detailTarget),
+              metadata: detailTarget.metadata ?? {},
+            }}
+            patient={modalPatient}
+            patientLoading={modalPatientLoading}
+          />
+        </FloatingModal>
       )}
 
-      {/* Fenêtre de refus — thème bleu marine/blanc */}
+      {/* Fenêtre de refus — déplaçable et redimensionnable */}
       {refuseTarget && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#00203a]/50 backdrop-blur-sm p-4 overlay-in"
-          onClick={closeRefuse}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-gradient-to-r from-[#00284d] to-[#00478d] px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-white text-2xl">block</span>
-                <h3 className="text-white font-bold text-base">Refuser la demande</h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeRefuse}
-                disabled={refusing}
-                className="text-white/70 hover:text-white transition-colors disabled:opacity-40"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3">
-              <p className="text-sm text-slate-600">
-                Patient <strong className="text-[#191c21]">{getPatientName(refuseTarget) || '—'}</strong>
-                {' — '}
-                {getTypeExamen(refuseTarget) || '—'}
-              </p>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Motif du refus *</label>
-                <textarea
-                  value={motifInput}
-                  onChange={(e) => setMotifInput(e.target.value)}
-                  rows={3}
-                  autoFocus
-                  placeholder="Expliquez pourquoi cette demande est refusée..."
-                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm
-                    focus:outline-none focus:ring-2 focus:ring-[#00478d]/30 focus:border-[#00478d] transition-shadow"
-                />
-              </div>
-            </div>
-
+        <FloatingModal
+          open
+          onClose={closeRefuse}
+          zIndex={100}
+          maxWidthPx={512}
+          heightPct={0.6}
+          icon="block"
+          title="Refuser la demande"
+          footer={
             <div className="flex items-center justify-end gap-2 px-5 py-4 bg-slate-50 border-t border-slate-100">
               <button
                 type="button"
@@ -650,8 +594,28 @@ export default function DemandesPage() {
                 {refusing ? 'Envoi...' : 'Confirmer le refus'}
               </button>
             </div>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">
+              Patient <strong className="text-[#191c21]">{getPatientName(refuseTarget) || '—'}</strong>
+              {' — '}
+              {getTypeExamen(refuseTarget) || '—'}
+            </p>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase">Motif du refus *</label>
+              <textarea
+                value={motifInput}
+                onChange={(e) => setMotifInput(e.target.value)}
+                rows={3}
+                autoFocus
+                placeholder="Expliquez pourquoi cette demande est refusée..."
+                className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm
+                  focus:outline-none focus:ring-2 focus:ring-[#00478d]/30 focus:border-[#00478d] transition-shadow"
+              />
+            </div>
           </div>
-        </div>
+        </FloatingModal>
       )}
     </div>
   );

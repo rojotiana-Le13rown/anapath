@@ -22,6 +22,7 @@ import { sortByUrgencyThenArrival, getUrgenceLevel, type UrgenceLevel } from '@/
 import { formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { statusLabel, statusColors, typeExamenLabel, prescripteurLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 import { siteOf } from '@/lib/prescriptionContent';
+import FloatingModal from '@/components/FloatingModal';
 import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
@@ -437,27 +438,13 @@ export default function WorklistPage() {
       </main>
 
       {selectedRequest && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setSelectedRequest(null)}
+        <FloatingModal
+          open
+          onClose={() => setSelectedRequest(null)}
+          icon="description"
+          title="Détail de la prescription"
         >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 sticky top-0 bg-gradient-to-r from-[#00284d] to-[#00478d] z-10">
-              <h3 className="font-bold text-lg text-white">Détail de la prescription</h3>
-              <button
-                type="button"
-                onClick={() => setSelectedRequest(null)}
-                className="text-white/70 hover:text-white transition-colors"
-                aria-label="Fermer"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-5">
-              <PrescriptionDetails
+          <PrescriptionDetails
                 request={selectedRequest}
                 patient={modalPatient}
                 patientLoading={modalPatientLoading}
@@ -520,9 +507,7 @@ export default function WorklistPage() {
                   </>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
+        </FloatingModal>
       )}
 
       {speculumRequest && isTechnicien && (

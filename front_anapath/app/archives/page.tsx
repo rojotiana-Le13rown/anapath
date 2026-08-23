@@ -15,6 +15,7 @@ import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests, matchesAnapathSearch } from '@/lib/searchAnapath';
 import { formatDateTime, formatRelativeTime, formatDateLong } from '@/lib/dateFormat';
 import { typeExamenLabel, prescripteurLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
+import FloatingModal from '@/components/FloatingModal';
 
 interface AnapathRequest {
   id: string;
@@ -267,32 +268,18 @@ export default function ArchivesPage() {
       </main>
 
       {selectedRequest && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setSelectedRequest(null)}
+        <FloatingModal
+          open
+          onClose={() => setSelectedRequest(null)}
+          icon="description"
+          title="Détails de l'examen"
         >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 sticky top-0 bg-gradient-to-r from-[#00284d] to-[#00478d] z-10">
-              <h3 className="font-bold text-lg text-white">Détails de l'examen</h3>
-              <button
-                type="button"
-                onClick={() => setSelectedRequest(null)}
-                className="text-white/70 hover:text-white transition-colors"
-                aria-label="Fermer"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-5">
-              <PrescriptionDetails
-                request={selectedRequest}
-                patient={modalPatient}
-                patientLoading={modalPatientLoading}
-                historiqueButton={<PatientHistoriqueButton entries={patientHistorique} />}
-              />
+          <PrescriptionDetails
+            request={selectedRequest}
+            patient={modalPatient}
+            patientLoading={modalPatientLoading}
+            historiqueButton={<PatientHistoriqueButton entries={patientHistorique} />}
+          />
 
               <div className="bg-green-50 border border-green-100 rounded-lg p-4 mt-5">
                 <div className="flex items-center gap-2 mb-3">
@@ -333,9 +320,7 @@ export default function ArchivesPage() {
                   {exportingModal ? 'Génération...' : 'Exporter PDF'}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
+        </FloatingModal>
       )}
     </div>
   );

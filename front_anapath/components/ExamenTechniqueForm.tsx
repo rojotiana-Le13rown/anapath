@@ -5,6 +5,7 @@ import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import { appendFinalSegment } from '@/lib/formatTranscript';
 import VoiceRecorder from '@/components/VoiceRecorder';
+import FloatingModal from '@/components/FloatingModal';
 
 interface ExamenTechniqueData {
   compteRendu?: string;
@@ -60,22 +61,15 @@ export default function ExamenTechniqueForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-xl shadow-xl max-w-2xl w-[95vw] max-h-[90vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-white">science</span>
-            <h3 className="font-bold text-lg text-white">Examen technique</h3>
-          </div>
-          <button type="button" onClick={onClose} className="text-white/70 hover:text-white transition-colors" aria-label="Fermer">
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        <div className="p-4 space-y-4 overflow-y-auto">
+    <FloatingModal
+      open
+      onClose={onClose}
+      icon="science"
+      title="Examen technique"
+      maxWidthPx={672}
+      bodyClassName="p-4 space-y-4"
+    >
+      <div>
           <p className="text-xs text-on-surface-variant bg-primary/5 border border-primary/10 rounded-lg p-2.5">
             {anapathId ? `${anapathId} — ` : ''}{patientName || 'Patient'} — compte rendu de l&apos;examen technique. La
             validation clôt le travail du technicien et notifie le pathologiste.
@@ -150,7 +144,6 @@ export default function ExamenTechniqueForm({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </FloatingModal>
   );
 }

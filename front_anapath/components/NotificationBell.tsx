@@ -20,6 +20,7 @@ import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/s
 import { exportMajorReportExcel } from '@/lib/majorReport';
 import { typeExamenLabel } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
+import FloatingModal from '@/components/FloatingModal';
 import { type PatientInfo } from '@/components/PatientIdentitySection';
 import { getPatientForExamen, getPrescriptionExterneDetails } from '@/lib/api';
 import { getMondayOfWeek, formatWeekLabel } from '@/lib/weekUtils';
@@ -1081,74 +1082,16 @@ export default function NotificationBell() {
 
       {detailNotif &&
         createPortal(
-        <div
-          className="fixed inset-0 z-[60] flex items-center
-            justify-center bg-black/40 p-4"
-          onClick={closeDetail}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl
-              max-w-2xl w-[95vw] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between
-              px-5 py-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
-              <h3 className="font-semibold text-white">
-                Nouvelle prescription
-              </h3>
-              <button
-                onClick={closeDetail}
-                disabled={submitting}
-                className="text-white/70 hover:text-white transition-colors
-                  disabled:opacity-40"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="px-5 py-4 max-h-[75vh] overflow-y-auto">
-              <PrescriptionDetails
-                request={{
-                  typeExamen: detailNotif.metadata?.typeExamen ?? '',
-                  createdAt: detailNotif.createdAt ?? detailNotif.date ?? '',
-                  patientId: getPatientId(detailNotif),
-                  metadata: detailNotif.metadata ?? {},
-                }}
-                patient={modalPatient}
-                patientLoading={modalPatientLoading}
-              />
-
-              {actionError && (
-                <p className="text-sm text-red-600
-                  bg-red-50 rounded-lg px-3 py-2 mt-3">
-                  {actionError}
-                </p>
-              )}
-
-              {refuserMode && (
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Motif de refus *
-                  </label>
-                  <textarea
-                    value={motif}
-                    onChange={(e) => setMotif(e.target.value)}
-                    rows={3}
-                    autoFocus
-                    className="mt-1 w-full border
-                      border-gray-300 rounded-lg px-3 py-2
-                      text-sm focus:outline-none
-                      focus:ring-2 focus:ring-blue-500"
-                    placeholder="Expliquez pourquoi cette
-                      demande est refusée..."
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end
-              gap-2 px-5 py-4 border-t bg-gray-50
-              rounded-b-xl">
+        <FloatingModal
+          open
+          onClose={closeDetail}
+          zIndex={60}
+          icon="description"
+          title="Nouvelle prescription"
+          maxWidthPx={672}
+          bodyClassName="px-5 py-4"
+          footer={
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t bg-gray-50">
               {refuserMode ? (
                 <>
                   <button
@@ -1198,8 +1141,48 @@ export default function NotificationBell() {
                 </>
               )}
             </div>
+          }
+        >
+          <div className="max-h-[65vh] overflow-y-auto">
+            <PrescriptionDetails
+              request={{
+                typeExamen: detailNotif.metadata?.typeExamen ?? '',
+                createdAt: detailNotif.createdAt ?? detailNotif.date ?? '',
+                patientId: getPatientId(detailNotif),
+                metadata: detailNotif.metadata ?? {},
+              }}
+              patient={modalPatient}
+              patientLoading={modalPatientLoading}
+            />
+
+            {actionError && (
+              <p className="text-sm text-red-600
+                bg-red-50 rounded-lg px-3 py-2 mt-3">
+                {actionError}
+              </p>
+            )}
+
+            {refuserMode && (
+              <div>
+                <label className="text-xs text-gray-500">
+                  Motif de refus *
+                </label>
+                <textarea
+                  value={motif}
+                  onChange={(e) => setMotif(e.target.value)}
+                  rows={3}
+                  autoFocus
+                  className="mt-1 w-full border
+                    border-gray-300 rounded-lg px-3 py-2
+                    text-sm focus:outline-none
+                    focus:ring-2 focus:ring-blue-500"
+                  placeholder="Expliquez pourquoi cette
+                    demande est refusée..."
+                />
+              </div>
+            )}
           </div>
-        </div>,
+        </FloatingModal>,
         document.body,
       )}
     </div>

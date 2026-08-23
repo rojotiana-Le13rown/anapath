@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import PatientAvatar from '@/components/PatientAvatar';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
+import FloatingModal from '@/components/FloatingModal';
 import ExamenSpeculumForm from '@/components/ExamenSpeculumForm';
 import ExamenTechniqueForm from '@/components/ExamenTechniqueForm';
 import DiagnosticCytoponctionForm from '@/components/DiagnosticCytoponctionForm';
@@ -806,59 +807,15 @@ export default function WorklistDetailPage() {
       </main>
 
       {showNoteModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowNoteModal(false)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-xl w-[95vw] max-h-[85vh] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00284d] to-[#00478d]">
-              <h3 className="font-bold text-lg text-white">Note (brouillon)</h3>
-              <button
-                type="button"
-                onClick={() => setShowNoteModal(false)}
-                className="text-white/70 hover:text-white transition-colors"
-                aria-label="Fermer"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto">
-              <div className="flex justify-end mb-2">
-                <VoiceRecorder
-                  hideTextArea
-                  statusIdleText="Dicter votre brouillon"
-                  onTranscriptChange={(data) => setNoteInterim(data.interim ?? '')}
-                  onRestart={() => {
-                    updateNoteText('');
-                    setNoteInterim('');
-                  }}
-                  onFinalTranscript={(text, meta) => {
-                    setNoteText((prev) => {
-                      const next = appendFinalSegment(prev, text, meta?.startsAfterPause ?? false);
-                      if (request) localStorage.setItem(`anapath_note_${request.id}`, next);
-                      return next;
-                    });
-                  }}
-                />
-              </div>
-              <textarea
-                value={withInterim(noteText, noteInterim)}
-                onChange={(e) => {
-                  updateNoteText(e.target.value);
-                  setNoteInterim('');
-                }}
-                rows={8}
-                placeholder="Écrivez ou dictez votre brouillon ici..."
-                className="w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface"
-              />
-              <p className="flex items-center gap-1 text-[11px] text-slate-400 mt-1.5">
-                <span className="material-symbols-outlined text-xs">cloud_done</span>
-                Enregistré automatiquement sur cet appareil
-              </p>
-            </div>
+        <FloatingModal
+          open
+          onClose={() => setShowNoteModal(false)}
+          icon="edit_note"
+          title="Note (brouillon)"
+          maxWidthPx={576}
+          heightPct={0.85}
+          bodyClassName="p-4"
+          footer={
             <div className="flex justify-end gap-2 p-4 border-t border-outline-variant/20">
               <button
                 type="button"
@@ -868,8 +825,41 @@ export default function WorklistDetailPage() {
                 OK
               </button>
             </div>
+          }
+        >
+          <div className="flex justify-end mb-2">
+            <VoiceRecorder
+              hideTextArea
+              statusIdleText="Dicter votre brouillon"
+              onTranscriptChange={(data) => setNoteInterim(data.interim ?? '')}
+              onRestart={() => {
+                updateNoteText('');
+                setNoteInterim('');
+              }}
+              onFinalTranscript={(text, meta) => {
+                setNoteText((prev) => {
+                  const next = appendFinalSegment(prev, text, meta?.startsAfterPause ?? false);
+                  if (request) localStorage.setItem(`anapath_note_${request.id}`, next);
+                  return next;
+                });
+              }}
+            />
           </div>
-        </div>
+          <textarea
+            value={withInterim(noteText, noteInterim)}
+            onChange={(e) => {
+              updateNoteText(e.target.value);
+              setNoteInterim('');
+            }}
+            rows={8}
+            placeholder="Écrivez ou dictez votre brouillon ici..."
+            className="w-full p-2 border rounded-lg bg-surface-container-low border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-medium text-on-surface"
+          />
+          <p className="flex items-center gap-1 text-[11px] text-slate-400 mt-1.5">
+            <span className="material-symbols-outlined text-xs">cloud_done</span>
+            Enregistré automatiquement sur cet appareil
+          </p>
+        </FloatingModal>
       )}
 
       {showSpeculum && request && isTechnicien && (
