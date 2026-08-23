@@ -5,12 +5,17 @@ import { AUTH_COOKIE_NAME } from '@/lib/authCookie';
 // (anapath-backend-ar7u seul n'est plus joignable) — l'ancien défaut menait dans le mur.
 const BACKEND_URL = (process.env.API_PROXY_TARGET || 'https://anapath-backend-ar7u-uj8n.onrender.com').replace(/\/$/, '');
 
+// Documentation de l'API servie publiquement par le backend : les outils
+// externes (vérificateur d'écosystème) sondent {baseUrl}/api/docs sans session.
+const PUBLIC_DOC_PATHS = new Set(['docs', 'docs-json', 'docs-yaml', 'json']);
+
 async function handler(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-  if (!token) {
+  const isPublicDoc = PUBLIC_DOC_PATHS.has((await params).path[0] ?? '');
+  if (!token && !isPublicDoc) {
     return NextResponse.json({ message: 'Non authentifié' }, { status: 401 });
   }
 
@@ -22,12 +27,15 @@ async function handler(
   const body = hasBody ? await request.text() : undefined;
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': request.headers.get('content-type') || 'application/json',
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const backendRes = await fetch(targetUrl, {
       method: request.method,
-      headers: {
-        'Content-Type': request.headers.get('content-type') || 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       body,
       cache: 'no-store',
     });
