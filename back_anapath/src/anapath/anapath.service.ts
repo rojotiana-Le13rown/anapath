@@ -65,6 +65,69 @@ export class AnapathService {
   ) {}
 
   /**
+   * Résultats paracliniques anapath d'un patient, au format de la vue unifiée
+   * « Résultats paracliniques » du dossier-patient (celle que consomme l'onglet
+   * du même nom dans les services du CHU, ex. ORL). Chaque item expose à la
+   * fois les noms de champs de la vue unifiée (examen, dateResultat,
+   * resultatTexte…) et des alias de compatibilité pour les adaptateurs
+   * existants (compteRendu, conclusion, dateExamen…).
+   */
+  async getResultatsParacliniquesPatient(patientId: string, chuId?: string): Promise<any[]> {
+    if (!patientId) return [];
+    const examens = await this.anapathRepository.find({
+      where: { patientId, statut: In([Statut.VALIDE, Statut.ARCHIVE]) },
+    });
+    const items = examens
+      .filter((e) => !chuId || String((e.metadata as any)?.chuId ?? '') === chuId)
+      .map((e) => {
+        const meta = (e.metadata ?? {}) as Record<string, unknown>;
+        const typeLabel = TYPE_EXAMEN_LABELS[e.typeExamen] ?? e.typeExamen;
+        const titre = `Compte-rendu anapath – ${typeLabel}`;
+        const dateDemande = (e.createdAt ?? new Date()).toISOString();
+        const dateResultat = e.validatedAt ? new Date(e.validatedAt).toISOString() : null;
+        const prescripteur =
+          (meta.prescripteurNom as string) ?? (meta.nomMedecinPrescripteur as string) ?? '';
+        return {
+          id: e.id,
+          prescriptionId: e.prescriptionId ?? '',
+          demandeId: e.demandeId ?? '',
+          patientId: e.patientId,
+          chuId: (meta.chuId as string) ?? '',
+          // Vue unifiée « Résultats paracliniques »
+          type: 'anatomopathologie',
+          examen: titre,
+          dateDemande,
+          dateResultat,
+          resultatTexte: e.resultatDetails ?? '',
+          resultatFichiers: [] as string[],
+          prescripteur,
+          statut: 'disponible',
+          commentaire: e.resultatConclusion ?? '',
+          serviceSource: 'Anapath',
+          // Alias de compatibilité
+          titre,
+          examinationType: 'AUTRE',
+          dateExamen: dateResultat ?? dateDemande,
+          resultats: e.resultatDetails ?? '',
+          compteRendu: e.resultatDetails ?? '',
+          conclusion: e.resultatConclusion ?? '',
+          interpretation: '',
+          medecin: prescripteur,
+          laboratoire: 'Anapath',
+          pieceJointeUrls: [] as string[],
+          fichierUrls: [] as string[],
+          createdBy: (meta.prescripteurId as string) ?? ANAPATH_SERVICE_ID,
+          createdAt: dateDemande,
+          updatedAt: dateResultat ?? dateDemande,
+        };
+      });
+    items.sort(
+      (a, b) => new Date(b.dateDemande).getTime() - new Date(a.dateDemande).getTime(),
+    );
+    return items;
+  }
+
+  /**
    * Dossier patient complet : tous les examens/comptes-rendus du patient dans
    * le CHU, en fusionnant les DEUX sources du service dossier-patient :
    *  1. les résultats paracliniques agrégés (ECG, imagerie, kiné…)

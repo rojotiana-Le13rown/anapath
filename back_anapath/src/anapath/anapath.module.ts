@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { AnapathService } from './anapath.service';
 import { AnapathController } from './anapath.controller';
+import { ResultatsParacliniquesController } from './resultats-paracliniques.controller';
 import { AnapathRequest } from './entities/anapath-request.entity';
 import { ReportSettings } from './entities/report-settings.entity';
 import { ChuClient } from '../common/clients/chu.client';
@@ -19,7 +20,7 @@ import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AnapathRequest, ReportSettings]), NotificationModule, JwtModule.register({})],
-  controllers: [AnapathController],
+  controllers: [AnapathController, ResultatsParacliniquesController],
   providers: [
     AnapathService,
     NotificationClient,

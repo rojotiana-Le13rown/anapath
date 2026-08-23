@@ -118,6 +118,20 @@ export class AnapathController {
     return this.anapathService.getDossierPatient(patientId, chuId);
   }
 
+  // Alias du contrat « Résultats paracliniques » (agrégateur dossier-patient) :
+  // même handler, chemins préfixés /anapath au cas où l'agrégateur appelle
+  // {baseUrl}/anapath/… — volontairement SANS @Permissions pour accepter le
+  // compte de service de n'importe quel service du CHU.
+  @Get(['resultats/patient/:patientId', 'patients/:patientId/resultats'])
+  @ApiOperation({ summary: 'Résultats paracliniques anapath d’un patient (alias contrat agrégateur)' })
+  @ApiParam({ name: 'patientId', description: 'UUID du patient (service Accueil)' })
+  getResultatsParacliniques(
+    @Param('patientId') patientId: string,
+    @Query('chuId') chuId?: string,
+  ) {
+    return this.anapathService.getResultatsParacliniquesPatient(patientId, chuId);
+  }
+
   @Permissions('anapath:read')
   @Get('prescriptions/sync-status')
   @ApiOperation({
