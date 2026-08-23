@@ -21,6 +21,7 @@ import { matchesAnapathSearch } from '@/lib/searchAnapath';
 import { sortByUrgencyThenArrival, getUrgenceLevel, type UrgenceLevel } from '@/lib/urgencySort';
 import { formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { statusLabel, statusColors, typeExamenLabel, prescripteurLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
+import { siteOf } from '@/lib/prescriptionContent';
 import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
@@ -392,9 +393,9 @@ export default function WorklistPage() {
                           )}
                         </td>
                         <td className="p-4 text-xs text-slate-500">
-                          {req.prelevement?.site ? (
+                          {siteOf(req) ? (
                             <div>
-                              <span className="font-semibold text-slate-700">{req.prelevement.site}</span>
+                              <span className="font-semibold text-slate-700">{siteOf(req)}</span>
                               {req.prelevement?.description && (
                                 <span className="block text-slate-400 mt-0.5">{req.prelevement.description}</span>
                               )}

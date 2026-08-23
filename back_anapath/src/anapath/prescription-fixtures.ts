@@ -109,7 +109,8 @@ export const LIQUIDE_FIXTURE: Fixture = {
       renseignementsCliniques: 'RC',
     },
   },
-  expectedSite: '',
+  // Le prélèvement d'un LIQUIDE est sa nature (liqNat).
+  expectedSite: 'Ascite',
   expectedSuspicion: '',
 };
 

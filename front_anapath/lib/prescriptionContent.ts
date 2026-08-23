@@ -246,14 +246,24 @@ export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
   return out;
 }
 
-/** Site de prélèvement : valeur stockée par le backend, sinon dérivée du contenu reçu. */
+/** Site de prélèvement : valeur stockée par le backend, sinon dérivée du contenu
+ *  reçu (nature du liquide pour un LIQUIDE, organe/siège sinon). Aucun site pour
+ *  une FCV / Pap test : ce type n'a pas d'option de prélèvement. */
 export function siteOf(request: PrescriptionLike): string {
   if (request.prelevement?.site?.trim()) return request.prelevement.site.trim();
   const raw = rawDataOf(request);
   const details = detailsOf(raw);
-  for (const key of ['cytoSiege', 'siege', 'bioOrgane', 'organe', 'extOrgane']) {
-    const value = details[key] ?? raw[key];
-    if (typeof value === 'string' && value.trim()) return value.trim();
+  const read = (...keys: string[]): string => {
+    for (const key of keys) {
+      const value = details[key] ?? raw[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return '';
+  };
+  if (typeOf(request) === 'LIQUIDE') {
+    const nature = read('liqNat', 'type_liquide');
+    // Sélect « Autre » : la valeur de précision est la vraie nature.
+    return nature.toLowerCase() === 'autre' ? read('liqNatAutre') || nature : nature;
   }
-  return '';
+  return read('cytoSiege', 'siege', 'cytoOrgane', 'organe', 'bioOrgane', 'extOrgane');
 }

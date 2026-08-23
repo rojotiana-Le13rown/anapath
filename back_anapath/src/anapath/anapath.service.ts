@@ -862,13 +862,17 @@ export class AnapathService {
     const SITE_KEYS: Record<string, string[]> = {
       FCV_PAP: [],
       CYT0PONCTION: ['cytoSiege', 'siege', 'cytoOrgane', 'organe'],
-      LIQUIDE: [],
+      LIQUIDE: ['liqNat'],
       BIOPSIE: ['bioOrgane', 'organe', 'bioLocalisation', 'localisation'],
       POS: ['bioOrgane', 'organe', 'bioLocalisation', 'localisation'],
       POC: ['bioOrgane', 'organe', 'bioLocalisation', 'localisation'],
       EXTEMPORANE_STAT: ['extOrgane', 'organe'],
     };
-    const site = pick(...(SITE_KEYS[typeExamen] ?? ['organe', 'localisation', 'siege']));
+    let site = pick(...(SITE_KEYS[typeExamen] ?? ['organe', 'localisation', 'siege']));
+    // Liquide « Autre » : la nature réelle est dans le champ de précision.
+    if (typeExamen === 'LIQUIDE' && site.toLowerCase() === 'autre') {
+      site = pick('liqNatAutre') || site;
+    }
 
     const motif =
       pick('renseignementsCliniques') ||
