@@ -112,6 +112,9 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!auth/sso|api|_next/static|_next/image|favicon.ico|assets).*)',
+    // Exclus aussi docs/docs-json + les chemins « bruts » du contrat résultats
+    // (rewrites next.config.ts vers le backend) : ils doivent rester publics
+    // pour l'agrégateur dossier-patient et les vérificateurs d'écosystème.
+    '/((?!auth/sso|api|_next/static|_next/image|favicon.ico|assets|docs|docs-json|anapath/resultats|resultats/patient).*)',
   ],
 };
