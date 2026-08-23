@@ -203,6 +203,19 @@ function readOtherValue(raw: Record<string, any>, details: Record<string, any>, 
   return '';
 }
 
+/** Ajoute un champ affiché si renseigné ; sélect « Autre » remplacé par la
+ *  valeur saisie dans le champ de précision (otherKeys). Utilisé pour les
+ *  champs isolés comme pour ceux à l'intérieur d'un groupe. */
+function pushField(out: FieldEntry[], raw: Record<string, any>, details: Record<string, any>, field: ContentField): void {
+  let value = readValue(raw, details, field);
+  if (value === '') return;
+  if (field.otherKeys && value.toLowerCase() === 'autre') {
+    const other = readOtherValue(raw, details, field.otherKeys);
+    if (other) value = other;
+  }
+  out.push({ label: field.label, value });
+}
+
 /** Champs du contenu de la prescription, dans l'ordre du formulaire, libellés en clair. */
 export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
   const raw = rawDataOf(request);
@@ -214,23 +227,14 @@ export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
     if (block.type === 'group') {
       const groupFields: FieldEntry[] = [];
       for (const field of block.fields) {
-        const value = readValue(raw, details, field);
-        if (value !== '') groupFields.push({ label: field.label, value });
+        pushField(groupFields, raw, details, field);
       }
       if (groupFields.length > 0) {
         out.push({ group: block.label, label: '', value: '' });
         out.push(...groupFields);
       }
     } else {
-      let value = readValue(raw, details, block.field);
-      if (value !== '') {
-        // Sélect « Autre » : on affiche la valeur saisie dans le champ de précision.
-        if (block.field.otherKeys && value.toLowerCase() === 'autre') {
-          const other = readOtherValue(raw, details, block.field.otherKeys);
-          if (other) value = other;
-        }
-        out.push({ label: block.field.label, value });
-      }
+      pushField(out, raw, details, block.field);
     }
   }
 
