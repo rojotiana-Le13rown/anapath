@@ -54,6 +54,40 @@ export function isPathologisteRole(
   );
 }
 
+/** Vrai pour un user de session (lib/auth / /api/session) ou un user décodé du JWT. */
+export function isPathologisteUser(user?: {
+  roleName?: string | null;
+  permissions?: string[] | null;
+} | null): boolean {
+  return isPathologisteRole(user?.roleName, user?.permissions);
+}
+
+/**
+ * Une secrétaire saisit les résultats d'examen mais ne les valide jamais.
+ * Détection : nom du rôle (« Secrétaire… »), sinon heuristique par
+ * permissions — rédige les observations (anapath:observation:write) sans
+ * pouvoir valider (anapath:validate).
+ */
+export function isSecretaireRole(
+  roleName?: string | null,
+  permissions?: string[] | null,
+): boolean {
+  if (roleName && /secretair/i.test(roleName)) return true;
+  if (!permissions) return false;
+  return (
+    permissions.includes('anapath:observation:write') &&
+    !permissions.includes('anapath:validate')
+  );
+}
+
+/** Vrai pour un user de session (lib/auth / /api/session) ou un user décodé du JWT. */
+export function isSecretaireUser(user?: {
+  roleName?: string | null;
+  permissions?: string[] | null;
+} | null): boolean {
+  return isSecretaireRole(user?.roleName, user?.permissions);
+}
+
 export type RecipientGroup = 'technicien' | 'pathologiste' | 'autre';
 
 /**

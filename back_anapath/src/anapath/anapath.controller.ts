@@ -829,10 +829,22 @@ export class AnapathController {
     if (dto.statut === Statut.ANNULEE && !user.permissions.includes('anapath:cancel')) {
       throw new ForbiddenException('Permission refusée');
     }
+    // Seul le pathologiste valide un examen (statut VALIDE) : contrôle par
+    // nom de rôle ou permission dédiée — le front masque déjà le bouton.
+    if (dto.statut === Statut.VALIDE) {
+      const isPathologiste =
+        /patholog/i.test(user.roleName ?? '') ||
+        user.permissions.includes('anapath:validate');
+      if (!isPathologiste) {
+        throw new ForbiddenException('Validation réservée au pathologiste');
+      }
+    }
     return this.anapathService.update(id, dto, token);
   }
 
-  @Permissions('anapath:observation:write')
+  // Saisie/auto-save du résultat : réservée aux SECRÉTAIRES et au PATHOLOGISTE
+  // (nom de rôle ou permission anapath:observation:write). Le technicien et le
+  // major sont refusés — la saisie ne leur est même pas affichée côté front.
   @Patch(':id/resultat')
   @ApiOperation({ summary: "Enregistrer (auto-save) le résultat et la conclusion d'examen — transcription" })
   @ApiParam({ name: 'id', description: 'UUID de la demande' })
@@ -843,8 +855,15 @@ export class AnapathController {
   updateResultat(
     @Param('id') id: string,
     @Body() dto: UpdateResultatDto,
+    @CurrentUser() user: AuthenticatedUser,
     @CurrentToken() token: string,
   ) {
+    const autorise =
+      /secretair|patholog/i.test(user.roleName ?? '') ||
+      user.permissions.includes('anapath:observation:write');
+    if (!autorise) {
+      throw new ForbiddenException('Saisie du résultat réservée aux secrétaires et au pathologiste');
+    }
     return this.anapathService.updateResultat(id, dto, token);
   }
 

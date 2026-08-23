@@ -19,7 +19,7 @@ import axios from 'axios';
 import { getPatientForExamen, marquerNotifLue, API_BASE } from '@/lib/api';
 import { formatDateLong } from '@/lib/dateFormat';
 import { statusLabel, statusColors } from '@/lib/statusLabels';
-import { isTechnicienUser } from '@/lib/roles';
+import { isSecretaireUser, isTechnicienUser, isPathologisteUser } from '@/lib/roles';
 
 interface AnapathRequest {
   id: string;
@@ -66,10 +66,12 @@ export default function WorklistDetailPage() {
   const id = params.id as string;
   const { hasPermission, user } = useAuth();
   const toast = useToast();
-  // Lecture seule pour Histotechnicien/Secrétaire : seuls UPDATE /
-  // OBSERVATION_WRITE peuvent réellement saisir un résultat.
-  const canWrite = hasPermission('anapath:update') || hasPermission('anapath:observation:write');
-  // La validation/signature finale est réservée au pathologiste.
+  // Saisie du résultat d'examen : réservée aux SECRÉTAIRES et au PATHOLOGISTE.
+  // Le technicien prépare l'examen (spéculum, examen technique), le major
+  // consulte : pour les autres, la saisie est masquée.
+  const canWrite = isSecretaireUser(user) || isPathologisteUser(user);
+  // La validation/signature finale est réservée au pathologiste (seul à
+  // porter anapath:validate — contrôlé aussi côté backend).
   const canSign = hasPermission('anapath:validate');
   // Le spéculum reste réservé au technicien/histotechnicien.
   const isTechnicien = isTechnicienUser(user);
@@ -505,7 +507,7 @@ export default function WorklistDetailPage() {
 
               {isDiagnosticPhase ? (
                 <div className="flex flex-col items-center gap-2 mt-8">
-                  {canWrite ? (
+                  {isPathologisteUser(user) ? (
                     <button
                       onClick={() => setShowDiag(true)}
                       className="px-8 py-3 bg-cyan-700 text-white font-bold rounded-full shadow-md hover:bg-cyan-800 transition-colors flex items-center gap-2"
