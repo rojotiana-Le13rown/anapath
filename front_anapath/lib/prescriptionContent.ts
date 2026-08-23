@@ -135,6 +135,7 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
     { type: 'field', field: { keys: ['extQuestion'], label: 'Question clinique posée au pathologiste' } },
     { type: 'field', field: { keys: ['extDatePrevue'], label: 'Date prévue', date: true } },
     { type: 'field', field: { keys: ['extHeure'], label: 'Heure' } },
+    { type: 'field', field: { keys: ['extNote', 'note'], label: 'Note complémentaire' } },
     { type: 'field', field: { keys: ['bioFaitLe', 'faitLe'], label: 'Fait le', date: true } },
   ],
 };
