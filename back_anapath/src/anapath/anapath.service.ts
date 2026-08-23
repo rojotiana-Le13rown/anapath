@@ -65,20 +65,37 @@ export class AnapathService {
   ) {}
 
   /**
-   * Dossier patient complet : tous les examens complémentaires du patient
-   * enregistrés par l'ensemble des services du CHU (dossier-patient).
+   * Dossier patient complet : tous les examens/comptes-rendus du patient dans
+   * le CHU, en fusionnant les DEUX sources du service dossier-patient :
+   *  1. les résultats paracliniques agrégés (ECG, imagerie, kiné…)
+   *  2. les examens complémentaires (dont les comptes-rendus anapath)
    * Rattrapage intégré : les examens anapath déjà validés dont le compte-rendu
-   * n'a pas pu être envoyé (panne, déploiement antérieur à l'intégration…) sont
-   * poussés maintenant — une seule fois grâce à dossierPatientId.
+   * n'a pas pu être envoyé sont poussés maintenant — une seule fois via
+   * dossierPatientId.
    */
   async getDossierPatient(patientId: string, chuId?: string): Promise<{ items: any[]; total: number }> {
     if (!patientId) throw new BadRequestException('patientId requis');
     if (!chuId) throw new BadRequestException('chuId requis');
-    const token = await this.authServiceToken.getToken();
-    const items = await this.dossierPatientClient.getPatientExaminations(
-      chuId,
-      patientId,
-    );
+
+    const [agreges, complementaires] = await Promise.all([
+      this.dossierPatientClient.getPatientAggregatedResults(patientId, chuId),
+      this.dossierPatientClient.getPatientExaminations(chuId, patientId),
+    ]);
+
+    // Normalisation des résultats agrégés vers la forme d'un examen complémentaire.
+    const agregesNormalises = agreges.map((it: any) => ({
+      id: it?.id,
+      examinationType: String(it?.type ?? '').toUpperCase() || undefined,
+      titre: it?.examen ?? 'Résultat paraclinique',
+      dateExamen: it?.dateResultat ?? it?.dateDemande ?? null,
+      resultats: it?.resultatTexte ?? '',
+      conclusion: it?.commentaire ?? '',
+      interpretation: '',
+      prescripteur: it?.prescripteur ?? '',
+      laboratoire: it?.serviceSource ?? '',
+      isUrgent: false,
+      statut: it?.statut,
+    }));
 
     // Rattrapage des comptes-rendus anapath manquants dans le dossier-patient.
     const aRattraper = await this.anapathRepository.find({
@@ -87,11 +104,19 @@ export class AnapathService {
     for (const examen of aRattraper) {
       if (examen.dossierPatientId) continue;
       const envoye = await this.envoyerCompteRenduDossierPatient(examen);
-      if (envoye?.id && !items.some((it) => String(it.id) === String(envoye.id))) {
-        items.push(envoye);
+      if (envoye?.id && !complementaires.some((it) => String(it.id) === String(envoye.id))) {
+        complementaires.push(envoye);
       }
     }
 
+    // Fusion dédupliquée (par id), triée par date décroissante.
+    const vus = new Set<string>();
+    const items = [...agregesNormalises, ...complementaires].filter((it) => {
+      const key = String(it?.id ?? '');
+      if (!key || vus.has(key)) return false;
+      vus.add(key);
+      return true;
+    });
     items.sort(
       (a, b) =>
         new Date(b.dateExamen ?? 0).getTime() - new Date(a.dateExamen ?? 0).getTime(),

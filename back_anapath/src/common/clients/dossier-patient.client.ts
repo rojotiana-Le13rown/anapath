@@ -92,4 +92,30 @@ export class DossierPatientClient {
       return [];
     }
   }
+
+  /**
+   * Résultats paracliniques AGRÉGÉS d'un patient (tous services du CHU) :
+   * ECG, imagerie, kinésithérapie… C'est la vue « Résultats Paracliniques »
+   * du dossier-patient — différente des complementary-examinations.
+   * Réponse : { data: [...], total }.
+   */
+  async getPatientAggregatedResults(patientId: string, chuId: string): Promise<any[]> {
+    try {
+      const url = `${this.baseUrl}/dossier-patient/patients/${encodeURIComponent(patientId)}/resultats`;
+      const res = await fetch(`${url}?chuId=${encodeURIComponent(chuId)}`, {
+        headers: await this.headers(),
+        signal: AbortSignal.timeout(this.timeout),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        this.logger.warn(`getPatientAggregatedResults ${res.status}: ${body}`);
+        return [];
+      }
+      const data = await res.json();
+      return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+    } catch (e) {
+      this.logger.warn(`getPatientAggregatedResults erreur: ${e instanceof Error ? e.message : e}`);
+      return [];
+    }
+  }
 }
