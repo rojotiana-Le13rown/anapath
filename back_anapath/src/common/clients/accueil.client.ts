@@ -15,7 +15,9 @@ export class AccueilClient {
   private patientCache = new Map<string, { at: number; patient: any | null }>();
   private inflight = new Map<string, Promise<any | null>>();
   private readonly PATIENT_CACHE_TTL_MS = 10 * 60 * 1000;
-  private readonly PATIENT_CACHE_FAIL_TTL_MS = 60 * 60 * 1000;
+  // Échec (accueil endormi, timeout…) : on retente vite — sinon un seul raté
+  // affiche l'ID brut du patient à la place de son nom pendant une heure.
+  private readonly PATIENT_CACHE_FAIL_TTL_MS = 60 * 1000;
   private readonly PATIENT_CACHE_MAX = 500;
   private readonly ACCUEIL_TIMEOUT_MS = 30000;
 
