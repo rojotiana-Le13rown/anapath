@@ -1091,7 +1091,10 @@ export class AnapathService {
     await this.notificationService.markResolved(notificationId, 'REFUSEE', { motif });
   }
 
-  @Cron(process.env.PRESCRIPTION_SYNC_CRON ?? '*/15 * * * *')
+  // Toutes les minutes : plus le pull est fréquent, plus la cloche sonne vite
+  // après l'envoi d'une demande (le push socket.io lui-même est instantané).
+  // Surchargable via PRESCRIPTION_SYNC_CRON.
+  @Cron(process.env.PRESCRIPTION_SYNC_CRON ?? '* * * * *')
   async synchroniserPrescriptionsExternesCron(): Promise<void> {
     if ((process.env.PRESCRIPTION_SYNC_ENABLED ?? 'true') !== 'true') return;
     const token = await this.authServiceToken.getToken();
