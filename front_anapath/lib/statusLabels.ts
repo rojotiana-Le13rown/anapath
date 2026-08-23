@@ -46,6 +46,16 @@ export const statusLabels: Record<string, string> = {
     return TYPE_EXAMEN_LABELS[type] ?? type.replace(/_/g, ' ');
   }
 
+  /** Nom du médecin prescripteur (celui qui suit le patient), même règle que
+   *  le frontend ORL : compte prescripteur, sinon nom saisi dans la demande.
+   *  Renvoie « Dr X » ou '' si inconnu. */
+  export function prescripteurLabel(metadata?: Record<string, unknown> | null): string {
+    const nomCompte = typeof metadata?.prescripteurNom === 'string' ? metadata.prescripteurNom.trim() : '';
+    const nomSaisi = typeof metadata?.nomMedecinPrescripteur === 'string' ? metadata.nomMedecinPrescripteur.trim() : '';
+    const nom = nomCompte || nomSaisi;
+    return nom ? `Dr ${nom}` : '';
+  }
+
   export const statusColors: Record<string, string> = {
     CREEE: 'bg-gray-100 text-gray-700',
     EN_ATTENTE: 'bg-blue-100 text-blue-700',

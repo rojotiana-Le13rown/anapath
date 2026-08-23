@@ -14,7 +14,7 @@ import axios from 'axios';
 import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests } from '@/lib/searchAnapath';
 import { formatDateTime, formatDateLong, formatRelativeTime } from '@/lib/dateFormat';
-import { statusLabel, statusColors, PENDING_STATUSES, typeExamenLabel } from '@/lib/statusLabels';
+import { statusLabel, statusColors, PENDING_STATUSES, typeExamenLabel, prescripteurLabel } from '@/lib/statusLabels';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AnapathRequest {
@@ -235,6 +235,9 @@ export default function DashboardPage() {
                               <span className="px-1 py-px rounded-full bg-red-600 text-white text-[7px] leading-normal font-bold stat-pulse">TRES URGENT</span>
                             )}
                           </span>
+                          {prescripteurLabel(req.metadata) && (
+                            <span className="block mt-1 text-[10px] font-semibold text-slate-500">{prescripteurLabel(req.metadata)}</span>
+                          )}
                         </td>
                         <td className="p-4"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusColors[req.statut] || 'bg-gray-100 text-gray-700'}`}>{statusLabel(req.statut)}</span></td>
                         <td className="p-4 text-slate-500 text-xs">

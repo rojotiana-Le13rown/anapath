@@ -20,7 +20,7 @@ import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { matchesAnapathSearch } from '@/lib/searchAnapath';
 import { sortByUrgencyThenArrival, getUrgenceLevel, type UrgenceLevel } from '@/lib/urgencySort';
 import { formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
-import { statusLabel, statusColors, typeExamenLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
+import { statusLabel, statusColors, typeExamenLabel, prescripteurLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 import { isTechnicienUser } from '@/lib/roles';
 
 interface AnapathRequest {
@@ -387,6 +387,9 @@ export default function WorklistPage() {
                               </span>
                             )}
                           </span>
+                          {prescripteurLabel(req.metadata) && (
+                            <span className="block mt-1 text-[10px] font-semibold text-slate-500">{prescripteurLabel(req.metadata)}</span>
+                          )}
                         </td>
                         <td className="p-4 text-xs text-slate-500">
                           {req.prelevement?.site ? (

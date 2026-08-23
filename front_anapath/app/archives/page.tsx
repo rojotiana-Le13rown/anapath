@@ -14,7 +14,7 @@ import axios from 'axios';
 import { API_BASE, getPatientForExamen } from '@/lib/api';
 import { filterAndSortAnapathRequests, matchesAnapathSearch } from '@/lib/searchAnapath';
 import { formatDateTime, formatRelativeTime, formatDateLong } from '@/lib/dateFormat';
-import { typeExamenLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
+import { typeExamenLabel, prescripteurLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 
 interface AnapathRequest {
   id: string;
@@ -224,6 +224,9 @@ export default function ArchivesPage() {
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getTypeBadge(req.typeExamen)}`}>
                           {getTypeLabel(req.typeExamen)}
                         </span>
+                        {prescripteurLabel(req.metadata) && (
+                          <span className="block mt-1 text-[10px] font-semibold text-slate-500">{prescripteurLabel(req.metadata)}</span>
+                        )}
                       </td>
                       <td className="p-4 max-w-xs truncate text-slate-600">{req.resultat?.conclusion || '-'}</td>
                       <td className="p-4 text-slate-500 text-xs">{req.validatedByUserId || '-'}</td>

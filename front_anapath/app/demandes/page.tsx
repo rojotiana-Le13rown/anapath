@@ -11,7 +11,7 @@ import StatCountdown from '@/components/StatCountdown';
 import { accepterPrescriptionNotif, refuserPrescriptionNotif, getPatientForExamen, API_BASE } from '@/lib/api';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/dateFormat';
 import { getUrgenceLevel, sortByUrgencyThenArrival, type UrgenceLevel } from '@/lib/urgencySort';
-import { typeExamenLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
+import { typeExamenLabel, prescripteurLabel, TYPE_EXAMEN_LABELS } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
 import { type PatientInfo } from '@/components/PatientIdentitySection';
 
@@ -448,7 +448,12 @@ export default function DemandesPage() {
                             {getPatientName(n) || '—'}
                           </p>
                         </td>
-                        <td className="p-4">{getTypeExamen(n) || '—'}</td>
+                        <td className="p-4">
+                          {getTypeExamen(n) || '—'}
+                          {prescripteurLabel(n?.metadata) && (
+                            <span className="block text-[10px] font-semibold text-slate-500 mt-0.5">{prescripteurLabel(n?.metadata)}</span>
+                          )}
+                        </td>
                         <td className="p-4 text-slate-600">{getServiceNom(n)}</td>
                         <td className="p-4">
                           <div className="flex flex-col items-start gap-0.5">
@@ -531,7 +536,8 @@ export default function DemandesPage() {
                 <div>
                   <h3 className="text-white font-bold text-base">Détails de la prescription</h3>
                   <p className="text-white/60 text-xs mt-0.5">
-                    {getTypeExamen(detailTarget) || 'Examen'} — Patient{' '}
+                    {getTypeExamen(detailTarget) || 'Examen'}
+                    {prescripteurLabel(detailTarget?.metadata) ? ` · ${prescripteurLabel(detailTarget?.metadata)}` : ''} — Patient{' '}
                     {getPatientName(detailTarget) || '—'}
                   </p>
                 </div>
