@@ -3,12 +3,13 @@ import { rawDataOf, detailsOf, type PrescriptionLike } from '@/lib/prescriptionF
 /**
  * Affichage du contenu d'une prescription, type d'examen par type d'examen.
  *
- * L'ordre des champs reproduit EXACTEMENT l'ordre du formulaire du service
- * Prescription (HTML de référence). Les libellés sont ceux du formulaire.
- * Les valeurs sont celles réellement envoyées (Swagger / payloads réels) :
- * aucun libellé technique (fcv*, cyto*, bio*…) n'est affiché, aucune valeur
- * n'est inventée, aucune clé hors formulaire du type (ex. bioDatePrelev dans
- * une FCV) n'est montrée.
+ * Source de vérité : le formulaire réel du service Prescription
+ * (orl_front/src/features/prescription/components/para/AnapathForm.tsx).
+ * Les groupes, libellés et l'ordre reproduisent EXACTEMENT ses sections
+ * (« Notes & clinique », « Antécédents », « Prélèvement », « Intervention en
+ * cours », « Question & planification »…) ; aucune clé hors formulaire du type
+ * n'est affichée — notamment la pollution inter-onglets du formulaire ORL qui
+ * partage un seul objet formData entre tous les types d'examen.
  */
 
 export interface ContentField {
@@ -35,21 +36,31 @@ export interface FieldEntry {
 }
 
 const BIOPSIE_CONFIG: ContentBlock[] = [
-  { type: 'field', field: { keys: ['bioDatePrelev'], label: 'Date du prélèvement', date: true } },
-  { type: 'field', field: { keys: ['bioFixateur', 'fixateur'], label: 'Fixateur', otherKeys: ['bioFixateurAutre'] } },
-  { type: 'field', field: { keys: ['bioOrgane', 'organe'], label: 'Organe(s) / site anatomique' } },
-  { type: 'field', field: { keys: ['localisation'], label: 'Localisation' } },
-  { type: 'field', field: { keys: ['bioNature', 'nature'], label: 'Nature du prélèvement', otherKeys: ['bioNatureAutre'] } },
-  { type: 'field', field: { keys: ['bioSuspicion', 'suspicion'], label: 'Suspicion diagnostique' } },
-  { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
-  { type: 'field', field: { keys: ['bioNote', 'note'], label: 'Note complémentaire' } },
-  { type: 'field', field: { keys: ['bioExamAnt'], label: 'Examen(s) antérieur(s)' } },
-  { type: 'field', field: { keys: ['bioResAnt'], label: 'Résultat(s)' } },
-  { type: 'field', field: { keys: ['bioGPA'], label: 'GPA (si applicable)' } },
-  { type: 'field', field: { keys: ['bioDDR'], label: 'DDR (si applicable)', date: true } },
-  { type: 'field', field: { keys: ['bioMeno'], label: 'Ménopause' } },
-  { type: 'field', field: { keys: ['bioAtcd'], label: 'Autres antécédents personnels / familiaux' } },
-  { type: 'field', field: { keys: ['bioFaitLe', 'faitLe'], label: 'Fait le', date: true } },
+  {
+    type: 'group',
+    label: 'PRÉLÈVEMENT & NOTES',
+    fields: [
+      { keys: ['bioDatePrelev'], label: 'Date du prélèvement', date: true },
+      { keys: ['bioFixateur', 'fixateur'], label: 'Fixateur', otherKeys: ['bioFixateurAutre'] },
+      { keys: ['bioOrgane', 'organe'], label: 'Organe(s) / Site anatomique' },
+      { keys: ['bioNature', 'nature'], label: 'Nature du prélèvement', otherKeys: ['bioNatureAutre'] },
+      { keys: ['bioSuspicion', 'suspicion'], label: 'Suspicion diagnostique' },
+      { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' },
+      { keys: ['bioNote', 'note'], label: 'Note complémentaire' },
+    ],
+  },
+  {
+    type: 'group',
+    label: 'ANTÉCÉDENTS',
+    fields: [
+      { keys: ['bioExamAnt'], label: 'Examen(s) antérieur(s)' },
+      { keys: ['bioResAnt'], label: 'Résultat(s)' },
+      { keys: ['bioGPA', 'gpa'], label: 'G P A (si applicable)' },
+      { keys: ['bioDDR', 'ddr'], label: 'DDR (si applicable)', date: true },
+      { keys: ['bioMeno'], label: 'Ménopause' },
+      { keys: ['bioAtcd', 'atcd'], label: 'Autres antécédents personnels / familiaux' },
+    ],
+  },
 ];
 
 const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
@@ -66,21 +77,18 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
       type: 'group',
       label: 'ANTÉCÉDENTS',
       fields: [
-        { keys: ['fcvGPA', 'gpa'], label: 'GPA' },
-        { keys: ['fcvDDR', 'ddr'], label: 'DDR' },
-        { keys: ['fcvMeno'], label: 'MENOPAUSE' },
-        { keys: ['fcvMenarche'], label: 'AGE DE LA MENARCHE' },
+        { keys: ['fcvGPA', 'gpa'], label: 'G P A' },
+        { keys: ['fcvDDR', 'ddr'], label: 'DDR', date: true },
+        { keys: ['fcvMeno'], label: 'Ménopause' },
+        { keys: ['fcvMenarche'], label: 'Âge de la ménarche' },
         { keys: ['fcvRapport'], label: 'Âge du 1er rapport sexuel' },
-        { keys: ['fcvContra'], label: 'CONTRACEPTION' },
+        { keys: ['fcvContra'], label: 'Contraception' },
+        { keys: ['fcvTtt'], label: 'Traitement en cours' },
       ],
     },
-    { type: 'field', field: { keys: ['fcvTtt'], label: 'TRAITEMENT EN COURS' } },
-    { type: 'field', field: { keys: ['etat_col'], label: 'État du col' } },
-    { type: 'field', field: { keys: ['service'], label: 'Service' } },
-    { type: 'field', field: { keys: ['papResultat'], label: 'Résultat du dernier frottis / PAP' } },
     {
       type: 'group',
-      label: 'EXAMEN PAP TEST ANTERIEUR',
+      label: 'EXAMENS PAP TEST ANTÉRIEURS',
       fields: [
         { keys: ['fcvPapLieu'], label: 'Lieu' },
         { keys: ['fcvPapNb'], label: 'Nombre de fois' },
@@ -88,7 +96,7 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
         { keys: ['fcvPapRes'], label: 'Résultat' },
       ],
     },
-    { type: 'field', field: { keys: ['fcvAtcd'], label: 'Autres antécédents personnels et familiaux' } },
+    { type: 'field', field: { keys: ['fcvAtcd', 'atcd'], label: 'Autres antécédents personnels et familiaux' } },
   ],
 
   CYT0PONCTION: [
@@ -99,7 +107,6 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
         { keys: ['cytoSiege', 'siege'], label: 'Siège de la ponction' },
         { keys: ['cytoOrgane', 'organe'], label: 'Organe' },
         { keys: ['cytoFix', 'fixateur'], label: 'Fixateur', otherKeys: ['cytoFixAutre'] },
-        { keys: ['service'], label: 'Service' },
       ],
     },
     {
@@ -113,12 +120,21 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
   ],
 
   LIQUIDE: [
-    { type: 'field', field: { keys: ['liqNat', 'type_liquide'], label: 'Nature du liquide', otherKeys: ['liqNatAutre'] } },
-    { type: 'field', field: { keys: ['volume'], label: 'Volume (ml)' } },
-    { type: 'field', field: { keys: ['bioDatePrelev'], label: 'Date du prélèvement', date: true } },
-    { type: 'field', field: { keys: ['liqNotes', 'note'], label: 'Note complémentaire' } },
-    { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
-    { type: 'field', field: { keys: ['bioFaitLe', 'faitLe'], label: 'Fait le', date: true } },
+    {
+      type: 'group',
+      label: 'NATURE DU LIQUIDE',
+      fields: [
+        { keys: ['liqNat', 'type_liquide'], label: 'Nature du liquide', otherKeys: ['liqNatAutre'] },
+      ],
+    },
+    {
+      type: 'group',
+      label: 'NOTES & CLINIQUE',
+      fields: [
+        { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' },
+        { keys: ['liqNotes', 'note'], label: 'Note complémentaire' },
+      ],
+    },
   ],
 
   BIOPSIE: BIOPSIE_CONFIG,
@@ -126,17 +142,26 @@ const CONTENT_CONFIG: Record<string, ContentBlock[]> = {
   POC: BIOPSIE_CONFIG,
 
   EXTEMPORANE_STAT: [
-    { type: 'field', field: { keys: ['extChirurgien', 'chirurgien'], label: 'Chirurgien en salle' } },
-    { type: 'field', field: { keys: ['extIntervention'], label: "Type d'intervention chirurgicale en cours" } },
-    { type: 'field', field: { keys: ['extNature', 'nature'], label: 'Nature du prélèvement' } },
-    { type: 'field', field: { keys: ['extOrgane', 'organe'], label: 'Organe / site anatomique prélevé' } },
-    { type: 'field', field: { keys: ['urgence_chirurgicale'], label: 'Urgence chirurgicale' } },
-    { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
-    { type: 'field', field: { keys: ['extQuestion'], label: 'Question clinique posée au pathologiste' } },
-    { type: 'field', field: { keys: ['extDatePrevue'], label: 'Date prévue', date: true } },
-    { type: 'field', field: { keys: ['extHeure'], label: 'Heure' } },
-    { type: 'field', field: { keys: ['extNote', 'note'], label: 'Note complémentaire' } },
-    { type: 'field', field: { keys: ['bioFaitLe', 'faitLe'], label: 'Fait le', date: true } },
+    {
+      type: 'group',
+      label: 'INTERVENTION EN COURS',
+      fields: [
+        { keys: ['extChirurgien', 'chirurgien'], label: 'Chirurgien en salle' },
+        { keys: ['extIntervention'], label: "Type d'intervention chirurgicale en cours" },
+        { keys: ['extNature', 'nature'], label: 'Nature du prélèvement' },
+        { keys: ['extOrgane', 'organe'], label: 'Organe / Site anatomique prélevé' },
+      ],
+    },
+    {
+      type: 'group',
+      label: 'QUESTION & PLANIFICATION',
+      fields: [
+        { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' },
+        { keys: ['extQuestion'], label: 'Question clinique posée au pathologiste' },
+        { keys: ['extHeure'], label: 'Heure' },
+        { keys: ['extDatePrevue'], label: 'Date prévue', date: true },
+      ],
+    },
   ],
 };
 
@@ -144,23 +169,6 @@ const GENERIC_CONFIG: ContentBlock[] = [
   { type: 'field', field: { keys: ['renseignementsCliniques'], label: 'Renseignements cliniques' } },
   { type: 'field', field: { keys: ['note'], label: 'Note complémentaire' } },
 ];
-
-/** Clés techniques jamais affichées dans le bloc « champs supplémentaires ». */
-const TECHNICAL_KEYS = new Set([
-  'id', '_id', 'prescriptionId', 'demandeId', 'patientId', 'typeExamen',
-  'statut', 'motifRefus', 'createdAt', 'updatedAt', 'renseignementsCliniques',
-]);
-
-/** Libellé lisible pour une clé technique : préfixes de type retirés
- *  (bioFaitLe → « Fait Le »), camelCase / snake_case → mots capitalisés. */
-function humanizeKey(key: string): string {
-  const stripped = key.replace(/^(bio|fcv|cyto|ext|liq|pap)(?=[A-Z])/, '');
-  const words = stripped
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
 
 function typeOf(request: PrescriptionLike): string {
   return (request as { typeExamen?: string }).typeExamen ?? '';
@@ -224,42 +232,6 @@ export function contentEntriesOf(request: PrescriptionLike): FieldEntry[] {
         out.push({ label: block.field.label, value });
       }
     }
-  }
-
-  // Filet de sécurité : tout champ saisi non couvert par la configuration est
-  // affiché aussi — aucune information saisie côté service Prescription n'est
-  // perdue à l'écran.
-  const covered = new Set<string>();
-  for (const block of config) {
-    if (block.type === 'field') {
-      for (const key of block.field.keys) covered.add(key);
-      for (const key of block.field.otherKeys ?? []) covered.add(key);
-    } else {
-      for (const field of block.fields) {
-        for (const key of field.keys) covered.add(key);
-      }
-    }
-  }
-  const extras: { key: string; value: string }[] = [];
-  const sources: Record<string, any>[] = [details, raw];
-  for (const source of sources) {
-    for (const [key, value] of Object.entries(source)) {
-      if (covered.has(key) || TECHNICAL_KEYS.has(key)) continue;
-      if (typeof value === 'string' && value.trim()) {
-        const v = value.trim();
-        extras.push({ key, value: /^\d{4}-\d{2}-\d{2}$/.test(v) ? formatDate(v) : v });
-      } else if (typeof value === 'boolean') {
-        extras.push({ key, value: value ? 'Oui' : 'Non' });
-      } else if (typeof value === 'number') {
-        extras.push({ key, value: String(value) });
-      }
-    }
-  }
-  const seen = new Set<string>();
-  for (const extra of extras) {
-    if (seen.has(extra.key)) continue;
-    seen.add(extra.key);
-    out.push({ label: humanizeKey(extra.key), value: extra.value });
   }
 
   // Renseignements cliniques portés par la prescription elle-même (champ de
