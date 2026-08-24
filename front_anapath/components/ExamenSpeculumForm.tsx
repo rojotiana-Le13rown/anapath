@@ -170,25 +170,27 @@ export default function ExamenSpeculumForm({
     }
   };
 
+  const sousTitre = [anapathId, patientName].filter(Boolean).join(' — ');
+
   return (
     <FloatingModal
       open
       onClose={onClose}
       icon="clinical_notes"
       title="Examen Spéculum"
+      subtitle={sousTitre || undefined}
       maxWidthPx={672}
       bodyClassName="p-4 space-y-4"
     >
-      <div>
-        <p className="text-xs text-on-surface-variant bg-primary/5 border border-primary/10 rounded-lg p-2.5">
-          Préalable obligatoire avant de saisir le résultat d&apos;un examen FCV / Pap test.
-        </p>
+      <p className="text-xs text-on-surface-variant bg-primary/5 border border-primary/10 rounded-lg p-2.5">
+        Préalable obligatoire avant de saisir le résultat d&apos;un examen FCV / Pap test.
+      </p>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-              Examen spéculum <span className="text-red-500">*</span>
-            </label>
-            <div className="flex justify-end">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+          Observations cliniques <span className="text-red-500">*</span>
+        </label>
+        <div className="flex justify-end">
               <VoiceRecorder
                 hideTextArea
                 statusIdleText="Dicter les observations"
@@ -212,122 +214,115 @@ export default function ExamenSpeculumForm({
               rows={5}
               className="w-full p-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface resize-none focus:ring-2 focus:ring-primary/20 outline-none"
             />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+          Prélèvement <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={prelevementDetails}
+          onChange={(e) => setPrelevementDetails(e.target.value)}
+          placeholder="Détails du prélèvement..."
+          className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+            Date de l&apos;examen <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <input
+              type="date"
+              value={dateExamen}
+              onChange={(e) => setDateExamen(e.target.value)}
+              className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface appearance-none"
+            />
+            <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-lg">
+              calendar_today
+            </span>
           </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+            Fixation <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={fixation}
+            onChange={(e) => setFixation(e.target.value)}
+            placeholder="Mode de fixation..."
+            className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+          />
+        </div>
+      </div>
 
-          <hr className="border-outline-variant/30" />
-
+      <div className="rounded-xl border border-outline-variant/30 bg-slate-50 p-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-              Prélèvement <span className="text-red-500">*</span>
-            </label>
+            <p className="text-center text-xs font-bold text-on-surface-variant">Le prescripteur</p>
             <input
               type="text"
-              value={prelevementDetails}
-              onChange={(e) => setPrelevementDetails(e.target.value)}
-              placeholder="Détails du prélèvement..."
-              className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+              value={prescripteurSignature}
+              readOnly
+              title="Renseigné automatiquement"
+              className="w-full h-11 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none cursor-not-allowed"
             />
-
-            <div className="flex items-center gap-2 mt-2">
-              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider whitespace-nowrap">
-                Date :
-              </label>
-              <div className="relative flex-1">
-                <input
-                  type="date"
-                  value={dateExamen}
-                  onChange={(e) => setDateExamen(e.target.value)}
-                  className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface appearance-none"
-                />
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-lg">
-                  calendar_today
-                </span>
-              </div>
-            </div>
           </div>
-
-          <hr className="border-outline-variant/30" />
-
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-              Fixation <span className="text-red-500">*</span>
-            </label>
+            <p className="text-center text-xs font-bold text-on-surface-variant">Le préleveur</p>
             <input
               type="text"
-              value={fixation}
-              onChange={(e) => setFixation(e.target.value)}
-              placeholder="Mode de fixation..."
-              className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+              value={preleveurSignature}
+              readOnly
+              title="Renseigné automatiquement"
+              className="w-full h-11 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none cursor-not-allowed"
             />
           </div>
-
-          <hr className="border-outline-variant/30" />
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <p className="text-center text-xs font-bold text-on-surface-variant">Le prescripteur</p>
-              <input
-                type="text"
-                value={prescripteurSignature}
-                readOnly
-                title="Renseigné automatiquement"
-                className="w-full h-11 px-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none cursor-not-allowed"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-center text-xs font-bold text-on-surface-variant">Le préleveur</p>
-              <input
-                type="text"
-                value={preleveurSignature}
-                readOnly
-                title="Renseigné automatiquement"
-                className="w-full h-11 px-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none cursor-not-allowed"
-              />
-            </div>
-          </div>
-          <p className="text-[11px] text-slate-400 -mt-2 text-center">
-            Prescripteur et préleveur sont renseignés automatiquement.
-          </p>
         </div>
+      </div>
 
-        <div className="flex justify-end gap-2 p-4 border-t border-outline-variant/30">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant text-sm font-semibold hover:bg-surface-container-low"
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            disabled={!isValid || exporting}
-            title={!isValid ? 'Remplissez le formulaire pour pouvoir exporter le PDF' : undefined}
-            className={`px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors ${
-              isValid && !exporting
-                ? 'bg-blue-700 text-white hover:bg-blue-800'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">
-              {exporting ? 'progress_activity' : 'picture_as_pdf'}
-            </span>
-            {exporting ? 'Génération...' : 'Exporter PDF'}
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!isValid || saving}
-            className={`px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors ${
-              isValid && !saving ? 'bg-primary text-white hover:opacity-90' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">
-              {saving ? 'progress_activity' : 'check_circle'}
-            </span>
-            {saving ? 'Enregistrement...' : 'Enregistrer'}
-          </button>
-        </div>
+      <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant/30">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant text-sm font-semibold hover:bg-surface-container-low"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={handleExportPdf}
+          disabled={!isValid || exporting}
+          title={!isValid ? 'Remplissez le formulaire pour pouvoir exporter le PDF' : undefined}
+          className={`px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors ${
+            isValid && !exporting
+              ? 'bg-blue-700 text-white hover:bg-blue-800'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">
+            {exporting ? 'progress_activity' : 'picture_as_pdf'}
+          </span>
+          {exporting ? 'Génération...' : 'Exporter PDF'}
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!isValid || saving}
+          className={`px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors ${
+            isValid && !saving ? 'bg-primary text-white hover:opacity-90' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">
+            {saving ? 'progress_activity' : 'check_circle'}
+          </span>
+          {saving ? 'Enregistrement...' : 'Enregistrer'}
+        </button>
+      </div>
     </FloatingModal>
   );
 }
