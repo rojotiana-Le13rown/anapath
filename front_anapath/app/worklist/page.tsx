@@ -286,7 +286,7 @@ export default function WorklistPage() {
           </div>
 
           {!isTechnicien && (
-            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 w-fit">
+            <div className="sticky top-[60px] z-40 w-fit mb-4 flex gap-1 p-1 bg-slate-100 rounded-xl shadow-md ring-1 ring-slate-300/50">
               <button
                 type="button"
                 onClick={() => setTab('suivre')}
