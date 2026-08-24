@@ -210,6 +210,7 @@ export default function NotificationBell() {
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [inlineErrorId, setInlineErrorId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(3);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const known = useRef<Set<string>>(new Set());
   const extemporaneTimers =
     useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -505,10 +506,22 @@ export default function NotificationBell() {
   }, [detailNotif?.id ?? detailNotif?._id]);
 
   useEffect(() => {
-    if (!open) setVisibleCount(3);
+    if (!open) {
+      setVisibleCount(3);
+      setShowUnreadOnly(false);
+    }
   }, [open]);
 
   const unreadCount = notifs.filter(n => !isLue(n)).length;
+
+  // Le filtre « non lues » se désactive seul quand il n'y a plus rien à voir
+  useEffect(() => {
+    if (showUnreadOnly && unreadCount === 0) setShowUnreadOnly(false);
+  }, [showUnreadOnly, unreadCount]);
+
+  const filteredNotifs = showUnreadOnly
+    ? notifs.filter(n => !isLue(n))
+    : notifs;
 
   const maxUrg = notifs
     .filter(n => !isLue(n))
@@ -752,12 +765,21 @@ export default function NotificationBell() {
                   Notifications
                 </h3>
                 {unreadCount > 0 && (
-                  <span className="bg-blue-100
-                    text-blue-700 text-xs font-bold
-                    px-2 py-0.5 rounded-full">
+                  <button
+                    onClick={() => setShowUnreadOnly(v => !v)}
+                    title={showUnreadOnly
+                      ? 'Afficher toutes les notifications'
+                      : 'Afficher uniquement les non lues'}
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full transition-colors ${
+                      showUnreadOnly
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    }`}
+                  >
                     {unreadCount} non lue
                     {unreadCount > 1 ? 's' : ''}
-                  </span>
+                    {showUnreadOnly ? ' ✕' : ''}
+                  </button>
                 )}
               </div>
               {unreadCount > 0 && (
@@ -771,7 +793,7 @@ export default function NotificationBell() {
             </div>
 
             <div className="max-h-[500px] overflow-y-auto">
-              {notifs.length === 0 ? (
+              {filteredNotifs.length === 0 ? (
                 <div className="flex flex-col
                   items-center justify-center
                   py-12 text-gray-400">
@@ -789,12 +811,12 @@ export default function NotificationBell() {
                          11-6 0v-1m6 0H9"/>
                   </svg>
                   <p className="text-sm">
-                    Aucune notification
+                    Aucune notification non lue
                   </p>
                 </div>
               ) : (() => {
-                const visible = notifs.slice(0, visibleCount);
-                const remaining = notifs.length - visibleCount;
+                const visible = filteredNotifs.slice(0, visibleCount);
+                const remaining = filteredNotifs.length - visibleCount;
                 return (
                   <>
                     {visible.map(n => {
