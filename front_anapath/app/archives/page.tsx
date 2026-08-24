@@ -26,6 +26,7 @@ interface AnapathRequest {
   createdAt: string;
   validatedAt: string | null;
   validatedByUserId: string | null;
+  validatedByName?: string | null;
   resultat: { conclusion: string; details: string } | null;
   prelevement?: {
     site?: string;
@@ -230,7 +231,7 @@ export default function ArchivesPage() {
                         )}
                       </td>
                       <td className="p-4 max-w-xs truncate text-slate-600">{req.resultat?.conclusion || '-'}</td>
-                      <td className="p-4 text-slate-500 text-xs">{req.validatedByUserId || '-'}</td>
+                       <td className="p-4 text-slate-500 text-xs">{req.validatedByName || req.validatedByUserId || '-'}</td>
                       <td className="p-4 text-slate-500 text-xs">
                         {req.validatedAt ? (
                           <>
@@ -297,7 +298,7 @@ export default function ArchivesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-slate-500">Validé par</p>
-                    <p className="font-medium text-on-surface">{selectedRequest.validatedByUserId || '—'}</p>
+                    <p className="font-medium text-on-surface">{selectedRequest.validatedByName || selectedRequest.validatedByUserId || '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Date de validation</p>

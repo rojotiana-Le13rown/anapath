@@ -37,6 +37,7 @@ interface AnapathRequest {
   resultatConclusion?: string | null;
   validatedBySignature?: string | null;
   validatedByUserId: string | null;
+  validatedByName?: string | null;
   validatedAt: string | null;
   validationHash?: string | null;
   signedHash: string | null;
@@ -266,7 +267,7 @@ export default function ArchiveDetailPage() {
           <div className="bg-green-50 p-6 rounded-xl border border-green-200 mb-6">
             <h4 className="font-bold text-green-700 mb-3">✅ Demande validée</h4>
             <p className="text-sm">
-              Validée par: {request.validatedBySignature ?? request.validatedByUserId ?? '—'}
+              Validée par: {request.validatedByName ?? request.validatedBySignature ?? request.validatedByUserId ?? '—'}
             </p>
             <p className="text-sm">Le: {request.validatedAt ? formatDateTime(request.validatedAt) : '—'}</p>
             <p className="text-xs text-slate-500 mt-2 break-all">

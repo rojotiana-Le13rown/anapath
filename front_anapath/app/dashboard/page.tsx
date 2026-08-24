@@ -33,6 +33,7 @@ interface AnapathRequest {
   } | null;
   resultat?: { conclusion?: string; details?: string } | null;
   validatedByUserId?: string | null;
+  validatedByName?: string | null;
   validatedAt?: string | null;
   metadata?: Record<string, unknown> | null;
   patientInfo?: PatientInfo | null;
@@ -334,7 +335,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-slate-500">Validé par</p>
-                      <p className="font-medium text-on-surface">{selectedRequest.validatedByUserId || '—'}</p>
+                       <p className="font-medium text-on-surface">{selectedRequest.validatedByName || selectedRequest.validatedByUserId || '—'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Date de validation</p>

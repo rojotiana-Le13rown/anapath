@@ -305,6 +305,7 @@ export class AnapathService {
       resultat: { details, conclusion },
       validatedBySignature: entity.validatedBySignature ?? null,
       validatedByUserId: entity.validatedByUserId ?? null,
+      validatedByName: entity.validatedByName ?? null,
       validationHash: entity.validationHash ?? entity.signedHash ?? null,
       validatedAt: entity.validatedAt ?? null,
     } as AnapathRequestResponse;
@@ -656,6 +657,10 @@ export class AnapathService {
       throw new BadRequestException('Résultat non disponible');
 
     const numeroOrdre = dto.numeroOrdre ?? dto.ordreProfessionnelNumber;
+    const [validateurNom] = await Promise.all([
+      this.userServiceClient.getUserName(token ?? ''),
+      Promise.resolve(null),
+    ]);
     const hash =
       dto.hash ??
       crypto
@@ -673,6 +678,7 @@ export class AnapathService {
     request.statut = Statut.VALIDE;
     request.validatedBySignature = dto.signature;
     request.validatedByUserId = numeroOrdre;
+    request.validatedByName = validateurNom ?? null;
     request.validatedAt = new Date();
     request.validationHash = hash;
     request.signedHash = hash;

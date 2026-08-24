@@ -7,6 +7,7 @@ export interface AnapathSearchable {
   typeExamen?: string;
   statut?: string;
   validatedByUserId?: string | null;
+  validatedByName?: string | null;
   createdAt?: string;
   validatedAt?: string | null;
   prelevement?: {
@@ -29,6 +30,7 @@ function collectSearchableText(req: AnapathSearchable): string {
     req.statut,
     statusLabels[req.statut ?? ''],
     req.validatedByUserId,
+    req.validatedByName,
     req.createdAt,
     req.validatedAt,
     req.prelevement?.site,

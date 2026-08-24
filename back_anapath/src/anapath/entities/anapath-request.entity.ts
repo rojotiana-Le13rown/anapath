@@ -114,6 +114,11 @@ export class AnapathRequest {
   @Column({ nullable: true })
   validatedByUserId: string;
 
+  // Nom réel de l'utilisateur ayant validé (compte pathologiste) — l'ID
+  // stocké dans validatedByUserId est en fait le numéro d'ordre saisi.
+  @Column({ type: 'text', nullable: true })
+  validatedByName: string | null;
+
   @Column({ type: 'timestamp', nullable: true })
   validatedAt: Date;
 
