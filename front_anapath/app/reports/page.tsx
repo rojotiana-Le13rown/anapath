@@ -818,27 +818,7 @@ export default function ReportsPage() {
             </div>
 
             <h4 className="font-bold mb-3">Représentation statistique des tableaux</h4>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* PEC vs Résultats en cours par type (données du tableau 1) */}
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <h5 className="text-sm font-bold mb-3">Prise en charge vs résultats en cours (par type)</h5>
-                {pecVsEnCours.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={pecVsEnCours}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 8 }} interval={0} />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: 10 }} />
-                      <Bar dataKey="Prise en charge (PEC)" fill="#00478d" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Résultats en cours" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-slate-400 text-center py-10">Aucune donnée sur la période</p>
-                )}
-              </div>
-
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Répartition par sexe (données du tableau 2) */}
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                 <h5 className="text-sm font-bold mb-3">Répartition par sexe (tableau 2)</h5>
@@ -891,6 +871,26 @@ export default function ReportsPage() {
                   <p className="text-sm text-slate-400 text-center py-10">Aucune donnée sur la période</p>
                 )}
               </div>
+            </div>
+
+            {/* PEC vs Résultats en cours par type (données du tableau 1) — pleine largeur */}
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 mt-6">
+              <h5 className="text-sm font-bold mb-3">Prise en charge vs résultats en cours (par type)</h5>
+              {pecVsEnCours.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={pecVsEnCours}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="Prise en charge (PEC)" fill="#00478d" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Résultats en cours" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-10">Aucune donnée sur la période</p>
+              )}
             </div>
           </div>
 
