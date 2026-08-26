@@ -902,7 +902,7 @@ export class AnapathController {
     return this.anapathService.validerExamenTechnique(id, dto, token);
   }
 
-  @Permissions('anapath:observation:write')
+  @Permissions('anapath:validate')
   @Patch(':id/diagnostic-cytoponction')
   @ApiOperation({ summary: "Valider le diagnostic cytoponction (pathologiste) — site prélevé, organe, fixation ; bascule la demande en EN_COURS et notifie le technicien que le patient est prêt pour un examen technique" })
   @ApiParam({ name: 'id', description: 'UUID de la demande' })
