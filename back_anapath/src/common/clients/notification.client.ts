@@ -4,7 +4,7 @@ import axios from 'axios';
 
 /**
  * Client vers le service Notification externe dédié (aucune authentification requise,
- * vérifié empiriquement). URL : NOTIFICATION_SERVICE_URL (défaut https://service-notificqtion-v2-production.up.railway.app).
+ * vérifié empiriquement). URL : NOTIFICATION_SERVICE_URL (défaut https://gateway-bwm4.onrender.com).
  *
  * Les erreurs du service externe sont LOGGÉES (jamais silencieuses) afin de distinguer
  * « rien à afficher » d'« API externe injoignable » : un catch silencieux ferait croire
