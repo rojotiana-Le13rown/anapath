@@ -21,7 +21,7 @@ export class NotificationClient {
     this.baseUrl = (
       this.configService?.get<string>('NOTIFICATION_SERVICE_URL') ??
       process.env.NOTIFICATION_SERVICE_URL ??
-      'https://service-notificqtion-v2-production.up.railway.app'
+      'https://gateway-bwm4.onrender.com'
     ).replace(/\/$/, '');
     this.serviceId =
       this.configService?.get<string>('ANAPATH_SERVICE_ID') ??

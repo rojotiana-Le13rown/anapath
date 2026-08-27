@@ -3,7 +3,7 @@ import { AuthServiceTokenService } from './auth-service-token.service';
 
 const DOSSIER_PATIENT_BASE_URL =
   process.env.DOSSIER_PATIENT_URL ??
-  'https://dossier-patient-back-aqf4.onrender.com';
+  'https://gateway-bwm4.onrender.com';
 
 @Injectable()
 export class DossierPatientClient {

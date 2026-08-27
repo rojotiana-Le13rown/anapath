@@ -20,7 +20,7 @@ export class ServiceServiceClient {
     this.baseUrl = (
       configService?.get<string>('SERVICE_SERVICE_URL') ??
       process.env.SERVICE_SERVICE_URL ??
-      'https://service-service-8cgb.onrender.com'
+      'https://gateway-bwm4.onrender.com'
     ).replace(/\/$/, '');
   }
 

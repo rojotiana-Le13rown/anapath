@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 // Vérifié : GET https://acceuil-back-ytyd.onrender.com/accueil/patients?chuId=… → 200 JSON.
 const ACCUEIL_BASE_URL =
   process.env.ACCUEIL_BASE_URL ??
-  'https://acceuil-back-ytyd.onrender.com';
+  'https://gateway-bwm4.onrender.com';
 
 @Injectable()
 export class AccueilClient {
