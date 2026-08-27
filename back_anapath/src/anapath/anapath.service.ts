@@ -412,6 +412,15 @@ export class AnapathService {
     }
     if (updateDto.statut === Statut.VALIDE) {
       request.validatedAt = new Date();
+      // Résolution du nom du validateur (le pathologiste) auprès de
+      // user-services. Le front passe par PATCH :id (update) pour la
+      // validation finale, pas par POST :id/validate : sans cette résolution
+      // validatedByName restait null et la colonne « Validé par » retombait
+      // sur le numéro d'ordre (validatedByUserId).
+      const validateurNom = await this.userServiceClient.getUserName(token ?? '');
+      if (validateurNom) {
+        request.validatedByName = validateurNom;
+      }
     }
 
     this.syncResultatFields(request);
