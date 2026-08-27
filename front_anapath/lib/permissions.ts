@@ -23,6 +23,9 @@ export const PERMISSION_RULES = {
 } as const;
 
 export function isMajorService(permissions: string[]): boolean {
+  // La secrétaire (observation:write sans validate) n'est pas « major »
+  // même si elle a report:export — elle doit accéder au fil de travail.
+  if (permissions.includes(PERMISSIONS.OBSERVATION_WRITE)) return false;
   return (
     permissions.includes(PERMISSIONS.REPORT_EXPORT) &&
     !permissions.includes(PERMISSIONS.UPDATE)
