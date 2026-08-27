@@ -47,19 +47,8 @@ export class AuthClient {
       configService?.get<string>('AUTH_ANAPATH_SERVICE_ID') ??
       process.env.AUTH_ANAPATH_SERVICE_ID ??
       '9e73904c-71e5-4477-9280-513e4112a468';
-    this.cacheTtlMs = Number(
-      configService?.get<string>('AUTH_TOKEN_CACHE_TTL_MS') ??
-        process.env.AUTH_TOKEN_CACHE_TTL_MS ??
-        60000,
-    );
-    // user-services (Render free tier) peut mettre plusieurs secondes à répondre après
-    // une période d'inactivité (cold start) — un timeout trop court ici rejette à tort
-    // des tokens valides en 401. 5s d'origine était trop court, cause de 401 intermittents.
-    this.timeout = Number(
-      configService?.get<string>('AUTH_VALIDATE_TIMEOUT_MS') ??
-        process.env.AUTH_VALIDATE_TIMEOUT_MS ??
-        20000,
-    );
+    this.cacheTtlMs = 60000;
+    this.timeout = 20000;
   }
 
   async validateToken(token: string): Promise<AuthenticatedUser | null> {

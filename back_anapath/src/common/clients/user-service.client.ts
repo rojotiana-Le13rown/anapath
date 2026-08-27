@@ -22,11 +22,7 @@ export class UserServiceClient {
       process.env.USER_SERVICES_URL ??
       'https://user-services-w0h3.onrender.com'
     ).replace(/\/$/, '');
-    this.timeout = Number(
-      configService?.get<string>('USER_SERVICES_TIMEOUT_MS') ??
-        process.env.USER_SERVICES_TIMEOUT_MS ??
-        20000,
-    );
+    this.timeout = 20000;
   }
 
   private userIdFromToken(token: string): string | null {
