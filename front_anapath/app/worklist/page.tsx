@@ -79,10 +79,12 @@ function patientDisplayName(req: { patientInfo?: { nomComplet?: string | null; n
 
 export default function WorklistPage() {
   const router = useRouter();
-  const { hasPermission, user } = useAuth();
-  // Fil de travail accessible en lecture seule (Histotechnicien, Secrétaire) :
-  // seuls UPDATE / OBSERVATION_WRITE peuvent réellement saisir un résultat.
-  const canWrite = hasPermission('anapath:update') || hasPermission('anapath:observation:write');
+  const { user } = useAuth();
+  // Fil de travail accessible en lecture seule (Histotechnicien, Secrétaire).
+  // La SAISIE du résultat d'examen est réservée à la SECRÉTAIRE et au
+  // PATHOLOGISTE — le technicien prépare l'examen technique mais ne peut ni
+  // saisir ni valider le résultat (aligné avec la page détail).
+  const canWrite = isSecretaireUser(user) || isPathologisteUser(user);
   // Seul le technicien/histotechnicien traite l'examen technique au quotidien ;
   // le pathologiste peut aussi le prendre (second onglet) mais PAS le spéculum.
   const isTechnicien = isTechnicienUser(user);
