@@ -1,15 +1,21 @@
 import { Injectable } from '@nestjs/common';
+import { AuthServiceTokenService } from './auth-service-token.service';
 
-// Vérifié : GET https://acceuil-back-ytyd.onrender.com/accueil/patients?chuId=… → 200 JSON.
 const ACCUEIL_BASE_URL =
   process.env.ACCUEIL_BASE_URL ??
   'https://gateway-bwm4.onrender.com';
 
 @Injectable()
 export class AccueilClient {
-  private buildHeaders(): Record<string, string> {
-    const token = process.env.ACCUEIL_SERVICE_TOKEN;
-    return token ? { Authorization: `Bearer ${token}` } : {};
+  constructor(private readonly authServiceToken: AuthServiceTokenService) {}
+
+  private async buildHeaders(): Promise<Record<string, string>> {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token =
+      process.env.ACCUEIL_SERVICE_TOKEN ??
+      (await this.authServiceToken.getToken());
+    if (token) h.Authorization = `Bearer ${token}`;
+    return h;
   }
 
   private patientCache = new Map<string, { at: number; patient: any | null }>();
@@ -51,7 +57,7 @@ export class AccueilClient {
         + `${encodeURIComponent(patientId)}`
         + `?chuId=${encodeURIComponent(chuId)}`;
       const res = await fetch(url, {
-        headers: this.buildHeaders(),
+        headers: await this.buildHeaders(),
         signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) {
@@ -82,7 +88,7 @@ export class AccueilClient {
       const url = `${ACCUEIL_BASE_URL}/accueil/patients/`
         + `${encodeURIComponent(id)}/allergie?chuId=${encodeURIComponent(chuId)}`;
       const res = await fetch(url, {
-        headers: this.buildHeaders(),
+        headers: await this.buildHeaders(),
         signal: AbortSignal.timeout(this.ACCUEIL_TIMEOUT_MS),
       });
       if (!res.ok) {
