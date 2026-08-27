@@ -36,6 +36,9 @@ const PROTECTED_ROUTES: Array<{
 ];
 
 function isMajorService(permissions: string[]): boolean {
+  // La secrétaire (observation:write sans validate) n'est pas « major »
+  // même si elle a report:export — elle doit accéder au fil de travail.
+  if (permissions.includes('anapath:observation:write')) return false;
   return (
     permissions.includes('anapath:report:export') &&
     !permissions.includes('anapath:update')
