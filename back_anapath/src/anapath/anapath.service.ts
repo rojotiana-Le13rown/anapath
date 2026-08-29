@@ -380,7 +380,7 @@ export class AnapathService {
     const hasContent =
       (request.resultatDetails ?? '').trim() !== '' || (request.resultatConclusion ?? '').trim() !== '';
     if (hasContent && request.statut !== Statut.VALIDE && request.statut !== Statut.ARCHIVE) {
-      request.statut = Statut.RESULTAT_DISPONIBLE;
+      request.statut = Statut.EN_ATTENTE_VALIDATION;
     }
 
     this.syncResultatFields(request);
@@ -588,7 +588,7 @@ export class AnapathService {
     const request = await this.findOneEntity(id);
     if (request.statut === Statut.VALIDE)
       throw new BadRequestException('Déjà validée');
-    if (request.statut !== Statut.RESULTAT_DISPONIBLE)
+    if (request.statut !== Statut.EN_ATTENTE_VALIDATION)
       throw new BadRequestException('Résultat non disponible');
 
     const numeroOrdre = dto.numeroOrdre ?? dto.ordreProfessionnelNumber;

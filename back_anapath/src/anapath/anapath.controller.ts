@@ -83,7 +83,7 @@ export class AnapathController {
   async findResultsForPatient(@Param('patientId') patientId: string) {
     const rows = await this.anapathService.findAll(patientId);
     const filtered = rows.filter(r =>
-      r.resultat && (r.statut === Statut.RESULTAT_DISPONIBLE || r.statut === Statut.VALIDE)
+      r.resultat && (r.statut === Statut.EN_ATTENTE_VALIDATION || r.statut === Statut.VALIDE)
     );
     return this.enrichExamensPatient(filtered, {}, undefined);
   }
@@ -369,7 +369,7 @@ export class AnapathController {
             createdAt: examen.createdAt,
             lu:
               examen.notificationLue &&
-              ['RESULTAT_DISPONIBLE', 'VALIDE', 'ARCHIVE'].includes(
+              ['EN_ATTENTE_VALIDATION', 'VALIDE', 'ARCHIVE'].includes(
                 examen.statut,
               ),
           },

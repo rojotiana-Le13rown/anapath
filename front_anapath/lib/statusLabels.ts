@@ -4,7 +4,7 @@ export const statusLabels: Record<string, string> = {
     EN_COURS: "En attente d'analyse technique",
     EN_ATTENTE_DIAGNOSTIC: 'En attente de diagnostic',
     EN_ATTENTE_PATHOLOGUE: "Prêt pour l'examen demandé",
-    RESULTAT_DISPONIBLE: 'Résultat saisi',
+    EN_ATTENTE_VALIDATION: 'Compte-rendu saisi',
     VALIDE: 'Terminé',
     ARCHIVE: 'Archivé',
     ANNULEE: 'Annulé',
@@ -12,14 +12,14 @@ export const statusLabels: Record<string, string> = {
 
   // Statuts « en attente » (non clôturés) pour les indicateurs des rapports.
   // Couvre tout le flux de travail actuel (EN_COURS, EN_ATTENTE_DIAGNOSTIC,
-  // EN_ATTENTE_PATHOLOGUE, RESULTAT_DISPONIBLE) et pas seulement l'ancien CREEE.
+  // EN_ATTENTE_PATHOLOGUE, EN_ATTENTE_VALIDATION) et pas seulement l'ancien CREEE.
   export const PENDING_STATUSES = [
     'CREEE',
     'EN_ATTENTE',
     'EN_COURS',
     'EN_ATTENTE_DIAGNOSTIC',
     'EN_ATTENTE_PATHOLOGUE',
-    'RESULTAT_DISPONIBLE',
+    'EN_ATTENTE_VALIDATION',
   ];
 
   /** Statuts clôturés (terminé/archivé/annulé). */
@@ -62,7 +62,7 @@ export const statusLabels: Record<string, string> = {
     EN_COURS: 'bg-yellow-100 text-yellow-700',
     EN_ATTENTE_DIAGNOSTIC: 'bg-cyan-100 text-cyan-700',
     EN_ATTENTE_PATHOLOGUE: 'bg-violet-100 text-violet-700',
-    RESULTAT_DISPONIBLE: 'bg-amber-100 text-amber-800',
+    EN_ATTENTE_VALIDATION: 'bg-amber-100 text-amber-800',
     VALIDE: 'bg-green-100 text-green-700',
     ARCHIVE: 'bg-slate-100 text-slate-700',
     ANNULEE: 'bg-red-100 text-red-700',

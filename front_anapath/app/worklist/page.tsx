@@ -57,10 +57,10 @@ const TECHNICAL_STATUSES = ['EN_COURS'];
 // attente de diagnostic anticipé, examens techniques validés prêts pour
 // l'examen demandé — et résultats déjà saisis (autosave) encore en attente
 // de validation/signature finale.
-const PATHOLOGIST_STATUSES = ['EN_ATTENTE_DIAGNOSTIC', 'EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE'];
+const PATHOLOGIST_STATUSES = ['EN_ATTENTE_DIAGNOSTIC', 'EN_ATTENTE_PATHOLOGUE', 'EN_ATTENTE_VALIDATION'];
 // Fil de travail de la secrétaire : saisie du résultat d'examen uniquement —
 // ni diagnostic cytoponction (pathologiste), ni validation finale.
-const SECRETARY_STATUSES = ['EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE'];
+const SECRETARY_STATUSES = ['EN_ATTENTE_PATHOLOGUE', 'EN_ATTENTE_VALIDATION'];
 
 const URGENCE_LABELS: Record<UrgenceLevel, string> = {
   STAT: 'Très urgent',
@@ -216,7 +216,7 @@ export default function WorklistPage() {
 
     // Phase pathologiste : seul l'examen demandé (le vrai résultat) reste à
     // saisir/valider — y compris un résultat déjà autosauvegardé.
-    if (req.statut === 'EN_ATTENTE_PATHOLOGUE' || req.statut === 'RESULTAT_DISPONIBLE') {
+    if (req.statut === 'EN_ATTENTE_PATHOLOGUE' || req.statut === 'EN_ATTENTE_VALIDATION') {
       return canWrite ? (
         <button
           type="button"
@@ -419,7 +419,7 @@ export default function WorklistPage() {
                         </td>
                         <td className="p-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            req.statut === 'RESULTAT_DISPONIBLE'
+                            req.statut === 'EN_ATTENTE_VALIDATION'
                               ? 'bg-amber-100 text-amber-800'
                               : statusColors[req.statut] || 'bg-gray-100 text-gray-700'
                           }`}>
@@ -481,7 +481,7 @@ export default function WorklistPage() {
                   ) : (
                     <p className="text-xs text-slate-400">Consultation en lecture seule</p>
                   )
-                ) : selectedRequest.statut === 'EN_ATTENTE_PATHOLOGUE' || selectedRequest.statut === 'RESULTAT_DISPONIBLE' ? (
+                ) : selectedRequest.statut === 'EN_ATTENTE_PATHOLOGUE' || selectedRequest.statut === 'EN_ATTENTE_VALIDATION' ? (
                   canWrite ? (
                     <button
                       onClick={() => handleSaisirResultat(selectedRequest.id)}

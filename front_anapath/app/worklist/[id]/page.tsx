@@ -60,7 +60,7 @@ function withInterim(committed: string, interim: string): string {
 // Statuts où la saisie du résultat (et sa validation/signature) est possible :
 // l'examen technique est validé et le pathologiste rend son compte rendu,
 // ou résultat déjà saisi en attente de signature (anciens flux hérités).
-const RESULT_PHASE_STATUSES = ['EN_ATTENTE_PATHOLOGUE', 'RESULTAT_DISPONIBLE', 'CREEE', 'EN_ATTENTE'];
+const RESULT_PHASE_STATUSES = ['EN_ATTENTE_PATHOLOGUE', 'EN_ATTENTE_VALIDATION', 'CREEE', 'EN_ATTENTE'];
 
 export default function WorklistDetailPage() {
   const params = useParams();
@@ -273,7 +273,7 @@ export default function WorklistDetailPage() {
       await axios.patch(`${API_BASE}/anapath/${request.id}`, {
         resultatDetails: resultData.details,
         resultatConclusion: resultData.conclusion,
-        statut: 'RESULTAT_DISPONIBLE',
+        statut: 'EN_ATTENTE_VALIDATION',
         prelevement: prelevementData,
       });
 
@@ -305,7 +305,7 @@ export default function WorklistDetailPage() {
       return;
     }
 
-    if (request.statut !== 'RESULTAT_DISPONIBLE') {
+    if (request.statut !== 'EN_ATTENTE_VALIDATION') {
       await handleSaveResult();
       await loadExamen();
     }
