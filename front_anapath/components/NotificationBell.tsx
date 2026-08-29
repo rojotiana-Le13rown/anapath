@@ -16,7 +16,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
 import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole } from '@/lib/roles';
-import { playUrgenceSound, playReportSound, playExtemporaneAlarm } from '@/lib/sounds';
+import { playUrgenceSound, playReportSound, playExtemporaneAlarm, playGenericSound } from '@/lib/sounds';
 import { exportMajorReportExcel } from '@/lib/majorReport';
 import { typeExamenLabel } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
@@ -86,6 +86,25 @@ function getUrgence(n: any): string {
 function isStatUrgent(n: any): boolean {
   const urg = getUrgence(n);
   return urg === 'STAT' || urg === 'TRES_URGENT';
+}
+
+/**
+ * Une notification est-elle liée à un examen ? (présence d'un référencement
+ * examen — anapathId). Sert à choisir le son : un examen s'annonce par un son
+ * selon son niveau d'urgence, une notification générique (rapport, nouvelle
+ * prescription, relance…) par le son générique commun.
+ */
+function isExamenNotification(n: any): boolean {
+  return !!getAnapathId(n);
+}
+
+/** Joue le son adapté : examen → urgence (NORMALE/URGENTE/STAT) ; sinon son générique. */
+function jouerSonNotification(n: any): void {
+  if (isExamenNotification(n)) {
+    playUrgenceSound(getUrgence(n));
+  } else {
+    playGenericSound();
+  }
 }
 
 /** Crée la notification d'alerte STAT (arrivée ou 5 min restantes) dans la cloche. */
@@ -324,11 +343,19 @@ export default function NotificationBell() {
       if (newOnes.some((n) => n.type === 'RAPPORT_HEBDOMADAIRE' || n.type === 'RAPPORT')) {
         playReportSound();
       } else {
-        const urgences = newOnes.map(n => getUrgence(n));
-        const maxUrg = urgences.includes('STAT') ? 'STAT'
-          : urgences.includes('URGENTE') ? 'URGENTE'
-          : 'NORMALE';
-        playUrgenceSound(maxUrg);
+        const examens = newOnes.filter(n => isExamenNotification(n));
+        if (examens.length > 0) {
+          // Au moins un examen dans le lot → son du niveau d'urgence le plus
+          // élevé parmi ces examens (prioritaire sur le son générique).
+          const urgences = examens.map(n => getUrgence(n));
+          const maxUrg = urgences.includes('STAT') ? 'STAT'
+            : urgences.includes('URGENTE') ? 'URGENTE'
+            : 'NORMALE';
+          playUrgenceSound(maxUrg);
+        } else {
+          // Aucun examen → son générique commun aux notifications non-examen.
+          playGenericSound();
+        }
       }
 
       newOnes.forEach(n => {
@@ -370,7 +397,7 @@ export default function NotificationBell() {
     if (payload.type === 'RAPPORT_HEBDOMADAIRE' || payload.type === 'RAPPORT') {
       playReportSound();
     } else {
-      playUrgenceSound(getUrgence(payload));
+      jouerSonNotification(payload);
     }
     scheduleExtemporane(payload);
     // Idem : alerte STAT d'arrivée seulement pour un examen réel.

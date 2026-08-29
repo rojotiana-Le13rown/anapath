@@ -140,6 +140,20 @@ export function playExtemporaneAlarm(): void {
   playSequence(notes, 0.9);
 }
 
+/**
+ * Son générique — pour les notifications qui ne référencent AUCUN examen
+ * (rapport hebdomadaire, nouvelle prescription en attente, rappel, etc.).
+ * Volontairement distinct du carillon NORMALE des examens : un simple « pop »
+ * doux et discret, en une seule note, pour ne pas être confondu avec le son
+ * d'un examen dont l'urgence est normale.
+ */
+export function playGenericSound(): void {
+  playSequence(
+    [{ freq: 523.25, start: 0, dur: 0.35, type: 'sine', vol: 0.3 }],
+    0.8,
+  );
+}
+
 /** Joue le son correspondant au niveau d'urgence (NORMALE / URGENTE / STAT). */
 export function playUrgenceSound(urgence: string): void {
   const u = (urgence ?? '').toUpperCase();
