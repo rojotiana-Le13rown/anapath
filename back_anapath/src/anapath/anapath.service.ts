@@ -244,6 +244,62 @@ export class AnapathService {
     };
   }
 
+  /**
+   * Notifie le pathologiste que le compte-rendu a été saisi (par la secrétaire)
+   * et est prêt à valider. Appelée dès que le statut passe en EN_ATTENTE_VALIDATION
+   * (auto-save OU bouton « Enregistrer »). Garde-fou anti-doublon : s'il existe
+   * déjà une notification non lue de ce type pour ce même examen (même
+   * « saisiPar »), on ne re-notifie pas — évite un spam à chaque auto-save.
+   * La cloche affiche déjà le nom du patient, le type d'examen et le service
+   * demandeur (enrichis côté controller) ; le message porte donc uniquement le
+   * texte demandé + la ligne « Saisi par » pour éviter toute redondance.
+   */
+  private async notifierSaisieCompteRendu(
+    request: AnapathRequest,
+    token?: string,
+  ): Promise<void> {
+    try {
+      const saisiPar = await this.userServiceClient.getUserName(token ?? '');
+      const info = (request.patientInfo ?? {}) as Record<string, any>;
+      const nomPatient =
+        this.accueilClient.buildNomComplet(info) ||
+        (typeof info.nom === 'string' ? info.nom : '') ||
+        request.patientId;
+
+      const existante = await this.notificationService.findActiveByAnapathId(
+        request.anapathId,
+        NotificationType.EN_ATTENTE_VALIDATION,
+        { saisiPar: saisiPar ?? '' },
+      );
+      if (existante) return;
+
+      await this.notificationService.createNotification({
+        type: NotificationType.EN_ATTENTE_VALIDATION,
+        title: 'Compte-rendu saisi et prêt à valider',
+        message: saisiPar
+          ? `Compte-rendu saisi et prêt à valider — Saisi par : ${saisiPar}`
+          : 'Compte-rendu saisi et prêt à valider',
+        priority: 'medium',
+        source: 'Anapath',
+        metadata: {
+          anapathRequestId: request.id,
+          anapathId: request.anapathId,
+          patientName: nomPatient,
+          typeExamen: request.typeExamen,
+          serviceNom: (request.metadata?.serviceNom as string) ?? null,
+          saisiPar: saisiPar ?? null,
+          // Destinée au pathologiste (masquée pour la secrétaire qui a saisi).
+          recipientRole: 'pathologiste',
+        },
+      });
+    } catch (e) {
+      console.warn(
+        `Notification « compte-rendu saisi » ignorée pour ${request.anapathId}:`,
+        e,
+      );
+    }
+  }
+
   async create(createDto: CreateAnapathDto): Promise<AnapathRequestResponse> {
     const anapathId = this.generateAnapathId();
     const request = this.anapathRepository.create({
@@ -355,6 +411,13 @@ export class AnapathService {
     if (updateDto.statut !== undefined && updateDto.statut !== statutAvant) {
       await this.propagerStatutVersPrescription(saved, token);
     }
+    if (
+      saved.statut === Statut.EN_ATTENTE_VALIDATION &&
+      statutAvant !== Statut.EN_ATTENTE_VALIDATION &&
+      updateDto.statut === Statut.EN_ATTENTE_VALIDATION
+    ) {
+      await this.notifierSaisieCompteRendu(saved, token);
+    }
     return this.toResponse(saved);
   }
 
@@ -388,6 +451,9 @@ export class AnapathService {
     const saved = await this.anapathRepository.save(request);
     if (saved.statut !== statutAvant) {
       await this.propagerStatutVersPrescription(saved, token);
+    }
+    if (saved.statut === Statut.EN_ATTENTE_VALIDATION && statutAvant !== Statut.EN_ATTENTE_VALIDATION) {
+      await this.notifierSaisieCompteRendu(saved, token);
     }
     return this.toResponse(saved);
   }
