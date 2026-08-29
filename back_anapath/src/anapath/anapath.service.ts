@@ -132,9 +132,8 @@ export class AnapathService {
    * le CHU, en fusionnant les DEUX sources du service dossier-patient :
    *  1. les résultats paracliniques agrégés (ECG, imagerie, kiné…)
    *  2. les examens complémentaires (dont les comptes-rendus anapath)
-   * Rattrapage intégré : les examens anapath déjà validés dont le compte-rendu
-   * n'a pas pu être envoyé sont poussés maintenant — une seule fois via
-   * dossierPatientId.
+   * Lecture seule : les comptes-rendus anapath sont récupérés par le service
+   * dossier-patient via GET /anapath/internal/resultats/patient/:patientId.
    */
   async getDossierPatient(patientId: string, chuId?: string): Promise<{ items: any[]; total: number }> {
     if (!patientId) throw new BadRequestException('patientId requis');
@@ -160,18 +159,6 @@ export class AnapathService {
       statut: it?.statut,
     }));
 
-    // Rattrapage des comptes-rendus anapath manquants dans le dossier-patient.
-    const aRattraper = await this.anapathRepository.find({
-      where: { patientId, statut: In([Statut.VALIDE, Statut.ARCHIVE]) },
-    });
-    for (const examen of aRattraper) {
-      if (examen.dossierPatientId) continue;
-      const envoye = await this.envoyerCompteRenduDossierPatient(examen);
-      if (envoye?.id && !complementaires.some((it) => String(it.id) === String(envoye.id))) {
-        complementaires.push(envoye);
-      }
-    }
-
     // Fusion dédupliquée (par id), triée par date décroissante.
     const vus = new Set<string>();
     const items = [...agregesNormalises, ...complementaires].filter((it) => {
@@ -185,67 +172,6 @@ export class AnapathService {
         new Date(b.dateExamen ?? 0).getTime() - new Date(a.dateExamen ?? 0).getTime(),
     );
     return { items, total: items.length };
-  }
-
-  /** Payload du compte-rendu envoyé au service dossier-patient pour un examen validé. */
-  private buildDossierPatientPayload(examen: AnapathRequest): {
-    chuId: string; serviceId: string; patientId: string; examinationType: string;
-    titre: string; description: string; dateExamen: string; resultats: string;
-    interpretation: string; conclusion: string; prescripteur: string;
-    laboratoire: string; urgency: string; isUrgent: boolean; notes: string; createdBy: string;
-  } {
-    const meta = (examen.metadata ?? {}) as Record<string, unknown>;
-    const chuId = (meta.chuId as string) ?? '';
-    const serviceId = (meta.serviceIdSource as string) ?? (meta.serviceIdDest as string) ?? '';
-    const prescripteur = (meta.prescripteurNom as string) ?? (meta.nomMedecinPrescripteur as string) ?? '';
-    // createdBy doit être un UUID : id du prescripteur de la prescription, sinon l'id du service anapath.
-    const createdBy =
-      (meta.prescripteurId as string) ?? ANAPATH_SERVICE_ID;
-    const typeLabel = TYPE_EXAMEN_LABELS[examen.typeExamen] ?? examen.typeExamen;
-    return {
-      chuId,
-      serviceId: serviceId || ANAPATH_SERVICE_ID,
-      patientId: examen.patientId,
-      // Le dossier-patient n'accepte que BIOLOGIE/RADIOLOGIE/ECHOGRAPHIE/IRM/
-      // SCANNER/ECG/EEG/AUTRE : l'anapath est classé AUTRE, le vrai type reste
-      // dans le titre et la description.
-      examinationType: 'AUTRE',
-      titre: `Compte-rendu anapath – ${typeLabel}`,
-      description: `Examen anapath (${typeLabel}) pour le patient`,
-      dateExamen: (examen.validatedAt ?? new Date()).toISOString(),
-      resultats: examen.resultatDetails ?? '',
-      interpretation: '',
-      conclusion: examen.resultatConclusion ?? '',
-      prescripteur,
-      laboratoire: 'Anapath',
-      urgency: 'normale',
-      isUrgent: false,
-      notes: '',
-      createdBy,
-    };
-  }
-
-  /**
-   * Envoie le compte-rendu d'un examen validé au service dossier-patient et
-   * mémorise l'id renvoyé (dossierPatientId). Jamais bloquant ; retourne
-   * l'entité créée ou null en cas d'échec.
-   */
-  private async envoyerCompteRenduDossierPatient(examen: AnapathRequest): Promise<any | null> {
-    try {
-      const payload = this.buildDossierPatientPayload(examen);
-      if (!payload.patientId || !payload.chuId) return null;
-      const created = await this.dossierPatientClient.createComplementaryExamination(payload);
-      if (created && created.id) {
-        examen.dossierPatientId = String(created.id);
-        await this.anapathRepository.update(examen.id, {
-          dossierPatientId: examen.dossierPatientId,
-        });
-      }
-      return created;
-    } catch (e) {
-      console.warn(`Échec envoi dossier patient pour ${examen.anapathId}: ${e instanceof Error ? e.message : e}`);
-      return null;
-    }
   }
 
   /**
@@ -696,9 +622,6 @@ export class AnapathService {
 
     const saved = await this.anapathRepository.save(request);
     await this.propagerStatutVersPrescription(saved, token);
-
-    // Envoi automatique du compte-rendu au service dossier patient
-    await this.envoyerCompteRenduDossierPatient(saved);
 
     return this.toResponse(saved);
   }
