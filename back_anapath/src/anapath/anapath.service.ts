@@ -806,7 +806,7 @@ export class AnapathService {
     return nom;
   }
 
-  /** Liste dédupliquée des tokens candidats : utilisateur puis compte de service. */
+  /** Liste dédupliquée des tokens candidats : utilisateur puis jeton de service auto-signé. */
   private async resolveTokens(token?: string): Promise<string[]> {
     const candidates: string[] = [];
     if (token) candidates.push(token);
@@ -1108,7 +1108,7 @@ export class AnapathService {
     const token = await this.authServiceToken.getToken();
     if (!token) {
       console.warn(
-        'Pull des prescriptions ignoré : aucun token de service disponible (compte de service absent ou /auth/login en échec — vérifier AUTH_SERVICE_URL + PRESCRIPTION_SERVICE_ACCOUNT_*)',
+        'Pull des prescriptions ignoré : aucun jeton de service disponible (JWT_SECRET manquant — impossible de signer un jeton auto-signé, voir AuthServiceTokenService)',
       );
       return;
     }
