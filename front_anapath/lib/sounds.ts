@@ -125,19 +125,37 @@ export function playReportSound(): void {
   );
 }
 
-/** Alerte extemporané (25 min) — pulsations insistantes mais musicales (la/fa). */
+/**
+ * Alerte extemporané (30 min) — pulsations insistantes mais musicales (la/fa),
+ * jouées à 200 % du volume maximal de l'appareil (comme le STAT) pour forcer
+ * l'attention. Tant que `stopExtemporaneAlarm()` n'est pas appelée (clic sur
+ * la modale d'alerte), la séquence se répète en boucle.
+ */
+let extemporaneLoopTimer: ReturnType<typeof setInterval> | null = null;
+
 export function playExtemporaneAlarm(): void {
-  const notes: Note[] = [880, 698.46, 880, 698.46, 880, 698.46, 880].map(
-    (freq, i) => ({
+  const notes: Note[] = [
+    ...[880, 698.46, 880, 698.46, 880, 698.46, 880].map((freq, i) => ({
       freq,
       start: i * 0.22,
       dur: 0.2,
-      type: 'triangle' as WaveType,
-      vol: 0.55,
-    }),
-  );
-  notes.push({ freq: 1046.5, start: 1.5, dur: 0.6, type: 'sine', vol: 0.5 });
-  playSequence(notes, 0.9);
+      type: 'triangle' as Note['type'],
+      vol: 0.8,
+    })),
+    { freq: 1046.5, start: 1.5, dur: 0.6, type: 'sine' as Note['type'], vol: 0.8 },
+  ];
+  stopExtemporaneAlarm();
+  playSequence(notes, 2.0); // 200 % du volume maximal de l'appareil
+  // Boucle tant que l'utilisateur n'a pas cliqué (stopExtemporaneAlarm).
+  extemporaneLoopTimer = setInterval(() => playSequence(notes, 2.0), 2300);
+}
+
+/** Arrête la boucle d'alarme extemporané (appelée au clic sur l'examen). */
+export function stopExtemporaneAlarm(): void {
+  if (extemporaneLoopTimer) {
+    clearInterval(extemporaneLoopTimer);
+    extemporaneLoopTimer = null;
+  }
 }
 
 /**

@@ -16,7 +16,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
 import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole } from '@/lib/roles';
-import { playUrgenceSound, playReportSound, playExtemporaneAlarm, playGenericSound } from '@/lib/sounds';
+import { playUrgenceSound, playReportSound, playExtemporaneAlarm, playGenericSound, stopExtemporaneAlarm } from '@/lib/sounds';
 import { exportMajorReportExcel } from '@/lib/majorReport';
 import { typeExamenLabel } from '@/lib/statusLabels';
 import PrescriptionDetails from '@/components/PrescriptionDetails';
@@ -34,6 +34,12 @@ function sortNotifs(notifs: any[]): any[] {
   const p: Record<string, number> =
     { STAT: 1, URGENTE: 2, NORMALE: 3 };
   return [...notifs].sort((a, b) => {
+    // Un examen extemporané non résolu garde TOUJOURS la 1ère ligne de la
+    // cloche, quel que soit le nombre d'autres examens (nouveaux ou non) :
+    // c'est un délai court (30 min) qu'il ne faut pas laisser passer.
+    const aExt = isExtemporaneNonResolu(a);
+    const bExt = isExtemporaneNonResolu(b);
+    if (aExt !== bExt) return aExt ? -1 : 1;
     const getUrg = (n: any) =>
       n.enriched?.urgence
       ?? n.urgence
@@ -48,6 +54,28 @@ function sortNotifs(notifs: any[]): any[] {
       b.createdAt ?? b.date ?? 0).getTime();
     return db - da;
   });
+}
+
+/** Un examen est-il extemporané (type EXTEMPORANE_STAT / isExtemporane) ? */
+function isExamenExtemporane(n: any): boolean {
+  return (
+    n?.isExtemporane === true ||
+    (n?.metadata?.typeExamen ?? n?.enriched?.typeExamen ?? n?.typeExamen) === 'EXTEMPORANE_STAT'
+  );
+}
+
+/**
+ * Extemporané encore en attente d'acceptation/refus (outcome absent) OU déjà
+ * signalé par l'alerte 25 min : il doit rester en tête de la cloche jusqu'à
+ * ce qu'on l'accepte.
+ */
+function isExtemporaneNonResolu(n: any): boolean {
+  if (!isExamenExtemporane(n)) return false;
+  if (n._alerteExtemporane) return true;
+  // NOUVELLE_PRESCRIPTION tant qu'elle n'est ni acceptée ni refusée.
+  const type = (n.type ?? n.enriched?.type ?? '') as string;
+  if (type === 'NOUVELLE_PRESCRIPTION') return !n.metadata?.outcome;
+  return true;
 }
 
 function isLue(n: any): boolean {
@@ -215,6 +243,7 @@ export default function NotificationBell() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [detailNotif, setDetailNotif] = useState<any>(null);
+  const [alerteExtemporane, setAlerteExtemporane] = useState<any>(null);
   const [modalPatient, setModalPatient] = useState<PatientInfo | null>(null);
   const [modalPatientLoading, setModalPatientLoading] = useState(false);
   const [detailRefreshing, setDetailRefreshing] = useState(false);
@@ -274,6 +303,9 @@ export default function NotificationBell() {
     if (remaining <= 0) return;
 
     const timer = setTimeout(() => {
+      // Son d'alarme extemporanée en boucle (200 %) + modale demandant de
+      // prendre l'examen en compte. La boucle ne s'arrête qu'au clic sur
+      // l'examen (stopExtemporaneAlarm dans la modale).
       playExtemporaneAlarm();
       void postStatAlert({
         anapathId: aid,
@@ -290,6 +322,10 @@ export default function NotificationBell() {
             }
           : x
       ));
+      setAlerteExtemporane((cur: any) => {
+        if (cur && getAnapathId(cur) === aid) return cur;
+        return { ...n, _alerteExtemporane: true };
+      });
       extemporaneTimers.current.delete(aid);
     }, remaining);
 
@@ -563,6 +599,9 @@ export default function NotificationBell() {
     : 'bg-[#e41e3f]';
 
   const handleClick = async (n: any) => {
+    // Arrêt de la boucle d'alarme extemporanée si l'utilisateur clique sur une
+    // notification (ouverture de la demande = « prise en compte »).
+    stopExtemporaneAlarm();
     // Rapport hebdomadaire : génère et télécharge automatiquement le fichier Excel
     // du rapport de la semaine en cours, sans quitter la page.
     const type = n.type ?? n.enriched?.type ?? '';
@@ -631,6 +670,20 @@ export default function NotificationBell() {
     setRefuserMode(false);
     setMotif('');
     setActionError(null);
+  };
+
+  // Ferme la modale d'alerte extemporanée (arrête la boucle sonore).
+  const fermerAlerteExtemporane = () => {
+    stopExtemporaneAlarm();
+    setAlerteExtemporane(null);
+  };
+
+  // « Prendre en compte l'examen » : arrête le son et ouvre la demande.
+  const prendreEnCompteExtemporane = () => {
+    const n = alerteExtemporane;
+    if (!n) return;
+    fermerAlerteExtemporane();
+    handleClick(n);
   };
 
   const handleAccepter = async () => {
@@ -1234,6 +1287,53 @@ export default function NotificationBell() {
         </FloatingModal>,
         document.body,
       )}
+
+      {alerteExtemporane &&
+        createPortal(
+          <FloatingModal
+            open
+            onClose={fermerAlerteExtemporane}
+            zIndex={70}
+            icon="priority_high"
+            title="Examen extemporané — à prendre en compte"
+            subtitle={getPatientName(alerteExtemporane) || '—'}
+            maxWidthPx={520}
+            headerClassName="bg-gradient-to-r from-red-700 to-red-600"
+            footer={
+              <div className="flex items-center justify-end gap-2 px-5 py-4 border-t bg-gray-50">
+                <button
+                  onClick={prendreEnCompteExtemporane}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg animate-pulse"
+                >
+                  Prendre en compte l'examen
+                </button>
+              </div>
+            }
+          >
+            <div className="space-y-3 p-1">
+              <div className="flex items-start gap-3 rounded-lg bg-red-50 border border-red-200 p-4">
+                <span className="material-symbols-outlined text-red-600">schedule</span>
+                <div>
+                  <p className="text-sm font-semibold text-red-800">
+                    Patient : {getPatientName(alerteExtemporane) || '—'}
+                  </p>
+                  <p className="text-xs text-red-700 mt-1">
+                    Type d&apos;examen : {getTypeExamen(alerteExtemporane) || 'Extemporané'}
+                  </p>
+                  <p className="text-xs text-red-700 mt-0.5">
+                    📍 Service : {getServiceNom(alerteExtemporane)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-700 leading-snug">
+                Un examen <strong>extemporané</strong> est arrivé il y a 25 minutes.
+                Son délai de 30 minutes approche&nbsp;: veuillez le prendre en
+                compte immédiatement.
+              </p>
+            </div>
+          </FloatingModal>,
+          document.body,
+        )}
     </div>
   );
 }

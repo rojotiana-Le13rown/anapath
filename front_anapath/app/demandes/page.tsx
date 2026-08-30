@@ -21,7 +21,9 @@ const isPending = (n: any) =>
   n?.type === 'NOUVELLE_PRESCRIPTION' && !n?.metadata?.outcome;
 
 const getUrgence = (n: any): string =>
-  n?.enriched?.urgence ?? n?.metadata?.urgence ?? 'NORMALE';
+  // getUrgenceLevel tient compte du repli isExtemporane → STAT, pour que
+  // l'extemporané affiche bien le badge « très urgent » et le compte à rebours.
+  getUrgenceLevel(n);
 const getTypeExamen = (n: any): string =>
   typeExamenLabel(n?.enriched?.typeExamen ?? n?.metadata?.typeExamen ?? n?.typeExamen ?? '');
 const getServiceNom = (n: any): string =>
@@ -459,7 +461,7 @@ export default function DemandesPage() {
                         <td className="p-4">
                           <div className="flex flex-col items-start gap-0.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${urgenceBadge(urg)}`}>
-                              {urg === 'TRES_URGENT'
+                              {urg === 'STAT' || urg === 'TRES_URGENT'
                                 ? 'TRES URGENT'
                                 : URGENCE_OPTIONS[urg as UrgenceLevel] ?? urg}
                             </span>
