@@ -113,6 +113,12 @@ export function notificationVisible(
   recipientRole?: string | null,
   isMajor?: boolean,
 ): boolean {
+  // Ciblage exclusif major : seul un major voit la notification (le groupe
+  // « autre » est partagé, il faut donc exclure explicitement les non-major,
+  // notamment la secrétaire qui vient d'envoyer le rapport).
+  if (recipientRole === 'major') {
+    return isMajor === true;
+  }
   // Le major ne reçoit QUE la notification du rapport hebdomadaire : ni les
   // alertes STAT, ni les notifications destinées au technicien/pathologiste.
   if (isMajor) {

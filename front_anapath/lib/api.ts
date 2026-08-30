@@ -157,6 +157,26 @@ export async function refuserPrescriptionNotif(notificationId: string, motif: st
   }
 }
 
+/**
+ * Envoie le rapport hebdomadaire (modèle CHU) de la secrétaire au major via le
+ * backend. La notification est destinée UNIQUEMENT au major (la secrétaire ne
+ * voit plus son propre envoi dans la cloche).
+ */
+export async function envoyerRapportAuMajor(params: {
+  du?: string;
+  au?: string;
+}): Promise<void> {
+  const res = await fetch(`${API_BASE}/anapath/rapports/hebdomadaire/envoyer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ du: params.du ?? null, au: params.au ?? null }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || 'Échec de l\'envoi du rapport au major');
+  }
+}
+
 /** Liste des prescriptions refusées (pour affichage dans les rapports). */
 export async function getPrescriptionsRefusees(): Promise<any[]> {
   try {

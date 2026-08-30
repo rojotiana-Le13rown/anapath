@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import FilterButton from '@/components/FilterButton';
 import { useSearch } from '@/components/SearchContext';
 import { useAuth } from '@/components/AuthProvider';
-import FloatingModal from '@/components/FloatingModal';
 import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import {
@@ -20,8 +19,8 @@ import { PENDING_STATUSES } from '@/lib/statusLabels';
 import { getServiceDisplayName } from '@/lib/serviceDisplay';
 import { generateReportPDF, type ReportPdfData } from '@/lib/reportPDF';
 import { getTypeLabel } from '@/lib/generatePDF';
-import { isMajorRole } from '@/lib/roles';
-import { getPrescriptionsRefusees } from '@/lib/api';
+import { isMajorRole, isSecretaireUser } from '@/lib/roles';
+import { getPrescriptionsRefusees, envoyerRapportAuMajor } from '@/lib/api';
 import {
   buildTableau1,
   buildTableau2,
@@ -138,6 +137,13 @@ export default function ReportsPage() {
   // est réservée au major du service ; le chef de service consulte les rapports
   // mais ne peut pas importer.
   const canManageAutoReport = isMajorRole(user?.roleName);
+  const isSecretaire = isSecretaireUser(user);
+  // Rôles autorisés sur le rapport hebdomadaire du service (modèle CHU) :
+  // major = télécharge (Excel/PDF), secrétaire = envoie au major, autres = rien.
+  const canConsultReport = canManageAutoReport || isSecretaire;
+  const reportSectionRef = useRef<HTMLDivElement | null>(null);
+  const [envoyantAuMajor, setEnvoyantAuMajor] = useState(false);
+  const [envoyeMessage, setEnvoyeMessage] = useState<string | null>(null);
   const [requests, setRequests] = useState<AnapathRequest[]>([]);
   const [refusedCount, setRefusedCount] = useState(0);
   const [filteredRequests, setFilteredRequests] = useState<AnapathRequest[]>([]);
@@ -151,10 +157,6 @@ export default function ReportsPage() {
   const [chartType, setChartType] = useState<'bar' | 'pie' | 'histogram'>('bar');
   const [autoReportEnabled, setAutoReportEnabled] = useState(false);
   const [autoReportLoading, setAutoReportLoading] = useState(false);
-  const [showCustomReportModal, setShowCustomReportModal] = useState(false);
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-  const [generatingCustom, setGeneratingCustom] = useState(false);
   // Plage de dates du « Rapport hebdomadaire du service (modèle CHU) » :
   // par défaut la semaine en cours (lundi → aujourd'hui).
   const [majorStart, setMajorStart] = useState(() => toInputDate(getMondayOfWeek(new Date())));
@@ -407,45 +409,6 @@ export default function ReportsPage() {
     }
   };
 
-  const handleGenerateCustomReport = async () => {
-    if (!customStart || !customEnd) return;
-    setGeneratingCustom(true);
-    try {
-      const start = new Date(customStart);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(customEnd);
-      end.setHours(23, 59, 59, 999);
-      const rangeRequests = requests.filter((r) => {
-        const d = new Date(r.createdAt);
-        return d >= start && d <= end;
-      });
-      const customStats: Statistics = { ...computeCoreStats(rangeRequests), monthlyData: [] };
-
-      await generateReportPDF({
-        period: 'custom',
-        periodLabel: `Rapport personnalisé : du ${start.toLocaleDateString('fr-FR')} au ${end.toLocaleDateString('fr-FR')}`,
-        stats: customStats,
-        filteredMonthlyData: [],
-        weekly: {
-          weekLabel: formatWeekLabel(weekStart),
-          total: weeklyRequests.length,
-          validated: weeklyValidated.length,
-          pending: weeklyPending.length,
-          avgDelay: weeklyAvgDelay,
-          dailyVolume: weeklyDailyVolume,
-          requests: weeklyRequests.map(mapToReportRow),
-        },
-        allRequests: rangeRequests.map(mapToReportRow),
-        weeklyOnly: false,
-      });
-      setShowCustomReportModal(false);
-    } catch {
-      alert('Erreur lors de la génération du rapport personnalisé.');
-    } finally {
-      setGeneratingCustom(false);
-    }
-  };
-
   const handleExportMajorExcel = async () => {
     try {
       await exportMajorReportExcel(majorRangeRequests, majorPeriodeLabel);
@@ -459,6 +422,29 @@ export default function ReportsPage() {
       await exportMajorReportPDF(majorRangeRequests, majorPeriodeLabel);
     } catch {
       alert("Erreur lors de l'export PDF du rapport.");
+    }
+  };
+
+  // « Créer un rapport » : défile jusqu'à la section modèle CHU (Du/Au + volets).
+  const openReportSection = () => {
+    reportSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // La secrétaire envoie le rapport (modèle CHU) au major via une notification
+  // destinée UNIQUEMENT au major ; elle ne peut pas télécharger elle-même.
+  const handleEnvoyerAuMajor = async () => {
+    if (!majorStart || !majorEnd) return;
+    setEnvoyantAuMajor(true);
+    setEnvoyeMessage(null);
+    try {
+      await envoyerRapportAuMajor({ du: majorStart, au: majorEnd });
+      setEnvoyeMessage(
+        `Rapport (du ${new Date(majorStart).toLocaleDateString('fr-FR')} au ${new Date(majorEnd).toLocaleDateString('fr-FR')}) envoyé au major.`,
+      );
+    } catch (e: any) {
+      setEnvoyeMessage(e?.message || "Erreur lors de l'envoi du rapport au major.");
+    } finally {
+      setEnvoyantAuMajor(false);
     }
   };
 
@@ -507,7 +493,7 @@ export default function ReportsPage() {
               />
               <button
                 type="button"
-                onClick={() => setShowCustomReportModal(true)}
+                onClick={openReportSection}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#00478d] to-[#005eb8] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all"
               >
                 <span className="material-symbols-outlined text-base">event_note</span>
@@ -695,13 +681,16 @@ export default function ReportsPage() {
               </div>
             </div>
 
-          {/* Rapport hebdomadaire officiel du service (modèle CHU) : les 2 tableaux + représentation statistique + export Excel/PDF. */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-outline-variant/20 mb-8">
+                    {/* Rapport hebdomadaire officiel du service (modèle CHU) : les 2 tableaux + représentation statistique + export Excel/PDF. */}
+          {canConsultReport && (
+          <div ref={reportSectionRef} className="bg-white p-6 rounded-xl shadow-sm border border-outline-variant/20 mb-8">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
               <div>
                 <h3 className="font-bold text-lg">Rapport hebdomadaire du service (modèle CHU)</h3>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  VOLET ACTIVITÉ et PRISE EN CHARGE — colonnes auto remplies, le reste à compléter par le major.
+                  {isSecretaire
+                    ? 'VOLET ACTIVITÉ et PRISE EN CHARGE — la secrétaire envoie le rapport au major (téléchargement réservé au major).'
+                    : 'VOLET ACTIVITÉ et PRISE EN CHARGE — colonnes auto remplies, le reste à compléter par le major.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -711,6 +700,8 @@ export default function ReportsPage() {
                     type="date"
                     value={majorStart}
                     onChange={(e) => setMajorStart(e.target.value)}
+
+
                     className="border border-outline-variant rounded-lg px-2 py-1.5 text-sm"
                   />
                   <label className="text-slate-500 font-medium">Au</label>
@@ -721,22 +712,45 @@ export default function ReportsPage() {
                     className="border border-outline-variant rounded-lg px-2 py-1.5 text-sm"
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={handleExportMajorExcel}
-                  className="flex items-center gap-2 px-3 py-2 bg-[#107c41] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all"
-                >
-                  <span className="material-symbols-outlined text-base">table_chart</span>
-                  Excel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportMajorPDF}
-                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#00478d] to-[#005eb8] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all"
-                >
-                  <span className="material-symbols-outlined text-base">picture_as_pdf</span>
-                  PDF
-                </button>
+                {canManageAutoReport ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleExportMajorExcel}
+                      className="flex items-center gap-2 px-3 py-2 bg-[#107c41] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-base">table_chart</span>
+                      Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportMajorPDF}
+                      className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#00478d] to-[#005eb8] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-base">picture_as_pdf</span>
+                      PDF
+                    </button>
+                  </>
+                ) : isSecretaire ? (
+                  <div className="flex flex-col items-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleEnvoyerAuMajor}
+                      disabled={envoyantAuMajor || !majorStart || !majorEnd}
+                      className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#7c2d12] to-[#c2410c] text-white rounded-lg text-sm font-semibold shadow hover:opacity-90 transition-all disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-base">
+                        {envoyantAuMajor ? 'progress_activity' : 'send'}
+                      </span>
+                      {envoyantAuMajor ? 'Envoi...' : 'Envoyer au major'}
+                    </button>
+                    {envoyeMessage && (
+                      <p className={`text-xs font-medium ${envoyeMessage.startsWith('Rapport') ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {envoyeMessage}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
             <p className="text-sm text-slate-500 mb-4">
@@ -893,6 +907,7 @@ export default function ReportsPage() {
               )}
             </div>
           </div>
+          )}
 
           {canManageAutoReport && (
             <div className="flex justify-end mb-4">
@@ -924,63 +939,6 @@ export default function ReportsPage() {
           )}
         </div>
       </main>
-
-      {showCustomReportModal && (
-        <FloatingModal
-          open
-          onClose={() => setShowCustomReportModal(false)}
-          icon="summarize"
-          title="Créer un rapport"
-          maxWidthPx={448}
-          heightPct={0.55}
-          bodyClassName="p-4 space-y-3"
-          footer={
-            <div className="flex justify-end gap-2 p-4 border-t border-outline-variant/20">
-              <button
-                type="button"
-                onClick={() => setShowCustomReportModal(false)}
-                className="px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant text-sm font-semibold hover:bg-surface-container-low"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerateCustomReport}
-                disabled={generatingCustom || !customStart || !customEnd}
-                className={`px-5 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors ${
-                  !generatingCustom && customStart && customEnd
-                    ? 'bg-primary text-white hover:opacity-90'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base">
-                  {generatingCustom ? 'progress_activity' : 'picture_as_pdf'}
-                </span>
-                {generatingCustom ? 'Génération...' : 'Générer le PDF'}
-              </button>
-            </div>
-          }
-        >
-          <div>
-            <label className="text-xs font-bold text-slate-400 uppercase">Du</label>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="w-full mt-1 p-2 border border-outline-variant rounded-lg text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-400 uppercase">Au</label>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="w-full mt-1 p-2 border border-outline-variant rounded-lg text-sm"
-            />
-          </div>
-        </FloatingModal>
-      )}
 
       <button onClick={exportToPDF} className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#00478d] to-[#005eb8] text-white rounded-full font-bold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200">
         <span className="material-symbols-outlined text-base">download</span>
