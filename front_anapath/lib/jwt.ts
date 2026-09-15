@@ -39,8 +39,35 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
         .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
         .join(''),
     );
-    return JSON.parse(json);
+    const decoded = JSON.parse(json);
+    return normalizePayload(decoded);
   } catch {
     return null;
   }
+}
+
+/**
+ * Normalise le nommage des permissions du service d'authentification vers le
+ * nommage canonique utilisé par le front et le backend.
+ *
+ * Le portail peut émettre des permissions préfixées "anatomiepath:" (ex.
+ * "anatomiepath:read") alors que le middleware, le front et le backend
+ * n'attendent que "anapath:". Sans ce mapping, aucune permission n'est
+ * reconnue et toutes les pages protégées redirigent en boucle
+ * (ERR_TOO_MANY_REDIRECTS). Le mapping est neutre si le portail émet déjà
+ * "anapath:".
+ */
+function normalizePayload(payload: any): JwtPayload {
+  if (!payload || !Array.isArray(payload.services)) return payload;
+  payload.services = payload.services.map((service: any) => {
+    if (Array.isArray(service.permissions)) {
+      service.permissions = service.permissions.map((p: string) =>
+        p.startsWith('anatomiepath:')
+          ? 'anapath:' + p.slice('anatomiepath:'.length)
+          : p,
+      );
+    }
+    return service;
+  });
+  return payload;
 }
