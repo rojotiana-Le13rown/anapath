@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { isMajorService } from '@/lib/permissions';
+import { isMajorRole } from '@/lib/roles';
 import type { ChuInfo } from '@/lib/jwt';
 
 interface SessionUser {
@@ -55,7 +56,9 @@ export function AuthProvider({
         if (data) {
           setUser({
             ...data,
-            isMajor: isMajorService(data.permissions ?? []),
+            isMajor:
+              isMajorRole(data.roleName) ||
+              isMajorService(data.permissions ?? []),
           });
         } else {
           setUser(null);

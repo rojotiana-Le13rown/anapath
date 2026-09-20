@@ -14,7 +14,10 @@ export function isTechnicienRole(
   roleName?: string,
   permissions?: string[],
 ): boolean {
-  if (roleName && /technicien/i.test(roleName)) return true;
+  if (roleName) {
+    if (/technicien/i.test(roleName)) return true;
+    if (/major|chef|patholog|secretair/i.test(roleName)) return false;
+  }
   if (!permissions) return false;
   return (
     permissions.includes('anapath:update') &&
@@ -31,7 +34,10 @@ export function isPathologisteRole(
   roleName?: string,
   permissions?: string[],
 ): boolean {
-  if (roleName && /patholog/i.test(roleName)) return true;
+  if (roleName) {
+    if (/patholog/i.test(roleName)) return true;
+    if (/major|chef|technicien|secretair/i.test(roleName)) return false;
+  }
   if (!permissions) return false;
   return (
     permissions.includes('anapath:validate') &&

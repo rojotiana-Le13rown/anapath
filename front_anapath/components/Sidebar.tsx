@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { PERMISSIONS } from '@/lib/permissions';
-import { isTechnicienUser } from '@/lib/roles';
+import { isTechnicienUser, isChefRole } from '@/lib/roles';
 import ConfirmDialog from './ConfirmDialog';
 import FloatingModal from './FloatingModal';
 
@@ -67,13 +67,20 @@ export default function Sidebar() {
   const [showContacts, setShowContacts] = useState(false);
 
   const visibleNavigation = ALL_NAVIGATION.filter((item) => {
-    if (isMajor && !item.allowedForMajor) return false;
+    // Le major et le chef de service sont des profils de « consultation » :
+    // le flag allowedForMajor exprime les pages auxquelles ils accèdent.
+    const isConsultationProfile =
+      isMajor || isChefRole(user?.roleName);
+    if (isConsultationProfile && !item.allowedForMajor) return false;
     if ('technicienOnly' in item && item.technicienOnly && !isTechnicienUser(user)) {
       return false;
     }
     const required = Array.isArray(item.requiredPermission)
       ? item.requiredPermission
       : [item.requiredPermission];
+    // Le major et le chef de service accèdent aux Rapports (consultation /
+    // téléchargement du rapport hebdomadaire) même sans anapath:report:export.
+    if (isConsultationProfile && item.href === '/reports') return true;
     return required.some((p) => hasPermission(p));
   });
 

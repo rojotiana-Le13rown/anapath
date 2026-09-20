@@ -19,7 +19,7 @@ import { PENDING_STATUSES } from '@/lib/statusLabels';
 import { getServiceDisplayName } from '@/lib/serviceDisplay';
 import { generateReportPDF, type ReportPdfData } from '@/lib/reportPDF';
 import { getTypeLabel } from '@/lib/generatePDF';
-import { isMajorRole, isSecretaireUser } from '@/lib/roles';
+import { isMajorRole, isSecretaireUser, isChefRole } from '@/lib/roles';
 import { getPrescriptionsRefusees, envoyerRapportAuMajor } from '@/lib/api';
 import {
   buildTableau1,
@@ -136,11 +136,13 @@ export default function ReportsPage() {
   // L'importation du rapport (paramétrage du rapport automatique hebdomadaire)
   // est réservée au major du service ; le chef de service consulte les rapports
   // mais ne peut pas importer.
+  // Rôles autorisés sur le rapport hebdomadaire du service (modèle CHU) :
+  // major = télécharge (Excel/PDF), secrétaire = envoie au major,
+  // chef de service = consulte, autres = rien.
   const canManageAutoReport = isMajorRole(user?.roleName);
   const isSecretaire = isSecretaireUser(user);
-  // Rôles autorisés sur le rapport hebdomadaire du service (modèle CHU) :
-  // major = télécharge (Excel/PDF), secrétaire = envoie au major, autres = rien.
-  const canConsultReport = canManageAutoReport || isSecretaire;
+  const isChef = isChefRole(user?.roleName);
+  const canConsultReport = canManageAutoReport || isSecretaire || isChef;
   const reportSectionRef = useRef<HTMLDivElement | null>(null);
   const [envoyantAuMajor, setEnvoyantAuMajor] = useState(false);
   const [envoyeMessage, setEnvoyeMessage] = useState<string | null>(null);

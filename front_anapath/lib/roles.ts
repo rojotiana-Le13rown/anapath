@@ -1,20 +1,44 @@
+export type KnownRoleName =
+  | 'technicien'
+  | 'major'
+  | 'chef'
+  | 'pathologiste'
+  | 'secretaire';
+
+/**
+ * Rôle connu d'après le NOM du rôle du JWT (source de vérité), avant toute
+ * déduction par permissions. Le nom prime : un major qui posséderait
+ * anapath:update ne doit JAMAIS être confondu avec un technicien.
+ */
+export function knownRoleFromName(
+  roleName?: string | null,
+): KnownRoleName | null {
+  if (!roleName) return null;
+  if (/major/i.test(roleName)) return 'major';
+  if (/patholog/i.test(roleName)) return 'pathologiste';
+  if (/secretair/i.test(roleName)) return 'secretaire';
+  if (/chef/i.test(roleName)) return 'chef';
+  if (/technicien/i.test(roleName)) return 'technicien';
+  return null;
+}
+
 /**
  * Un technicien / histotechnicien est le SEUL profil qui accède aux
  * « nouvelles demandes » (acceptation/refus des prescriptions, cloche de
  * notification) et qui réalise l'examen au spéculum.
  *
- * Détection : le rôle du JWT le dit explicitement (Chef de service,
- * Histotechnicien…), sinon les permissions le déduisent — un utilisateur qui
- * met à jour les demandes (anapath:update) mais ne les valide pas
- * (anapath:validate) et ne rédige pas les observations
- * (anapath:observation:write) n'est ni pathologiste ni secrétaire : c'est le
- * technicien.
+ * Détection : le nom du rôle du JWT prime ; sinon les permissions le
+ * déduisent — un utilisateur qui met à jour les demandes (anapath:update) mais
+ * ne les valide pas (anapath:validate) et ne rédige pas les observations
+ * (anapath:observation:write) n'est ni pathologiste ni secrétaire.
  */
 export function isTechnicienRole(
   roleName?: string | null,
   permissions?: string[] | null,
 ): boolean {
-  if (roleName && /technicien/i.test(roleName)) return true;
+  const known = knownRoleFromName(roleName);
+  if (known === 'technicien') return true;
+  if (known) return false;
   if (!permissions) return false;
   return (
     permissions.includes('anapath:update') &&
@@ -41,12 +65,22 @@ export function isMajorRole(roleName?: string | null): boolean {
   return !!roleName && /major/i.test(roleName);
 }
 
+/**
+ * Le « chef de service » est un profil de CONSULTATION (archives, statistiques,
+ * rapports) : il ne traite ni les demandes, ni les examens, ni les validations.
+ */
+export function isChefRole(roleName?: string | null): boolean {
+  return !!roleName && /chef/i.test(roleName);
+}
+
 /** Vrai pour un pathologiste : nom du rôle ou permissions (valide et rédige les observations). */
 export function isPathologisteRole(
   roleName?: string | null,
   permissions?: string[] | null,
 ): boolean {
-  if (roleName && /patholog/i.test(roleName)) return true;
+  const known = knownRoleFromName(roleName);
+  if (known === 'pathologiste') return true;
+  if (known) return false;
   if (!permissions) return false;
   return (
     permissions.includes('anapath:validate') &&
@@ -72,7 +106,9 @@ export function isSecretaireRole(
   roleName?: string | null,
   permissions?: string[] | null,
 ): boolean {
-  if (roleName && /secretair/i.test(roleName)) return true;
+  const known = knownRoleFromName(roleName);
+  if (known === 'secretaire') return true;
+  if (known) return false;
   if (!permissions) return false;
   return (
     permissions.includes('anapath:observation:write') &&

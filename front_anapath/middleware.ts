@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AUTH_COOKIE_NAME } from '@/lib/authCookie';
 import { decodeJwtPayload } from '@/lib/jwt';
-import { isTechnicienRole } from '@/lib/roles';
+import { isTechnicienRole, isMajorRole, isChefRole } from '@/lib/roles';
 
 const LOGIN_URL =
   process.env.NEXT_PUBLIC_AUTH_LOGIN_URL ||
@@ -78,14 +78,20 @@ export function middleware(request: NextRequest) {
     (s: any) => s.serviceId === ANAPATH_SERVICE_ID,
   );
   const userPermissions: string[] = entry?.permissions ?? [];
-  const major = isMajorService(userPermissions);
+  // Profil « consultation » (major ou chef de service) : il ne traite ni les
+  // nouvelles demandes ni le fil de travail, mais consulte archives et rapports.
+  const isConsultationProfile =
+    isMajorRole(entry?.roleName) ||
+    isChefRole(entry?.roleName) ||
+    isMajorService(userPermissions);
+  const major = isMajorRole(entry?.roleName) || isChefRole(entry?.roleName);
   const technicien = isTechnicienRole(entry?.roleName, userPermissions);
 
   const pathname = request.nextUrl.pathname;
 
   for (const route of PROTECTED_ROUTES) {
     if (pathname.startsWith(route.path)) {
-      if (major && route.blockedForMajor) {
+      if (isConsultationProfile && route.blockedForMajor) {
         return NextResponse.redirect(
           new URL('/dashboard', APP_BASE_URL || request.url),
         );
@@ -101,6 +107,11 @@ export function middleware(request: NextRequest) {
       const requiredPermissions = Array.isArray(route.permission)
         ? route.permission
         : [route.permission];
+      // Le major et le chef de service accèdent aux Rapports (consulter /
+      // télécharger le rapport hebdomadaire) même sans anapath:report:export.
+      if (major && pathname.startsWith('/reports')) {
+        break;
+      }
       if (!requiredPermissions.some((p) => userPermissions.includes(p))) {
         return NextResponse.redirect(
           new URL('/dashboard', APP_BASE_URL || request.url),
