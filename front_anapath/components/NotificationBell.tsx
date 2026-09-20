@@ -15,7 +15,7 @@ import {
   API_BASE,
 } from '@/lib/api';
 import { useAuth } from './AuthProvider';
-import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole } from '@/lib/roles';
+import { isTechnicienUser, userRecipientGroup, notificationVisible, isMajorRole, isChefRole } from '@/lib/roles';
 import { playUrgenceSound, playReportSound, playExtemporaneAlarm, playGenericSound, stopExtemporaneAlarm } from '@/lib/sounds';
 import { exportMajorReportExcel } from '@/lib/majorReport';
 import { typeExamenLabel } from '@/lib/statusLabels';
@@ -240,6 +240,7 @@ export default function NotificationBell() {
   const canActOnPrescriptions = isTechnicienUser(user);
   const userGroup = userRecipientGroup(user);
   const isMajor = isMajorRole(user?.roleName);
+  const isChef = isChefRole(user?.roleName);
   const [notifs, setNotifs] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [detailNotif, setDetailNotif] = useState<any>(null);
@@ -340,7 +341,7 @@ export default function NotificationBell() {
     // on masque côté client toute notification destinée à un autre groupe de
     // rôles (nouvelles demandes, patient prêt, examen prêt pour le pathologiste).
     const sorted = sortNotifs(raw).filter((n) =>
-      notificationVisible(userGroup, n.type, n.metadata?.recipientRole, isMajor),
+      notificationVisible(userGroup, n.type, n.metadata?.recipientRole, isMajor, isChef),
     );
 
     // Annuler timers si examen validé/archivé
@@ -423,7 +424,7 @@ export default function NotificationBell() {
     if (!id || known.current.has(id)) return;
     // Une notification destinée à un autre groupe de rôles n'arrive jamais ici
     // (le backend pousse par groupe) ; au cas où, on l'ignore silencieusement.
-    if (!notificationVisible(userGroup, payload.type, payload.metadata?.recipientRole, isMajor)) return;
+    if (!notificationVisible(userGroup, payload.type, payload.metadata?.recipientRole, isMajor, isChef)) return;
 
     known.current.add(id);
     setNotifs(prev => sortNotifs([
